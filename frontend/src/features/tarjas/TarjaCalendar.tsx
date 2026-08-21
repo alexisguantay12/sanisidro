@@ -1,8 +1,11 @@
-import type { TarjaLocal } from "./types";
+import type {
+  TarjaLocal,
+} from "./types";
 
 
 interface Props {
   year: number;
+
   month: number;
 
   registros: Record<
@@ -32,13 +35,19 @@ function formatDate(
   month: number,
   day: number
 ) {
-
   const mm = String(
     month + 1
-  ).padStart(2, "0");
+  ).padStart(
+    2,
+    "0"
+  );
 
-  const dd = String(day)
-    .padStart(2, "0");
+  const dd = String(
+    day
+  ).padStart(
+    2,
+    "0"
+  );
 
   return `${year}-${mm}-${dd}`;
 }
@@ -52,7 +61,11 @@ export default function TarjaCalendar({
 }: Props) {
 
   const firstDay =
-    new Date(year, month, 1);
+    new Date(
+      year,
+      month,
+      1
+    );
 
   const daysInMonth =
     new Date(
@@ -65,7 +78,9 @@ export default function TarjaCalendar({
   let startOffset =
     firstDay.getDay() - 1;
 
-  if (startOffset < 0) {
+  if (
+    startOffset < 0
+  ) {
     startOffset = 6;
   }
 
@@ -97,47 +112,64 @@ export default function TarjaCalendar({
     <div className="rounded-[24px] border border-[#E2E7E3] bg-white p-3 shadow-[0_3px_18px_rgba(20,30,24,0.04)] sm:p-5">
 
       <div className="mb-2 grid grid-cols-7">
-
-        {weekdays.map((day) => (
-          <div
-            key={day}
-            className="py-2 text-center text-[11px] font-bold uppercase text-[#909992]"
-          >
-            {day}
-          </div>
-        ))}
-
+        {weekdays.map(
+          (day) => (
+            <div
+              key={day}
+              className="py-2 text-center text-[11px] font-bold uppercase text-[#909992]"
+            >
+              {day}
+            </div>
+          )
+        )}
       </div>
 
 
       <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
 
         {cells.map(
-          (day, index) => {
+          (
+            day,
+            index
+          ) => {
 
             if (!day) {
               return (
                 <div
-                  key={`empty-${index}`}
+                  key={
+                    `empty-${index}`
+                  }
                   className="aspect-square"
                 />
               );
             }
 
-            const fecha = formatDate(
-              year,
-              month,
-              day
-            );
+
+            const fecha =
+              formatDate(
+                year,
+                month,
+                day
+              );
+
 
             const registro =
               registros[fecha];
 
+
             const completo =
-              registro?.fraccion === "1.0";
+              registro?.fraccion ===
+              "1.0";
+
 
             const medio =
-              registro?.fraccion === "0.5";
+              registro?.fraccion ===
+              "0.5";
+
+
+            const externo =
+              registro?.destino ===
+              "externo";
 
 
             return (
@@ -145,7 +177,16 @@ export default function TarjaCalendar({
                 key={fecha}
                 type="button"
                 onClick={() =>
-                  onDayClick(fecha)
+                  onDayClick(
+                    fecha
+                  )
+                }
+                title={
+                  externo &&
+                  registro
+                    ?.destinatario_nombre
+                    ? `Trabajo para ${registro.destinatario_nombre}`
+                    : undefined
                 }
                 className={`
                   relative aspect-square
@@ -158,21 +199,27 @@ export default function TarjaCalendar({
                     completo
                       ? "bg-[#18392B] text-white shadow-sm"
                       : medio
-                      ? "border border-amber-300 bg-amber-50 text-amber-900"
-                      : "bg-[#F7F8F6] text-[#505752] hover:bg-[#EDF0ED]"
+                        ? "border border-amber-300 bg-amber-50 text-amber-900"
+                        : "bg-[#F7F8F6] text-[#505752] hover:bg-[#EDF0ED]"
                   }
                 `}
               >
-
                 {day}
 
-                {(completo || medio) && (
+
+                {(
+                  completo ||
+                  medio
+                ) && (
                   <span
                     className={`
-                      absolute bottom-1.5 left-1/2
+                      absolute
+                      bottom-1.5
+                      left-1/2
                       h-1 w-1
                       -translate-x-1/2
                       rounded-full
+
                       ${
                         completo
                           ? "bg-white/70"
@@ -182,14 +229,32 @@ export default function TarjaCalendar({
                   />
                 )}
 
+
+                {/* INDICADOR EXTERNO */}
+                {externo && (
+                  <span
+                    className={`
+                      absolute
+                      right-1.5
+                      top-1.5
+                      h-2 w-2
+                      rounded-full
+                      ring-2
+                      ${
+                        completo
+                          ? "bg-sky-300 ring-[#18392B]"
+                          : "bg-sky-500 ring-white"
+                      }
+                    `}
+                  />
+                )}
+
               </button>
             );
-
           }
         )}
 
       </div>
-
     </div>
   );
 }

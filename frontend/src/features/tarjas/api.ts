@@ -11,17 +11,17 @@ export async function getTarjasMes(
   year: number,
   month: number
 ): Promise<Tarja[]> {
-
-  const response = await api.get<Tarja[]>(
-    "tarjas/",
-    {
-      params: {
-        peon: peonId,
-        year,
-        month,
-      },
-    }
-  );
+  const response =
+    await api.get<Tarja[]>(
+      "tarjas/",
+      {
+        params: {
+          peon: peonId,
+          year,
+          month,
+        },
+      }
+    );
 
   return response.data;
 }
@@ -30,10 +30,11 @@ export async function getTarjasMes(
 export async function saveTarjasMes(
   data: CargaMensualPayload
 ) {
-  const response = await api.post(
-    "tarjas/carga-mensual/",
-    data
-  );
+  const response =
+    await api.post(
+      "tarjas/carga-mensual/",
+      data
+    );
 
   return response.data;
 }

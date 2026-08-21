@@ -17,6 +17,18 @@ import TractorPage from "./pages/TractorPage";
 import TractorSergioPage from "./pages/TractorSergioPage";
 import TractorTercerosPage from "./pages/TractorTerceroPage";
 
+import InsumosPage from "./pages/InsumosPage";
+
+import ConfiguracionPage
+  from "./pages/configuracion/ConfiguracionPage";
+
+import ProveedoresPage from "./pages/configuracion/ProveedoresPage";
+
+import InsumosConfiguracionPage from "./pages/configuracion/InsumosConfiguracionPage";
+
+import ValoresPage
+  from "./pages/configuracion/ValoresPage";
+
 
 function App() {
   return (
@@ -55,6 +67,31 @@ function App() {
           path="/tractor/terceros"
           element={<TractorTercerosPage />}
         />
+        <Route
+          path="/insumos"
+          element={<InsumosPage />}
+        />
+        <Route
+          path="/configuracion"
+          element={<ConfiguracionPage />}
+        />
+
+        <Route
+          path="/configuracion/proveedores"
+          element={<ProveedoresPage />}
+        />
+
+        <Route
+          path="/configuracion/insumos"
+          element={<InsumosConfiguracionPage />}
+        />
+
+        <Route
+          path="/configuracion/valores"
+          element={<ValoresPage />}
+        />
+
+
       </Route>
     </Route>
   </Routes>

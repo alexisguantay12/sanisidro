@@ -27,21 +27,41 @@ class PeonSerializer(serializers.ModelSerializer):
         ]
 
 
-class TarjaSerializer(serializers.ModelSerializer):
-
+class TarjaSerializer(
+    serializers.ModelSerializer
+):
     peon_nombre = serializers.CharField(
         source="peon.nombre",
         read_only=True,
     )
 
-    fraccion_display = serializers.CharField(
-        source="get_fraccion_display",
-        read_only=True,
+    fraccion_display = (
+        serializers.CharField(
+            source="get_fraccion_display",
+            read_only=True,
+        )
     )
 
-    tarea_display = serializers.CharField(
-        source="get_tarea_display",
-        read_only=True,
+    tarea_display = (
+        serializers.CharField(
+            source="get_tarea_display",
+            read_only=True,
+        )
+    )
+
+    destino_display = (
+        serializers.CharField(
+            source="get_destino_display",
+            read_only=True,
+        )
+    )
+
+    destinatario_nombre = (
+        serializers.CharField(
+            source="destinatario.nombre",
+            read_only=True,
+            allow_null=True,
+        )
     )
 
     class Meta:
@@ -49,17 +69,107 @@ class TarjaSerializer(serializers.ModelSerializer):
 
         fields = [
             "id",
+
             "peon",
             "peon_nombre",
+
             "fecha",
+
             "fraccion",
             "fraccion_display",
+
             "tarea",
             "tarea_display",
+
+            "destino",
+            "destino_display",
+
+            "destinatario",
+            "destinatario_nombre",
+
             "observacion",
         ]
 
+    def validate(self, attrs):
+        instance = self.instance
 
+        peon = attrs.get(
+            "peon",
+            getattr(
+                instance,
+                "peon",
+                None,
+            ),
+        )
+
+        destino = attrs.get(
+            "destino",
+            getattr(
+                instance,
+                "destino",
+                Tarja.Destino.SAN_ISIDRO,
+            ),
+        )
+
+        destinatario = attrs.get(
+            "destinatario",
+            getattr(
+                instance,
+                "destinatario",
+                None,
+            ),
+        )
+
+        # --------------------------------------------
+        # SAN ISIDRO
+        # --------------------------------------------
+
+        if (
+            destino
+            == Tarja.Destino.SAN_ISIDRO
+        ):
+            attrs["destinatario"] = None
+
+        # --------------------------------------------
+        # EXTERNO
+        # --------------------------------------------
+
+        if (
+            destino
+            == Tarja.Destino.EXTERNO
+        ):
+            if not destinatario:
+                raise serializers.ValidationError({
+                    "destinatario": (
+                        "Debe seleccionar "
+                        "un destinatario."
+                    )
+                })
+
+            if (
+                peon
+                and destinatario.id
+                == peon.id
+            ):
+                raise serializers.ValidationError({
+                    "destinatario": (
+                        "El peón no puede "
+                        "trabajar para sí mismo."
+                    )
+                })
+
+            if (
+                destinatario.is_deleted
+                or not destinatario.activo
+            ):
+                raise serializers.ValidationError({
+                    "destinatario": (
+                        "El destinatario "
+                        "seleccionado no está activo."
+                    )
+                })
+
+        return attrs
 
 
 class ValorJornalSerializer(serializers.ModelSerializer):
@@ -501,3 +611,163 @@ class TractorTerceroSerializer(
 
 
 
+
+from .models import Insumo, ConsumoInsumo
+
+
+class InsumoSerializer(serializers.ModelSerializer):
+    tipo_display = serializers.CharField(
+        source="get_tipo_display",
+        read_only=True,
+    )
+
+    class Meta:
+        model = Insumo
+        fields = [
+            "id",
+            "nombre",
+            "tipo",
+            "tipo_display",
+            "observacion",
+        ]
+
+
+class ConsumoInsumoSerializer(serializers.ModelSerializer):
+    insumo_nombre = serializers.CharField(
+        source="insumo.nombre",
+        read_only=True,
+    )
+
+    insumo_tipo = serializers.CharField(
+        source="insumo.tipo",
+        read_only=True,
+    )
+
+    insumo_tipo_display = serializers.CharField(
+        source="insumo.get_tipo_display",
+        read_only=True,
+    )
+
+    unidad_display = serializers.CharField(
+        source="get_unidad_display",
+        read_only=True,
+    )
+
+    class Meta:
+        model = ConsumoInsumo
+        fields = [
+            "id",
+            "fecha_aplicacion",
+            "insumo",
+            "insumo_nombre",
+            "insumo_tipo",
+            "insumo_tipo_display",
+            "cantidad",
+            "unidad",
+            "unidad_display",
+            "observacion",
+        ]
+
+
+
+
+from rest_framework import serializers
+
+from .models import (
+    Proveedor,
+    Insumo,
+    ValorJornal,
+    ConfiguracionTractor,
+)
+
+
+# ============================================================
+# PROVEEDOR
+# ============================================================
+
+
+class ProveedorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Proveedor
+
+        fields = [
+            "id",
+            "nombre",
+            "observacion",
+            "activo",
+        ]
+
+        read_only_fields = [
+            "id",
+        ]
+
+
+# ============================================================
+# INSUMO
+# ============================================================
+
+
+class InsumoSerializer(serializers.ModelSerializer):
+    tipo_display = serializers.CharField(
+        source="get_tipo_display",
+        read_only=True,
+    )
+
+    class Meta:
+        model = Insumo
+
+        fields = [
+            "id",
+            "nombre",
+            "tipo",
+            "tipo_display",
+            "observacion",
+        ]
+
+        read_only_fields = [
+            "id",
+            "tipo_display",
+        ]
+
+
+# ============================================================
+# VALOR JORNAL
+# ============================================================
+
+
+class ValorJornalSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ValorJornal
+
+        fields = [
+            "id",
+            "valor",
+            "vigente_desde",
+            "activo",
+        ]
+
+        read_only_fields = [
+            "id",
+            "activo",
+        ]
+
+
+# ============================================================
+# CONFIGURACION TRACTOR
+# ============================================================
+
+
+class ConfiguracionTractorSerializer(
+    serializers.ModelSerializer
+):
+    class Meta:
+        model = ConfiguracionTractor
+
+        fields = [
+            "id",
+            "valor_hora_sergio",
+        ]
+
+        read_only_fields = [
+            "id",
+        ]

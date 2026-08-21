@@ -1,7 +1,7 @@
 from rest_framework.routers import DefaultRouter
 
 from .views import PeonViewSet, TarjaViewSet,HoraExtraViewSet,ProveedorViewSet,ConfiguracionTractorViewSet
-from .views import TractorSergioViewSet,TractorTerceroViewSet
+from .views import TractorSergioViewSet,TractorTerceroViewSet,ConsumoInsumoViewSet,InsumoViewSet, ValorJornalViewSet
 
 
 router = DefaultRouter()
@@ -48,5 +48,21 @@ router.register(
     basename="tractor-terceros",
 )
 
+router.register(
+    r"insumos",
+    InsumoViewSet,
+    basename="insumo",
+)
 
+router.register(
+    r"consumos-insumos",
+    ConsumoInsumoViewSet,
+    basename="consumo-insumo",
+)
+
+router.register(
+    r"valor-jornal",
+    ValorJornalViewSet,
+    basename="valor-jornal",
+)
 urlpatterns = router.urls

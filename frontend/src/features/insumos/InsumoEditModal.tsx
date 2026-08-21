@@ -1,90 +1,112 @@
 import {
   useEffect,
-  useMemo,
   useState,
 } from "react";
 
 import { X } from "lucide-react";
 
 import {
-  updateTractorTercero,
+  updateConsumoInsumo,
 } from "./api";
 
 import type {
-  Proveedor,
-  TractorTercero,
+  ConsumoInsumo,
+  Insumo,
+  UnidadInsumo,
 } from "./types";
 
 interface Props {
   open: boolean;
-  registro: TractorTercero | null;
-  proveedores: Proveedor[];
+  consumo: ConsumoInsumo | null;
+  insumos: Insumo[];
   onClose: () => void;
   onSuccess: () => void;
 }
 
-function money(value: number) {
-  return new Intl.NumberFormat("es-AR", {
-    style: "currency",
-    currency: "ARS",
-    maximumFractionDigits: 2,
-  }).format(value);
-}
-
-export default function TractorEditTerceroModal({
+export default function InsumoEditModal({
   open,
-  registro,
-  proveedores,
+  consumo,
+  insumos,
   onClose,
   onSuccess,
 }: Props) {
-  const [proveedor, setProveedor] = useState("");
-  const [horas, setHoras] = useState("");
-  const [precioHora, setPrecioHora] = useState("");
-  const [observacion, setObservacion] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [
+    fecha,
+    setFecha,
+  ] = useState("");
+
+  const [
+    insumo,
+    setInsumo,
+  ] = useState("");
+
+  const [
+    cantidad,
+    setCantidad,
+  ] = useState("");
+
+  const [
+    unidad,
+    setUnidad,
+  ] = useState<UnidadInsumo>("l");
+
+  const [
+    observacion,
+    setObservacion,
+  ] = useState("");
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(false);
+
+  const [
+    error,
+    setError,
+  ] = useState("");
 
   useEffect(() => {
-    if (!registro) {
+    if (
+      !open ||
+      !consumo
+    ) {
       return;
     }
 
-    setProveedor(
-      String(registro.proveedor)
+    setFecha(
+      consumo.fecha_aplicacion
     );
 
-    setHoras(
+    setInsumo(
       String(
-        Number(
-          registro.cantidad_horas
-        )
+        consumo.insumo
       )
     );
 
-    setPrecioHora(
+    setCantidad(
       String(
-        Number(
-          registro.precio_hora
-        )
+        consumo.cantidad
       )
+    );
+
+    setUnidad(
+      consumo.unidad
     );
 
     setObservacion(
-      registro.observacion ?? ""
+      consumo.observacion ?? ""
     );
 
     setError("");
-  }, [registro]);
+  }, [
+    open,
+    consumo,
+  ]);
 
-  const total = useMemo(
-    () =>
-      Number(horas || 0) *
-      Number(precioHora || 0),
-    [horas, precioHora]
-  );
-
-  if (!open || !registro) {
+  if (
+    !open ||
+    !consumo
+  ) {
     return null;
   }
 
@@ -93,33 +115,24 @@ export default function TractorEditTerceroModal({
   ) {
     event.preventDefault();
 
-    const cantidad =
-      Number(horas);
+    const cantidadNumero =
+      Number(cantidad);
 
-    const precio =
-      Number(precioHora);
-
-    if (!proveedor) {
+    if (!insumo) {
       setError(
-        "Seleccioná un proveedor."
+        "Seleccioná un insumo."
       );
       return;
     }
 
     if (
-      !cantidad ||
-      cantidad < 1 ||
-      cantidad > 50
+      !Number.isInteger(
+        cantidadNumero
+      ) ||
+      cantidadNumero < 1
     ) {
       setError(
-        "Las horas deben estar entre 1 y 50."
-      );
-      return;
-    }
-
-    if (!precio || precio <= 0) {
-      setError(
-        "El precio por hora debe ser mayor a cero."
+        "La cantidad debe ser un número entero mayor o igual a 1."
       );
       return;
     }
@@ -127,29 +140,32 @@ export default function TractorEditTerceroModal({
     try {
       setLoading(true);
       setError("");
-      if(!registro)return;
-      await updateTractorTercero(
-        registro.id,
+      if(!consumo) return;
+      await updateConsumoInsumo(
+        consumo.id,
         {
-          proveedor:
-            Number(proveedor),
-          cantidad_horas:
-            cantidad,
-          precio_hora:
-            precio,
+          fecha_aplicacion:
+            fecha,
+          insumo:
+            Number(insumo),
+          cantidad:
+            cantidadNumero,
+          unidad,
           observacion:
             observacion.trim(),
         }
       );
 
       onClose();
+
       await onSuccess();
     } catch (error: any) {
       console.error(error);
 
       setError(
-        error?.response?.data?.detail ??
-        "No se pudo actualizar el registro."
+        error?.response?.data
+          ?.detail ??
+          "No se pudo modificar el consumo."
       );
     } finally {
       setLoading(false);
@@ -174,11 +190,11 @@ export default function TractorEditTerceroModal({
         <div className="shrink-0 flex items-start justify-between border-b border-black/5 px-5 py-5 sm:px-6">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#859089]">
-              Tractor · Terceros
+              Insumos
             </p>
 
             <h2 className="mt-1 text-xl font-semibold text-[#1B1E1C]">
-              Editar trabajo
+              Editar consumo
             </h2>
           </div>
 
@@ -206,21 +222,44 @@ export default function TractorEditTerceroModal({
 
             <div>
               <label className="mb-2 block text-sm font-semibold text-[#444B47]">
-                Proveedor
+                Fecha de aplicación
+              </label>
+
+              <input
+                type="date"
+                required
+                value={fecha}
+                onChange={(e) =>
+                  setFecha(
+                    e.target.value
+                  )
+                }
+                disabled={loading}
+                className="h-12 w-full rounded-2xl border border-[#DDE3DF] bg-white px-4 text-sm outline-none focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5 disabled:bg-slate-50"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-[#444B47]">
+                Insumo
               </label>
 
               <select
-                value={proveedor}
                 required
+                value={insumo}
                 onChange={(e) =>
-                  setProveedor(
+                  setInsumo(
                     e.target.value
                   )
                 }
                 disabled={loading}
                 className="h-12 w-full rounded-2xl border border-[#DDE3DF] bg-white px-4 text-sm outline-none focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5 disabled:bg-slate-50"
               >
-                {proveedores.map(
+                <option value="">
+                  Seleccionar insumo...
+                </option>
+
+                {insumos.map(
                   (item) => (
                     <option
                       key={item.id}
@@ -236,18 +275,17 @@ export default function TractorEditTerceroModal({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="mb-2 block text-sm font-semibold text-[#444B47]">
-                  Horas
+                  Cantidad
                 </label>
 
                 <input
                   type="number"
                   min={1}
-                  max={50}
-                  step="0.5"
+                  step={1}
                   required
-                  value={horas}
+                  value={cantidad}
                   onChange={(e) =>
-                    setHoras(
+                    setCantidad(
                       e.target.value
                     )
                   }
@@ -258,23 +296,41 @@ export default function TractorEditTerceroModal({
 
               <div>
                 <label className="mb-2 block text-sm font-semibold text-[#444B47]">
-                  Precio / hora
+                  Unidad
                 </label>
 
-                <input
-                  type="number"
-                  min="0.01"
-                  step="0.01"
+                <select
                   required
-                  value={precioHora}
+                  value={unidad}
                   onChange={(e) =>
-                    setPrecioHora(
-                      e.target.value
+                    setUnidad(
+                      e.target
+                        .value as UnidadInsumo
                     )
                   }
                   disabled={loading}
                   className="h-12 w-full rounded-2xl border border-[#DDE3DF] bg-white px-4 text-sm outline-none focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5 disabled:bg-slate-50"
-                />
+                >
+                  <option value="l">
+                    Litros
+                  </option>
+
+                  <option value="g">
+                    Gramos
+                  </option>
+
+                  <option value="kg">
+                    Kilogramos
+                  </option>
+
+                  <option value="ml">
+                    Mililitros
+                  </option>
+
+                  <option value="unidad">
+                    Unidad
+                  </option>
+                </select>
               </div>
             </div>
 
@@ -291,19 +347,10 @@ export default function TractorEditTerceroModal({
                     e.target.value
                   )
                 }
+                placeholder="Detalle de la aplicación..."
                 disabled={loading}
-                className="w-full resize-none rounded-2xl border border-[#DDE3DF] bg-white px-4 py-3 text-sm outline-none focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5 disabled:bg-slate-50"
+                className="w-full resize-none rounded-2xl border border-[#DDE3DF] bg-white px-4 py-3 text-sm outline-none placeholder:text-[#A3AAA5] focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5 disabled:bg-slate-50"
               />
-            </div>
-
-            <div className="rounded-[20px] bg-[#F4F7F5] p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-[#87918A]">
-                Nuevo importe
-              </p>
-
-              <p className="mt-1 text-xl font-semibold text-[#18392B]">
-                {money(total)}
-              </p>
             </div>
           </div>
 
@@ -337,7 +384,7 @@ export default function TractorEditTerceroModal({
               >
                 {loading
                   ? "Guardando..."
-                  : "Guardar cambios"}
+                  : "Guardar"}
               </button>
             </div>
           </div>

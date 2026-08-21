@@ -1,92 +1,132 @@
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
 import {
   Clock3,
-  MoreVertical,
-  Pencil,
+  Edit3,
   Plus,
   Search,
   Trash2,
 } from "lucide-react";
 
-import { getPeones } from "../features/peones/api";
-import type { Peon } from "../features/peones/types";
+import {
+  getPeones,
+} from "../features/peones/api";
+
+import type {
+  Peon,
+} from "../features/peones/types";
 
 import {
   deleteHoraExtra,
   getHorasExtra,
 } from "../features/horasExtra/api";
 
-import type { HoraExtra } from "../features/horasExtra/types";
+import type {
+  HoraExtra,
+} from "../features/horasExtra/types";
 
-import HoraExtraCreateModal from "../features/horasExtra/HoraExtraCreateModal";
-import HoraExtraEditModal from "../features/horasExtra/HoraExtraEditModal";
-import HoraExtraDeleteModal from "../features/horasExtra/HoraExtraDeleteModal";
+import HoraExtraCreateModal
+  from "../features/horasExtra/HoraExtraCreateModal";
 
+import HoraExtraEditModal
+  from "../features/horasExtra/HoraExtraEditModal";
 
-function money(value: string | number) {
-  return new Intl.NumberFormat("es-AR", {
-    style: "currency",
-    currency: "ARS",
-    maximumFractionDigits: 2,
-  }).format(Number(value));
-}
+import HoraExtraDeleteModal
+  from "../features/horasExtra/HoraExtraDeleteModal";
 
 
-function formatDate(fecha: string) {
-  return new Intl.DateTimeFormat("es-AR", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(
-    new Date(`${fecha}T12:00:00`)
+function money(
+  value: string | number
+) {
+  return new Intl.NumberFormat(
+    "es-AR",
+    {
+      style: "currency",
+      currency: "ARS",
+      maximumFractionDigits: 2,
+    }
+  ).format(
+    Number(value)
   );
 }
 
 
-function getInitials(nombre: string) {
-  return nombre
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((parte) => parte[0])
-    .join("")
-    .toUpperCase();
+function formatDate(
+  fecha: string
+) {
+  return new Intl.DateTimeFormat(
+    "es-AR",
+    {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }
+  ).format(
+    new Date(
+      `${fecha}T12:00:00`
+    )
+  );
 }
 
 
 export default function HorasExtraPage() {
-  const [horasExtra, setHorasExtra] =
-    useState<HoraExtra[]>([]);
+  const [
+    horasExtra,
+    setHorasExtra,
+  ] = useState<HoraExtra[]>([]);
 
-  const [peones, setPeones] =
-    useState<Peon[]>([]);
+  const [
+    peones,
+    setPeones,
+  ] = useState<Peon[]>([]);
 
-  const [loading, setLoading] =
-    useState(true);
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
 
-  const [error, setError] =
-    useState("");
+  const [
+    error,
+    setError,
+  ] = useState("");
 
-  const [search, setSearch] =
-    useState("");
+  const [
+    search,
+    setSearch,
+  ] = useState("");
 
-  const [createOpen, setCreateOpen] =
-    useState(false);
+  const [
+    createOpen,
+    setCreateOpen,
+  ] = useState(false);
 
-  const [editingHora, setEditingHora] =
-    useState<HoraExtra | null>(null);
+  const [
+    editingHora,
+    setEditingHora,
+  ] = useState<HoraExtra | null>(
+    null
+  );
 
-  const [deletingHora, setDeletingHora] =
-    useState<HoraExtra | null>(null);
+  const [
+    deletingHora,
+    setDeletingHora,
+  ] = useState<HoraExtra | null>(
+    null
+  );
 
-  const [deleteLoading, setDeleteLoading] =
-    useState(false);
+  const [
+    deleteLoading,
+    setDeleteLoading,
+  ] = useState(false);
 
-  const [menuOpen, setMenuOpen] =
-    useState<number | null>(null);
-
-  const [message, setMessage] =
-    useState("");
+  const [
+    message,
+    setMessage,
+  ] = useState("");
 
 
   async function loadData() {
@@ -102,8 +142,13 @@ export default function HorasExtraPage() {
         getPeones(),
       ]);
 
-      setHorasExtra(horasData);
-      setPeones(peonesData);
+      setHorasExtra(
+        horasData
+      );
+
+      setPeones(
+        peonesData
+      );
 
     } catch (error) {
       console.error(error);
@@ -136,16 +181,21 @@ export default function HorasExtraPage() {
 
 
   useEffect(() => {
-    loadData();
+    void loadData();
   }, []);
 
 
-  function showMessage(text: string) {
+  function showMessage(
+    text: string
+  ) {
     setMessage(text);
 
-    window.setTimeout(() => {
-      setMessage("");
-    }, 2500);
+    window.setTimeout(
+      () => {
+        setMessage("");
+      },
+      2500
+    );
   }
 
 
@@ -190,11 +240,9 @@ export default function HorasExtraPage() {
     } catch (error: any) {
       console.error(error);
 
-      const detail =
-        error?.response?.data?.detail;
-
       setError(
-        detail ??
+        error?.response?.data
+          ?.detail ??
         "No se pudo eliminar el registro."
       );
 
@@ -207,7 +255,9 @@ export default function HorasExtraPage() {
   const filteredHoras =
     useMemo(() => {
       const query =
-        search.trim().toLowerCase();
+        search
+          .trim()
+          .toLowerCase();
 
       if (!query) {
         return horasExtra;
@@ -220,374 +270,464 @@ export default function HorasExtraPage() {
             .includes(query) ||
           hora.motivo_display
             .toLowerCase()
+            .includes(query) ||
+          formatDate(
+            hora.fecha
+          )
+            .toLowerCase()
             .includes(query)
       );
-    }, [horasExtra, search]);
+    }, [
+      horasExtra,
+      search,
+    ]);
 
 
   const pendientes =
     horasExtra.filter(
       (item) =>
-        item.estado === "pendiente"
+        item.estado ===
+        "pendiente"
     );
 
 
   const totalPendiente =
     pendientes.reduce(
       (acc, item) =>
-        acc + Number(item.total),
+        acc +
+        Number(item.total),
+      0
+    );
+
+
+  const horasPendientes =
+    pendientes.reduce(
+      (acc, item) =>
+        acc +
+        Number(
+          item.cantidad_horas
+        ),
       0
     );
 
 
   return (
-    <div className="mx-auto w-full max-w-3xl">
-
+    <>
       {message && (
         <div className="fixed left-1/2 top-5 z-[70] -translate-x-1/2 rounded-xl bg-[#18392B] px-5 py-3 text-sm font-semibold text-white shadow-xl">
           {message}
         </div>
       )}
 
+      <div className="min-h-full bg-[#F6F8F6]">
+        <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
 
-      <header className="mb-7 flex items-end justify-between gap-4">
+          {/* HEADER */}
+          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#859089]">
+                Personal
+              </p>
 
-        <div>
+              <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[#1B1E1C] sm:text-3xl">
+                Horas extra
+              </h1>
 
-          <p className="mb-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#7A837D]">
-            Personal
-          </p>
+              <p className="mt-2 max-w-2xl text-sm text-[#78817B]">
+                Registrá y administrá
+                horas trabajadas fuera
+                de jornada.
+              </p>
+            </div>
 
-          <h1 className="text-3xl font-semibold tracking-tight text-[#1B1E1C]">
-            Horas extra
-          </h1>
-
-          <p className="mt-2 text-sm text-[#6B746E]">
-            Registrá y administrá horas trabajadas fuera de jornada.
-          </p>
-
-        </div>
-
-
-        <button
-          type="button"
-          onClick={() =>
-            setCreateOpen(true)
-          }
-          className="flex h-12 shrink-0 items-center gap-2 rounded-2xl bg-[#18392B] px-5 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(24,57,43,0.18)] transition hover:-translate-y-0.5 hover:bg-[#204A38]"
-        >
-          <Plus size={19} />
-
-          <span className="hidden sm:inline">
-            Nueva carga
-          </span>
-        </button>
-
-      </header>
-
-
-      <section className="mb-6 grid grid-cols-2 gap-3">
-
-        <div className="rounded-[22px] border border-[#E2E7E3] bg-white p-4 shadow-[0_3px_16px_rgba(20,30,24,0.035)]">
-
-          <p className="text-xs font-semibold uppercase tracking-wide text-[#89928C]">
-            Pendientes
-          </p>
-
-          <p className="mt-2 text-2xl font-semibold tracking-tight text-[#18392B]">
-            {pendientes.length}
-          </p>
-
-          <p className="mt-1 text-xs text-[#7A837D]">
-            registros
-          </p>
-
-        </div>
-
-
-        <div className="rounded-[22px] bg-[#18392B] p-4 text-white shadow-[0_8px_24px_rgba(24,57,43,0.15)]">
-
-          <p className="text-xs font-semibold uppercase tracking-wide text-white/60">
-            A pagar
-          </p>
-
-          <p className="mt-2 truncate text-xl font-semibold tracking-tight">
-            {money(totalPendiente)}
-          </p>
-
-          <p className="mt-1 text-xs text-white/60">
-            horas pendientes
-          </p>
-
-        </div>
-
-      </section>
-
-
-      <div className="relative mb-5">
-
-        <Search
-          size={18}
-          className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8C958F]"
-        />
-
-        <input
-          type="search"
-          placeholder="Buscar peón o motivo..."
-          value={search}
-          onChange={(e) =>
-            setSearch(e.target.value)
-          }
-          className="h-12 w-full rounded-2xl border border-[#E0E5E1] bg-white pl-11 pr-4 text-sm outline-none transition placeholder:text-[#A0A7A2] focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5"
-        />
-
-      </div>
-
-
-      {error && (
-        <div className="mb-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
-          {error}
-        </div>
-      )}
-
-
-      {loading ? (
-
-        <div className="rounded-[22px] border border-[#E2E7E3] bg-white p-12 text-center">
-
-          <p className="text-sm text-[#7A837D]">
-            Cargando horas extra...
-          </p>
-
-        </div>
-
-      ) : filteredHoras.length === 0 ? (
-
-        <div className="rounded-[24px] border border-dashed border-[#D6DDD8] bg-white px-6 py-14 text-center">
-
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#EAF2ED] text-[#18392B]">
-            <Clock3 size={26} />
-          </div>
-
-          <h2 className="mt-4 font-semibold text-[#1B1E1C]">
-            {search
-              ? "No encontramos registros"
-              : "Todavía no hay horas extra"}
-          </h2>
-
-          <p className="mx-auto mt-2 max-w-xs text-sm leading-6 text-[#727B75]">
-            {search
-              ? "Probá con otro trabajador o motivo."
-              : "Cuando cargues horas extra aparecerán acá."}
-          </p>
-
-
-          {!search && (
             <button
               type="button"
               onClick={() =>
                 setCreateOpen(true)
               }
-              className="mt-5 inline-flex h-11 items-center gap-2 rounded-xl bg-[#18392B] px-4 text-sm font-semibold text-white"
+              className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#18392B] px-5 text-sm font-semibold text-white shadow-[0_8px_22px_rgba(24,57,43,0.16)] transition hover:bg-[#204A38]"
             >
               <Plus size={18} />
+
               Nueva carga
             </button>
+          </div>
+
+
+          {/* RESUMEN */}
+          <section className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+
+            <div className="rounded-[24px] border border-[#E4E8E5] bg-white p-4 shadow-[0_8px_28px_rgba(27,30,28,0.04)]">
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#8B948E]">
+                Pendientes
+              </p>
+
+              <p className="mt-2 text-2xl font-semibold text-[#18392B]">
+                {pendientes.length}
+              </p>
+
+              <p className="mt-1 text-xs text-[#8B948E]">
+                registros
+              </p>
+            </div>
+
+            <div className="rounded-[24px] border border-[#E4E8E5] bg-white p-4 shadow-[0_8px_28px_rgba(27,30,28,0.04)]">
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#8B948E]">
+                Horas
+              </p>
+
+              <p className="mt-2 text-2xl font-semibold text-[#18392B]">
+                {horasPendientes}
+              </p>
+
+              <p className="mt-1 text-xs text-[#8B948E]">
+                pendientes
+              </p>
+            </div>
+
+            <div className="col-span-2 rounded-[24px] bg-[#18392B] p-4 text-white shadow-[0_8px_28px_rgba(24,57,43,0.14)] sm:col-span-1">
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-white/60">
+                A pagar
+              </p>
+
+              <p className="mt-2 truncate text-xl font-semibold">
+                {money(
+                  totalPendiente
+                )}
+              </p>
+
+              <p className="mt-1 text-xs text-white/60">
+                importe pendiente
+              </p>
+            </div>
+
+          </section>
+
+
+          {/* BUSCADOR */}
+          <div className="mb-4 rounded-[24px] border border-[#E4E8E5] bg-white p-3 shadow-[0_8px_28px_rgba(27,30,28,0.04)]">
+            <div className="relative">
+              <Search
+                size={18}
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9AA29D]"
+              />
+
+              <input
+                type="search"
+                value={search}
+                onChange={(e) =>
+                  setSearch(
+                    e.target.value
+                  )
+                }
+                placeholder="Buscar peón, motivo o fecha..."
+                className="h-12 w-full rounded-2xl border border-[#DDE3DF] bg-[#FAFBFA] pl-11 pr-4 text-sm text-[#333936] outline-none placeholder:text-[#A3AAA5] focus:border-[#9FB4A6] focus:bg-white focus:ring-4 focus:ring-[#18392B]/5"
+              />
+            </div>
+          </div>
+
+
+          {error && (
+            <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
+              {error}
+            </div>
           )}
 
-        </div>
 
-      ) : (
+          {loading ? (
+            <div className="rounded-[24px] border border-[#E4E8E5] bg-white px-6 py-16 text-center shadow-[0_8px_28px_rgba(27,30,28,0.04)]">
+              <div className="mx-auto h-8 w-8 animate-spin rounded-full border-[3px] border-[#E2E7E3] border-t-[#18392B]" />
 
-        <div className="space-y-3">
+              <p className="mt-4 text-sm text-[#78817B]">
+                Cargando horas extra...
+              </p>
+            </div>
+          ) : filteredHoras.length === 0 ? (
+            <div className="rounded-[24px] border border-[#E4E8E5] bg-white px-6 py-14 text-center shadow-[0_8px_28px_rgba(27,30,28,0.04)]">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#EEF3EF] text-[#537060]">
+                <Clock3 size={22} />
+              </div>
 
-          {filteredHoras.map(
-            (hora) => {
+              <h3 className="mt-4 text-base font-semibold text-[#272C29]">
+                {search
+                  ? "No encontramos registros"
+                  : "No hay horas extra"}
+              </h3>
 
-              const pendiente =
-                hora.estado ===
-                "pendiente";
+              <p className="mt-1 text-sm text-[#808983]">
+                {search
+                  ? "No encontramos registros con ese criterio."
+                  : "Todavía no se registraron horas extra."}
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* DESKTOP */}
+              <div className="hidden overflow-hidden rounded-[24px] border border-[#E4E8E5] bg-white shadow-[0_8px_28px_rgba(27,30,28,0.04)] md:block">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-[#E8ECE9] bg-[#FAFBFA]">
+                        <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-[0.08em] text-[#8B948E]">
+                          Fecha
+                        </th>
 
-              return (
-                <article
-                  key={hora.id}
-                  className="relative rounded-[22px] border border-[#E2E7E3] bg-white p-5 shadow-[0_3px_16px_rgba(20,30,24,0.04)] transition hover:border-[#CFD8D1] hover:shadow-[0_8px_24px_rgba(20,30,24,0.065)]"
-                >
+                        <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-[0.08em] text-[#8B948E]">
+                          Peón
+                        </th>
 
-                  <div className="flex items-start gap-3">
+                        <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-[0.08em] text-[#8B948E]">
+                          Motivo
+                        </th>
 
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#EAF2ED] text-sm font-bold text-[#18392B]">
-                      {getInitials(
-                        hora.peon_nombre
+                        <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-[0.08em] text-[#8B948E]">
+                          Horas
+                        </th>
+
+                        <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-[0.08em] text-[#8B948E]">
+                          Valor / hora
+                        </th>
+
+                        <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-[0.08em] text-[#8B948E]">
+                          Total
+                        </th>
+
+                        <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-[0.08em] text-[#8B948E]">
+                          Estado
+                        </th>
+
+                        <th className="px-5 py-4 text-right text-xs font-semibold uppercase tracking-[0.08em] text-[#8B948E]">
+                          Acciones
+                        </th>
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      {filteredHoras.map(
+                        (hora) => {
+                          const pendiente =
+                            hora.estado ===
+                            "pendiente";
+
+                          return (
+                            <tr
+                              key={hora.id}
+                              className="border-b border-[#EEF1EF] last:border-b-0 hover:bg-[#FAFBFA]"
+                            >
+                              <td className="whitespace-nowrap px-5 py-4 text-sm font-medium text-[#59615C]">
+                                {formatDate(
+                                  hora.fecha
+                                )}
+                              </td>
+
+                              <td className="px-5 py-4 text-sm font-semibold text-[#242925]">
+                                {
+                                  hora.peon_nombre
+                                }
+                              </td>
+
+                              <td className="px-5 py-4">
+                                <span className="inline-flex rounded-full bg-[#EEF3EF] px-3 py-1 text-xs font-semibold text-[#466052]">
+                                  {
+                                    hora.motivo_display
+                                  }
+                                </span>
+                              </td>
+
+                              <td className="px-5 py-4 text-sm font-semibold text-[#333936]">
+                                {
+                                  hora.cantidad_horas
+                                } h
+                              </td>
+
+                              <td className="whitespace-nowrap px-5 py-4 text-sm text-[#727B75]">
+                                {money(
+                                  hora.valor_hora
+                                )}
+                              </td>
+
+                              <td className="whitespace-nowrap px-5 py-4 text-sm font-semibold text-[#18392B]">
+                                {money(
+                                  hora.total
+                                )}
+                              </td>
+
+                              <td className="px-5 py-4">
+                                {pendiente ? (
+                                  <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1.5 text-[11px] font-semibold text-amber-700">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                                    Pendiente
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-700">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                                    Liquidada
+                                  </span>
+                                )}
+                              </td>
+
+                              <td className="px-5 py-4">
+                                {pendiente && (
+                                  <div className="flex justify-end gap-2">
+                                    <button
+                                      type="button"
+                                      title="Editar"
+                                      onClick={() =>
+                                        setEditingHora(
+                                          hora
+                                        )
+                                      }
+                                      className="flex h-9 w-9 items-center justify-center rounded-xl text-[#657068] transition hover:bg-[#EEF3EF] hover:text-[#18392B]"
+                                    >
+                                      <Edit3 size={17} />
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      title="Eliminar"
+                                      onClick={() =>
+                                        setDeletingHora(
+                                          hora
+                                        )
+                                      }
+                                      className="flex h-9 w-9 items-center justify-center rounded-xl text-[#8A938D] transition hover:bg-red-50 hover:text-red-600"
+                                    >
+                                      <Trash2 size={17} />
+                                    </button>
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        }
                       )}
-                    </div>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
 
 
-                    <div className="min-w-0 flex-1">
+              {/* MOBILE */}
+              <div className="space-y-3 md:hidden">
+                {filteredHoras.map(
+                  (hora) => {
+                    const pendiente =
+                      hora.estado ===
+                      "pendiente";
 
-                      <p className="truncate font-semibold text-[#1B1E1C]">
-                        {hora.peon_nombre}
-                      </p>
-
-                      <p className="mt-1 text-sm text-[#737C76]">
-                        {formatDate(
-                          hora.fecha
-                        )}
-                        {" · "}
-                        {
-                          hora.motivo_display
-                        }
-                      </p>
-
-                    </div>
-
-
-                    {pendiente && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setMenuOpen(
-                            menuOpen ===
-                              hora.id
-                              ? null
-                              : hora.id
-                          )
-                        }
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[#707A73] transition hover:bg-[#F3F5F3]"
+                    return (
+                      <div
+                        key={hora.id}
+                        className="rounded-[22px] border border-[#E4E8E5] bg-white p-4 shadow-[0_8px_24px_rgba(27,30,28,0.04)]"
                       >
-                        <MoreVertical
-                          size={19}
-                        />
-                      </button>
-                    )}
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-base font-semibold text-[#242925]">
+                              {
+                                hora.peon_nombre
+                              }
+                            </p>
 
+                            <p className="mt-1 text-xs font-medium text-[#8A938D]">
+                              {formatDate(
+                                hora.fecha
+                              )}
+                              {" · "}
+                              {
+                                hora.motivo_display
+                              }
+                            </p>
+                          </div>
 
-                    {menuOpen ===
-                      hora.id &&
-                      pendiente && (
+                          {pendiente && (
+                            <div className="flex shrink-0 gap-1">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setEditingHora(
+                                    hora
+                                  )
+                                }
+                                className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#F5F7F5] text-[#657068] active:scale-95"
+                              >
+                                <Edit3 size={16} />
+                              </button>
 
-                      <div className="absolute right-4 top-14 z-30 w-48 overflow-hidden rounded-xl border border-[#E2E7E3] bg-white p-1 shadow-xl">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setDeletingHora(
+                                    hora
+                                  )
+                                }
+                                className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-50 text-red-500 active:scale-95"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          )}
+                        </div>
 
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingHora(
-                              hora
-                            );
+                        <div className="mt-4 grid grid-cols-2 gap-3">
+                          <div className="rounded-2xl bg-[#F6F8F6] p-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#929A95]">
+                              Horas
+                            </p>
 
-                            setMenuOpen(
-                              null
-                            );
-                          }}
-                          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-[#59615C] transition hover:bg-[#F5F7F5]"
-                        >
-                          <Pencil
-                            size={17}
-                          />
+                            <p className="mt-1 text-sm font-semibold text-[#444B47]">
+                              {
+                                hora.cantidad_horas
+                              } h
+                            </p>
+                          </div>
 
-                          Editar horas
-                        </button>
+                          <div className="rounded-2xl bg-[#F6F8F6] p-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#929A95]">
+                              Total
+                            </p>
 
+                            <p className="mt-1 text-sm font-semibold text-[#18392B]">
+                              {money(
+                                hora.total
+                              )}
+                            </p>
+                          </div>
+                        </div>
 
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setDeletingHora(
-                              hora
-                            );
+                        <div className="mt-3 flex items-center justify-between gap-3 border-t border-[#EEF1EF] pt-3">
+                          <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#929A95]">
+                              Valor / hora
+                            </p>
 
-                            setMenuOpen(
-                              null
-                            );
-                          }}
-                          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-red-600 transition hover:bg-red-50"
-                        >
-                          <Trash2
-                            size={17}
-                          />
+                            <p className="mt-1 text-sm font-medium text-[#68716B]">
+                              {money(
+                                hora.valor_hora
+                              )}
+                            </p>
+                          </div>
 
-                          Eliminar
-                        </button>
-
+                          {pendiente ? (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1.5 text-[11px] font-semibold text-amber-700">
+                              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                              Pendiente
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-700">
+                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                              Liquidada
+                            </span>
+                          )}
+                        </div>
                       </div>
-
-                    )}
-
-                  </div>
-
-
-                  <div className="mt-5 grid grid-cols-2 gap-3">
-
-                    <div className="rounded-2xl bg-[#F5F7F5] p-4">
-
-                      <p className="text-xs font-semibold uppercase tracking-wide text-[#89928C]">
-                        Horas
-                      </p>
-
-                      <p className="mt-1 text-xl font-semibold text-[#1B1E1C]">
-                        {
-                          hora.cantidad_horas
-                        } h
-                      </p>
-
-                    </div>
-
-
-                    <div className="rounded-2xl bg-[#F5F7F5] p-4">
-
-                      <p className="text-xs font-semibold uppercase tracking-wide text-[#89928C]">
-                        Total
-                      </p>
-
-                      <p className="mt-1 text-xl font-semibold text-[#18392B]">
-                        {money(
-                          hora.total
-                        )}
-                      </p>
-
-                    </div>
-
-                  </div>
-
-
-                  <div className="mt-4 flex items-center justify-between gap-3 border-t border-[#EEF1EF] pt-4">
-
-                    <span className="text-xs font-medium text-[#7A837D]">
-                      {money(
-                        hora.valor_hora
-                      )}
-                      {" / hora"}
-                    </span>
-
-
-                    {pendiente ? (
-
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1.5 text-[11px] font-semibold text-amber-700">
-                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-
-                        Pendiente de pago
-                      </span>
-
-                    ) : (
-
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-700">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-
-                        Liquidada
-                      </span>
-
-                    )}
-
-                  </div>
-
-                </article>
-              );
-            }
+                    );
+                  }
+                )}
+              </div>
+            </>
           )}
-
         </div>
-
-      )}
+      </div>
 
 
       <HoraExtraCreateModal
@@ -601,9 +741,10 @@ export default function HorasExtraPage() {
         }
       />
 
-
       <HoraExtraEditModal
-        open={editingHora !== null}
+        open={
+          editingHora !== null
+        }
         horaExtra={editingHora}
         onClose={() =>
           setEditingHora(null)
@@ -613,9 +754,10 @@ export default function HorasExtraPage() {
         }
       />
 
-
       <HoraExtraDeleteModal
-        open={deletingHora !== null}
+        open={
+          deletingHora !== null
+        }
         horaExtra={deletingHora}
         loading={deleteLoading}
         onCancel={() =>
@@ -625,7 +767,6 @@ export default function HorasExtraPage() {
           handleDeleteConfirm
         }
       />
-
-    </div>
+    </>
   );
 }

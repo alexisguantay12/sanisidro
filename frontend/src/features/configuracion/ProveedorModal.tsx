@@ -1,77 +1,85 @@
 import {
   useEffect,
-  useMemo,
   useState,
 } from "react";
 
 import { X } from "lucide-react";
 
 import {
-  updateTractorSergio,
+  createProveedor,
+  updateProveedor,
 } from "./api";
 
 import type {
-  TractorSergio,
+  Proveedor,
 } from "./types";
 
 interface Props {
   open: boolean;
-  registro: TractorSergio | null;
+  proveedor: Proveedor | null;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-function money(value: string | number) {
-  return new Intl.NumberFormat("es-AR", {
-    style: "currency",
-    currency: "ARS",
-    maximumFractionDigits: 2,
-  }).format(Number(value));
-}
-
-export default function TractorEditSergioModal({
+export default function ProveedorModal({
   open,
-  registro,
+  proveedor,
   onClose,
   onSuccess,
 }: Props) {
-  const [horas, setHoras] = useState("");
-  const [observacion, setObservacion] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [
+    nombre,
+    setNombre,
+  ] = useState("");
+
+  const [
+    observacion,
+    setObservacion,
+  ] = useState("");
+
+  const [
+    activo,
+    setActivo,
+  ] = useState(true);
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(false);
+
+  const [
+    error,
+    setError,
+  ] = useState("");
+
+  const editing = Boolean(
+    proveedor
+  );
 
   useEffect(() => {
-    if (!registro) {
+    if (!open) {
       return;
     }
 
-    setHoras(
-      String(
-        Number(
-          registro.cantidad_horas
-        )
-      )
+    setNombre(
+      proveedor?.nombre ?? ""
     );
 
     setObservacion(
-      registro.observacion ?? ""
+      proveedor?.observacion ?? ""
+    );
+
+    setActivo(
+      proveedor?.activo ?? true
     );
 
     setError("");
-  }, [registro]);
+  }, [
+    open,
+    proveedor,
+  ]);
 
-  const total = useMemo(() => {
-    if (!registro) {
-      return 0;
-    }
-
-    return (
-      Number(horas || 0) *
-      Number(registro.valor_hora)
-    );
-  }, [horas, registro]);
-
-  if (!open || !registro) {
+  if (!open) {
     return null;
   }
 
@@ -80,16 +88,9 @@ export default function TractorEditSergioModal({
   ) {
     event.preventDefault();
 
-    const cantidad =
-      Number(horas);
-
-    if (
-      !cantidad ||
-      cantidad < 1 ||
-      cantidad > 50
-    ) {
+    if (!nombre.trim()) {
       setError(
-        "Las horas deben estar entre 1 y 50."
+        "Ingresá el nombre del proveedor."
       );
       return;
     }
@@ -97,16 +98,27 @@ export default function TractorEditSergioModal({
     try {
       setLoading(true);
       setError("");
-      if(!registro)return;
-      await updateTractorSergio(
-        registro.id,
-        {
-          cantidad_horas:
-            cantidad,
-          observacion:
-            observacion.trim(),
-        }
-      );
+
+      const data = {
+        nombre: nombre.trim(),
+        observacion:
+          observacion.trim(),
+        activo,
+      };
+
+      if (
+        editing &&
+        proveedor
+      ) {
+        await updateProveedor(
+          proveedor.id,
+          data
+        );
+      } else {
+        await createProveedor(
+          data
+        );
+      }
 
       onClose();
       await onSuccess();
@@ -114,8 +126,9 @@ export default function TractorEditSergioModal({
       console.error(error);
 
       setError(
-        error?.response?.data?.detail ??
-        "No se pudo actualizar el registro."
+        error?.response?.data
+          ?.detail ??
+          "No se pudo guardar el proveedor."
       );
     } finally {
       setLoading(false);
@@ -136,15 +149,16 @@ export default function TractorEditSergioModal({
           sm:rounded-[28px]
         "
       >
-        {/* HEADER */}
         <div className="shrink-0 flex items-start justify-between border-b border-black/5 px-5 py-5 sm:px-6">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#859089]">
-              Tractor · Sergio
+              Configuración · Proveedores
             </p>
 
             <h2 className="mt-1 text-xl font-semibold text-[#1B1E1C]">
-              Editar trabajo
+              {editing
+                ? "Editar proveedor"
+                : "Nuevo proveedor"}
             </h2>
           </div>
 
@@ -162,7 +176,6 @@ export default function TractorEditSergioModal({
           onSubmit={handleSubmit}
           className="flex min-h-0 flex-1 flex-col"
         >
-          {/* CONTENIDO */}
           <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5 sm:p-6">
             {error && (
               <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
@@ -172,21 +185,21 @@ export default function TractorEditSergioModal({
 
             <div>
               <label className="mb-2 block text-sm font-semibold text-[#444B47]">
-                Cantidad de horas
+                Nombre
               </label>
 
               <input
-                type="number"
-                min={1}
-                max={50}
-                step="0.5"
+                type="text"
                 required
-                value={horas}
+                value={nombre}
                 onChange={(e) =>
-                  setHoras(e.target.value)
+                  setNombre(
+                    e.target.value
+                  )
                 }
+                placeholder="Nombre del proveedor"
                 disabled={loading}
-                className="h-12 w-full rounded-2xl border border-[#DDE3DF] bg-white px-4 text-sm outline-none focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5 disabled:bg-slate-50"
+                className="h-12 w-full rounded-2xl border border-[#DDE3DF] bg-white px-4 text-sm outline-none placeholder:text-[#A3AAA5] focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5 disabled:bg-slate-50"
               />
             </div>
 
@@ -196,46 +209,46 @@ export default function TractorEditSergioModal({
               </label>
 
               <textarea
-                rows={3}
+                rows={4}
                 value={observacion}
                 onChange={(e) =>
                   setObservacion(
                     e.target.value
                   )
                 }
+                placeholder="Información adicional..."
                 disabled={loading}
-                className="w-full resize-none rounded-2xl border border-[#DDE3DF] bg-white px-4 py-3 text-sm outline-none focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5 disabled:bg-slate-50"
+                className="w-full resize-none rounded-2xl border border-[#DDE3DF] bg-white px-4 py-3 text-sm outline-none placeholder:text-[#A3AAA5] focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5 disabled:bg-slate-50"
               />
             </div>
 
-            <div className="rounded-[20px] bg-[#F4F7F5] p-4">
-              <div className="flex justify-between gap-4">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[#87918A]">
-                    Valor hora
-                  </p>
+            <label className="flex cursor-pointer items-center justify-between rounded-2xl border border-[#E2E7E3] bg-[#FAFBFA] p-4">
+              <div>
+                <p className="text-sm font-semibold text-[#444B47]">
+                  Proveedor activo
+                </p>
 
-                  <p className="mt-1 font-semibold text-[#1B1E1C]">
-                    {money(
-                      registro.valor_hora
-                    )}
-                  </p>
-                </div>
-
-                <div className="text-right">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[#87918A]">
-                    Nuevo total
-                  </p>
-
-                  <p className="mt-1 text-lg font-semibold text-[#18392B]">
-                    {money(total)}
-                  </p>
-                </div>
+                <p className="mt-1 text-xs text-[#88918B]">
+                  Los proveedores inactivos
+                  no deberían utilizarse en
+                  nuevos registros.
+                </p>
               </div>
-            </div>
+
+              <input
+                type="checkbox"
+                checked={activo}
+                onChange={(e) =>
+                  setActivo(
+                    e.target.checked
+                  )
+                }
+                disabled={loading}
+                className="h-5 w-5 accent-[#18392B]"
+              />
+            </label>
           </div>
 
-          {/* FOOTER */}
           <div
             className="
               shrink-0
@@ -261,11 +274,11 @@ export default function TractorEditSergioModal({
               <button
                 type="submit"
                 disabled={loading}
-                className="h-12 flex-1 rounded-2xl bg-[#18392B] text-sm font-semibold text-white shadow-[0_8px_22px_rgba(24,57,43,0.16)] transition hover:bg-[#204A38] disabled:cursor-not-allowed disabled:opacity-50"
+                className="h-12 flex-1 rounded-2xl bg-[#18392B] text-sm font-semibold text-white shadow-[0_8px_22px_rgba(24,57,43,0.16)] transition hover:bg-[#204A38] disabled:opacity-50"
               >
                 {loading
                   ? "Guardando..."
-                  : "Guardar cambios"}
+                  : "Guardar"}
               </button>
             </div>
           </div>

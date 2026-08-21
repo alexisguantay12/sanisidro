@@ -35,77 +35,149 @@ class PeonViewSet(viewsets.ModelViewSet):
 
 
 
+class TarjaViewSet(
+    viewsets.ModelViewSet
+):
+    serializer_class = (
+        TarjaSerializer
+    )
 
-class TarjaViewSet(viewsets.ModelViewSet):
-    serializer_class = TarjaSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [
+        IsAuthenticated
+    ]
 
     def get_queryset(self):
         queryset = (
             Tarja.objects
-            .filter(is_deleted=False)
-            .select_related("peon")
+            .filter(
+                is_deleted=False
+            )
+            .select_related(
+                "peon",
+                "destinatario",
+            )
         )
 
-        peon = self.request.query_params.get("peon")
-        year = self.request.query_params.get("year")
-        month = self.request.query_params.get("month")
+        peon = (
+            self.request
+            .query_params
+            .get("peon")
+        )
+
+        year = (
+            self.request
+            .query_params
+            .get("year")
+        )
+
+        month = (
+            self.request
+            .query_params
+            .get("month")
+        )
 
         if peon:
-            queryset = queryset.filter(
-                peon_id=peon
+            queryset = (
+                queryset.filter(
+                    peon_id=peon
+                )
             )
 
         if year:
-            queryset = queryset.filter(
-                fecha__year=year
+            queryset = (
+                queryset.filter(
+                    fecha__year=year
+                )
             )
 
         if month:
-            queryset = queryset.filter(
-                fecha__month=month
+            queryset = (
+                queryset.filter(
+                    fecha__month=month
+                )
             )
 
-        return queryset.order_by("fecha")
-
-    def perform_create(self, serializer):
-        serializer.save(
-            user_made=self.request.user
+        return queryset.order_by(
+            "fecha"
         )
 
-    def perform_update(self, serializer):
+
+    def perform_create(
+        self,
+        serializer,
+    ):
         serializer.save(
-            user_updated=self.request.user
+            user_made=
+                self.request.user
         )
 
-    def perform_destroy(self, instance):
+
+    def perform_update(
+        self,
+        serializer,
+    ):
+        serializer.save(
+            user_updated=
+                self.request.user
+        )
+
+
+    def perform_destroy(
+        self,
+        instance,
+    ):
         instance.delete(
             user=self.request.user
         )
+
 
     @action(
         detail=False,
         methods=["post"],
         url_path="carga-mensual",
     )
-    def carga_mensual(self, request):
-        peon_id = request.data.get("peon")
-        registros = request.data.get("registros", [])
+    def carga_mensual(
+        self,
+        request,
+    ):
+        peon_id = request.data.get(
+            "peon"
+        )
+
+        registros = request.data.get(
+            "registros",
+            [],
+        )
 
         if not peon_id:
             return Response(
                 {
-                    "detail": "Debe seleccionar un peón."
+                    "detail": (
+                        "Debe seleccionar "
+                        "un peón."
+                    )
                 },
-                status=status.HTTP_400_BAD_REQUEST,
+                status=(
+                    status
+                    .HTTP_400_BAD_REQUEST
+                ),
             )
 
-        if not isinstance(registros, list):
+        if not isinstance(
+            registros,
+            list,
+        ):
             return Response(
                 {
-                    "detail": "Los registros deben ser una lista."
+                    "detail": (
+                        "Los registros "
+                        "deben ser una lista."
+                    )
                 },
-                status=status.HTTP_400_BAD_REQUEST,
+                status=(
+                    status
+                    .HTTP_400_BAD_REQUEST
+                ),
             )
 
         try:
@@ -114,12 +186,20 @@ class TarjaViewSet(viewsets.ModelViewSet):
                 is_deleted=False,
                 activo=True,
             )
+
         except Peon.DoesNotExist:
             return Response(
                 {
-                    "detail": "El peón seleccionado no existe o no está activo."
+                    "detail": (
+                        "El peón seleccionado "
+                        "no existe o no está "
+                        "activo."
+                    )
                 },
-                status=status.HTTP_404_NOT_FOUND,
+                status=(
+                    status
+                    .HTTP_404_NOT_FOUND
+                ),
             )
 
         creados = 0
@@ -127,22 +207,61 @@ class TarjaViewSet(viewsets.ModelViewSet):
         eliminados = 0
 
         with transaction.atomic():
+
             for registro in registros:
-                fecha = registro.get("fecha")
-                fraccion = registro.get("fraccion")
-                tarea = registro.get("tarea", "")
+
+                fecha = registro.get(
+                    "fecha"
+                )
+
+                fraccion = registro.get(
+                    "fraccion"
+                )
+
+                tarea = registro.get(
+                    "tarea",
+                    "",
+                )
+
                 observacion = registro.get(
                     "observacion",
-                    ""
+                    "",
                 )
+
+                destino = registro.get(
+                    "destino",
+                    Tarja.Destino.SAN_ISIDRO,
+                )
+
+                destinatario_id = (
+                    registro.get(
+                        "destinatario"
+                    )
+                )
+
+
+                # ========================================
+                # FECHA
+                # ========================================
 
                 if not fecha:
                     return Response(
                         {
-                            "detail": "Todos los registros deben tener fecha."
+                            "detail": (
+                                "Todos los registros "
+                                "deben tener fecha."
+                            )
                         },
-                        status=status.HTTP_400_BAD_REQUEST,
+                        status=(
+                            status
+                            .HTTP_400_BAD_REQUEST
+                        ),
                     )
+
+
+                # ========================================
+                # BUSCAR TARJA
+                # ========================================
 
                 tarja = (
                     Tarja._base_manager
@@ -154,16 +273,29 @@ class TarjaViewSet(viewsets.ModelViewSet):
                     .first()
                 )
 
-                # Si viene fraccion = null,
-                # interpretamos que hay que quitar ese día.
+
+                # ========================================
+                # ELIMINAR DÍA
+                # ========================================
+
                 if fraccion is None:
-                    if tarja and not tarja.is_deleted:
+
+                    if (
+                        tarja
+                        and not tarja.is_deleted
+                    ):
                         tarja.delete(
                             user=request.user
                         )
+
                         eliminados += 1
 
                     continue
+
+
+                # ========================================
+                # VALIDAR FRACCIÓN
+                # ========================================
 
                 if fraccion not in {
                     Tarja.Fraccion.COMPLETO,
@@ -172,51 +304,218 @@ class TarjaViewSet(viewsets.ModelViewSet):
                     return Response(
                         {
                             "detail": (
-                                f"La fracción '{fraccion}' "
-                                f"no es válida para {fecha}."
+                                f"La fracción "
+                                f"'{fraccion}' "
+                                f"no es válida "
+                                f"para {fecha}."
                             )
                         },
-                        status=status.HTTP_400_BAD_REQUEST,
+                        status=(
+                            status
+                            .HTTP_400_BAD_REQUEST
+                        ),
                     )
 
-                if tarja:
-                    tarja.fraccion = fraccion
-                    tarja.tarea = tarea
-                    tarja.observacion = observacion
 
-                    # Si existía pero estaba dado de baja,
-                    # lo restauramos.
+                # ========================================
+                # VALIDAR DESTINO
+                # ========================================
+
+                if destino not in {
+                    Tarja.Destino.SAN_ISIDRO,
+                    Tarja.Destino.EXTERNO,
+                }:
+                    return Response(
+                        {
+                            "detail": (
+                                f"El destino "
+                                f"'{destino}' "
+                                f"no es válido "
+                                f"para {fecha}."
+                            )
+                        },
+                        status=(
+                            status
+                            .HTTP_400_BAD_REQUEST
+                        ),
+                    )
+
+
+                # ========================================
+                # DESTINATARIO
+                # ========================================
+
+                destinatario = None
+
+
+                if (
+                    destino
+                    == Tarja.Destino.EXTERNO
+                ):
+
+                    if not destinatario_id:
+                        return Response(
+                            {
+                                "detail": (
+                                    "Debe seleccionar "
+                                    "un destinatario "
+                                    f"para {fecha}."
+                                )
+                            },
+                            status=(
+                                status
+                                .HTTP_400_BAD_REQUEST
+                            ),
+                        )
+
+                    try:
+                        destinatario = (
+                            Peon.objects.get(
+                                id=destinatario_id,
+                                is_deleted=False,
+                                activo=True,
+                            )
+                        )
+
+                    except Peon.DoesNotExist:
+                        return Response(
+                            {
+                                "detail": (
+                                    "El destinatario "
+                                    "seleccionado "
+                                    "no existe o "
+                                    "no está activo."
+                                )
+                            },
+                            status=(
+                                status
+                                .HTTP_400_BAD_REQUEST
+                            ),
+                        )
+
+
+                    # No puede trabajar
+                    # para sí mismo.
+
+                    if (
+                        destinatario.id
+                        == peon.id
+                    ):
+                        return Response(
+                            {
+                                "detail": (
+                                    f"{peon.nombre} "
+                                    "no puede figurar "
+                                    "como destinatario "
+                                    "de su propia tarja."
+                                )
+                            },
+                            status=(
+                                status
+                                .HTTP_400_BAD_REQUEST
+                            ),
+                        )
+
+
+                # Si es San Isidro,
+                # SIEMPRE dejamos null.
+
+                else:
+                    destinatario = None
+
+
+                # ========================================
+                # ACTUALIZAR
+                # ========================================
+
+                if tarja:
+
+                    tarja.fraccion = (
+                        fraccion
+                    )
+
+                    tarja.tarea = (
+                        tarea
+                    )
+
+                    tarja.observacion = (
+                        observacion
+                    )
+
+                    tarja.destino = (
+                        destino
+                    )
+
+                    tarja.destinatario = (
+                        destinatario
+                    )
+
+
+                    # Restauramos en caso
+                    # de que estuviera eliminada.
+
                     tarja.is_deleted = False
+
                     tarja.deleted_at = None
+
                     tarja.user_deleted = None
 
-                    tarja.user_updated = request.user
+                    tarja.user_updated = (
+                        request.user
+                    )
 
                     tarja.save()
 
                     actualizados += 1
 
+
+                # ========================================
+                # CREAR
+                # ========================================
+
                 else:
+
                     Tarja.objects.create(
                         peon=peon,
                         fecha=fecha,
+
                         fraccion=fraccion,
+
                         tarea=tarea,
-                        observacion=observacion,
-                        user_made=request.user,
+
+                        destino=destino,
+
+                        destinatario=(
+                            destinatario
+                        ),
+
+                        observacion=(
+                            observacion
+                        ),
+
+                        user_made=(
+                            request.user
+                        ),
                     )
 
                     creados += 1
 
+
         return Response(
             {
-                "detail": "Tarjas guardadas correctamente.",
+                "detail": (
+                    "Tarjas guardadas "
+                    "correctamente."
+                ),
                 "creados": creados,
                 "actualizados": actualizados,
                 "eliminados": eliminados,
             },
-            status=status.HTTP_200_OK,
+            status=(
+                status.HTTP_200_OK
+            ),
         )
+
 
 from decimal import Decimal
 
@@ -382,46 +681,62 @@ from .serializers import (
 # PROVEEDORES
 # ============================================================
 
-
 class ProveedorViewSet(viewsets.ModelViewSet):
-
     serializer_class = ProveedorSerializer
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         return (
             Proveedor.objects
-            .filter(
-                is_deleted=False,
-            )
+            .filter(is_deleted=False)
             .order_by("nombre")
+        )
+
+    def perform_create(self, serializer):
+        serializer.save(
+            user_made=self.request.user
+        )
+
+    def perform_update(self, serializer):
+        serializer.save(
+            user_updated=self.request.user
         )
 
     def perform_destroy(self, instance):
         instance.delete(
             user=self.request.user
         )
-
 
 # ============================================================
 # CONFIGURACION TRACTOR
 # ============================================================
 
-
 class ConfiguracionTractorViewSet(
     viewsets.ModelViewSet
 ):
-
     serializer_class = (
         ConfiguracionTractorSerializer
     )
 
+    permission_classes = [
+        IsAuthenticated
+    ]
+
     def get_queryset(self):
         return (
             ConfiguracionTractor.objects
-            .filter(
-                is_deleted=False,
-            )
+            .filter(is_deleted=False)
             .order_by("-id")
+        )
+
+    def perform_create(self, serializer):
+        serializer.save(
+            user_made=self.request.user
+        )
+
+    def perform_update(self, serializer):
+        serializer.save(
+            user_updated=self.request.user
         )
 
     def perform_destroy(self, instance):
@@ -429,7 +744,90 @@ class ConfiguracionTractorViewSet(
             user=self.request.user
         )
 
+    @action(
+        detail=False,
+        methods=[
+            "get",
+            "patch",
+        ],
+        url_path="actual",
+    )
+    def actual(self, request):
+        configuracion = (
+            self.get_queryset()
+            .first()
+        )
 
+        if request.method == "GET":
+
+            if not configuracion:
+                return Response(
+                    {
+                        "detail": (
+                            "No hay configuración "
+                            "del tractor."
+                        )
+                    },
+                    status=
+                        status.HTTP_404_NOT_FOUND,
+                )
+
+            serializer = (
+                self.get_serializer(
+                    configuracion
+                )
+            )
+
+            return Response(
+                serializer.data
+            )
+
+        # PATCH
+
+        if not configuracion:
+            serializer = (
+                self.get_serializer(
+                    data=request.data
+                )
+            )
+
+            serializer.is_valid(
+                raise_exception=True
+            )
+
+            serializer.save(
+                user_made=
+                    request.user
+            )
+
+            return Response(
+                serializer.data,
+                status=
+                    status.HTTP_201_CREATED,
+            )
+
+        serializer = (
+            self.get_serializer(
+                configuracion,
+                data=request.data,
+                partial=True,
+            )
+        )
+
+        serializer.is_valid(
+            raise_exception=True
+        )
+
+        serializer.save(
+            user_updated=
+                request.user
+        )
+
+        return Response(
+            serializer.data
+        )
+
+    
 # ============================================================
 # TRACTOR SERGIO
 # ============================================================
@@ -847,4 +1245,171 @@ class TractorTerceroViewSet(
                     importe_pendiente
                 ),
             }
+        )
+
+
+from rest_framework import viewsets
+
+from .models import Insumo, ConsumoInsumo
+from .serializers import (
+    InsumoSerializer,
+    ConsumoInsumoSerializer,
+    ValorJornalSerializer
+)
+
+class InsumoViewSet(viewsets.ModelViewSet):
+    serializer_class = InsumoSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return (
+            Insumo.objects
+            .filter(is_deleted=False)
+            .order_by("nombre")
+        )
+
+    def perform_create(self, serializer):
+        serializer.save(
+            user_made=self.request.user
+        )
+
+    def perform_update(self, serializer):
+        serializer.save(
+            user_updated=self.request.user
+        )
+
+    def perform_destroy(self, instance):
+        instance.delete(
+            user=self.request.user
+        )
+
+class ConsumoInsumoViewSet(viewsets.ModelViewSet):
+    serializer_class = ConsumoInsumoSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return (
+            ConsumoInsumo.objects
+            .filter(is_deleted=False)
+            .select_related("insumo")
+            .order_by(
+                "-fecha_aplicacion",
+                "-id",
+            )
+        )
+
+    def perform_create(self, serializer):
+        serializer.save(
+            user_made=self.request.user
+        )
+
+    def perform_update(self, serializer):
+        serializer.save(
+            user_updated=self.request.user
+        )
+
+    def perform_destroy(self, instance):
+        instance.delete(
+            user=self.request.user
+        )
+
+
+class ValorJornalViewSet(
+    viewsets.ModelViewSet
+):
+    serializer_class = (
+        ValorJornalSerializer
+    )
+
+    permission_classes = [
+        IsAuthenticated
+    ]
+
+    def get_queryset(self):
+        return (
+            ValorJornal.objects
+            .filter(is_deleted=False)
+            .order_by(
+                "-vigente_desde",
+                "-id",
+            )
+        )
+
+    @transaction.atomic
+    def perform_create(
+        self,
+        serializer,
+    ):
+        ValorJornal.objects.filter(
+            is_deleted=False,
+            activo=True,
+        ).update(
+            activo=False
+        )
+
+        serializer.save(
+            activo=True,
+            user_made=
+                self.request.user,
+        )
+
+    def perform_update(
+        self,
+        serializer,
+    ):
+        serializer.save(
+            user_updated=
+                self.request.user
+        )
+
+    def perform_destroy(
+        self,
+        instance,
+    ):
+        instance.delete(
+            user=self.request.user
+        )
+
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path="actual",
+    )
+    def actual(
+        self,
+        request,
+    ):
+        valor = (
+            ValorJornal.objects
+            .filter(
+                is_deleted=False,
+                activo=True,
+            )
+            .order_by(
+                "-vigente_desde",
+                "-id",
+            )
+            .first()
+        )
+
+        if not valor:
+            return Response(
+                {
+                    "detail": (
+                        "No hay un valor "
+                        "de jornal vigente."
+                    )
+                },
+                status=
+                    status.HTTP_404_NOT_FOUND,
+            )
+
+        serializer = (
+            self.get_serializer(
+                valor
+            )
+        )
+
+        return Response(
+            serializer.data
         )

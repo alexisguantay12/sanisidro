@@ -15,8 +15,14 @@ export type TareaTarja =
   | "otro";
 
 
+export type DestinoTarja =
+  | "san_isidro"
+  | "externo";
+
+
 export interface Tarja {
   id: number;
+
   peon: number;
   peon_nombre: string;
 
@@ -27,6 +33,12 @@ export interface Tarja {
 
   tarea: TareaTarja | "";
   tarea_display: string;
+
+  destino: DestinoTarja;
+  destino_display: string;
+
+  destinatario: number | null;
+  destinatario_nombre: string | null;
 
   observacion: string;
 }
@@ -39,7 +51,19 @@ export interface TarjaLocal {
     | FraccionTarja
     | null;
 
-  tarea: TareaTarja | "";
+  tarea:
+    | TareaTarja
+    | "";
+
+  destino: DestinoTarja;
+
+  destinatario:
+    | number
+    | null;
+
+  destinatario_nombre?:
+    | string
+    | null;
 
   observacion: string;
 

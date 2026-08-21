@@ -5,16 +5,16 @@ import {
 
 interface Props {
   open: boolean;
-  nombre: string;
   loading: boolean;
+  description: string;
   onCancel: () => void;
   onConfirm: () => void;
 }
 
-export default function ConfirmDeleteModal({
+export default function InsumoDeleteModal({
   open,
-  nombre,
   loading,
+  description,
   onCancel,
   onConfirm,
 }: Props) {
@@ -44,7 +44,7 @@ export default function ConfirmDeleteModal({
             </p>
 
             <h2 className="mt-1 text-xl font-semibold text-[#1B1E1C]">
-              Dar de baja
+              Eliminar consumo
             </h2>
           </div>
 
@@ -52,7 +52,7 @@ export default function ConfirmDeleteModal({
             type="button"
             onClick={onCancel}
             disabled={loading}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 disabled:opacity-50"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[#777F7A] transition hover:bg-[#F3F5F3] disabled:opacity-50"
           >
             <X size={20} />
           </button>
@@ -60,21 +60,16 @@ export default function ConfirmDeleteModal({
 
         {/* CONTENIDO */}
         <div className="min-h-0 flex-1 overflow-y-auto p-5">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-red-600">
-            <AlertTriangle size={24} />
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-600">
+            <AlertTriangle
+              size={23}
+            />
           </div>
 
-          <p className="mt-5 text-sm leading-6 text-[#59615C]">
-            ¿Querés dar de baja a{" "}
-            <strong className="font-semibold text-[#1B1E1C]">
-              {nombre}
-            </strong>
-            ?
-          </p>
-
-          <p className="mt-2 text-sm leading-6 text-[#7A837D]">
-            El peón dejará de aparecer en las nuevas cargas,
-            pero sus registros históricos se conservarán.
+          <p className="mt-5 text-sm leading-6 text-[#737C76]">
+            {description}{" "}
+            Esta acción quitará el
+            registro del listado.
           </p>
         </div>
 
@@ -93,43 +88,22 @@ export default function ConfirmDeleteModal({
           <div className="flex gap-3">
             <button
               type="button"
-              disabled={loading}
               onClick={onCancel}
-              className="
-                h-12 flex-1
-                rounded-xl
-                border border-[#E0E5E1]
-                bg-white
-                font-semibold
-                text-[#59615C]
-                transition
-                hover:bg-slate-50
-                disabled:opacity-50
-              "
+              disabled={loading}
+              className="h-12 flex-1 rounded-2xl border border-[#DDE3DF] text-sm font-semibold text-[#59615C] transition hover:bg-[#F7F8F7] disabled:opacity-50"
             >
               Cancelar
             </button>
 
             <button
               type="button"
-              disabled={loading}
               onClick={onConfirm}
-              className="
-                h-12 flex-1
-                rounded-xl
-                bg-red-600
-                font-semibold
-                text-white
-                shadow-[0_8px_24px_rgba(220,38,38,0.18)]
-                transition
-                hover:bg-red-700
-                disabled:cursor-not-allowed
-                disabled:opacity-60
-              "
+              disabled={loading}
+              className="h-12 flex-1 rounded-2xl bg-red-600 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(220,38,38,0.18)] transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading
-                ? "Procesando..."
-                : "Dar de baja"}
+                ? "Eliminando..."
+                : "Eliminar"}
             </button>
           </div>
         </div>
