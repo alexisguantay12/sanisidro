@@ -170,6 +170,8 @@ class TarjaSerializer(
                 })
 
         return attrs
+    
+    
 
 
 class ValorJornalSerializer(serializers.ModelSerializer):
@@ -771,3 +773,110 @@ class ConfiguracionTractorSerializer(
         read_only_fields = [
             "id",
         ]
+
+
+from django.contrib.auth.password_validation import validate_password
+
+from rest_framework import serializers
+
+
+class CambiarPasswordSerializer(
+    serializers.Serializer
+):
+    password_actual = (
+        serializers.CharField(
+            write_only=True
+        )
+    )
+
+    password_nueva = (
+        serializers.CharField(
+            write_only=True
+        )
+    )
+
+    password_nueva_confirmacion = (
+        serializers.CharField(
+            write_only=True
+        )
+    )
+
+
+    def validate(
+        self,
+        attrs,
+    ):
+        request = (
+            self.context[
+                "request"
+            ]
+        )
+
+        user = request.user
+
+
+        password_actual = (
+            attrs[
+                "password_actual"
+            ]
+        )
+
+        password_nueva = (
+            attrs[
+                "password_nueva"
+            ]
+        )
+
+        confirmacion = (
+            attrs[
+                "password_nueva_confirmacion"
+            ]
+        )
+
+
+        # Contraseña actual
+        if not user.check_password(
+            password_actual
+        ):
+            raise serializers.ValidationError({
+                "password_actual": (
+                    "La contraseña actual "
+                    "es incorrecta."
+                )
+            })
+
+
+        # Confirmación
+        if (
+            password_nueva
+            != confirmacion
+        ):
+            raise serializers.ValidationError({
+                "password_nueva_confirmacion": (
+                    "Las contraseñas "
+                    "no coinciden."
+                )
+            })
+
+
+        # Evitar poner la misma
+        if user.check_password(
+            password_nueva
+        ):
+            raise serializers.ValidationError({
+                "password_nueva": (
+                    "La nueva contraseña "
+                    "debe ser diferente "
+                    "a la actual."
+                )
+            })
+
+
+        # Validadores de Django
+        validate_password(
+            password_nueva,
+            user=user,
+        )
+
+
+        return attrs

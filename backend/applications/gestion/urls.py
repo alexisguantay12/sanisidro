@@ -3,7 +3,11 @@ from rest_framework.routers import DefaultRouter
 from .views import PeonViewSet, TarjaViewSet,HoraExtraViewSet,ProveedorViewSet,ConfiguracionTractorViewSet
 from .views import TractorSergioViewSet,TractorTerceroViewSet,ConsumoInsumoViewSet,InsumoViewSet, ValorJornalViewSet
 
+from django.urls import path
 
+from .views import (
+    CambiarPasswordView,
+)
 router = DefaultRouter()
 
 router.register(
@@ -65,4 +69,17 @@ router.register(
     ValorJornalViewSet,
     basename="valor-jornal",
 )
+
+
+
+urlpatterns = [
+    path(
+        "cambiar-password/",
+        CambiarPasswordView.as_view(),
+        name="cambiar-password",
+    ),
+]
+
+urlpatterns += router.urls
+
 urlpatterns = router.urls

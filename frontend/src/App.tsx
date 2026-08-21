@@ -29,6 +29,8 @@ import InsumosConfiguracionPage from "./pages/configuracion/InsumosConfiguracion
 import ValoresPage
   from "./pages/configuracion/ValoresPage";
 
+import CambiarPasswordPage from "./pages/CambiarPasswordPage";
+
 
 function App() {
   return (
@@ -90,7 +92,12 @@ function App() {
           path="/configuracion/valores"
           element={<ValoresPage />}
         />
-
+        <Route
+          path="/configuracion/cambiar-password"
+          element={
+            <CambiarPasswordPage />
+          }
+        />
 
       </Route>
     </Route>

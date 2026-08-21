@@ -1413,3 +1413,82 @@ class ValorJornalViewSet(
         return Response(
             serializer.data
         )
+
+
+
+
+
+from rest_framework import (
+    status,
+)
+
+from rest_framework.permissions import (
+    IsAuthenticated,
+)
+
+from rest_framework.response import (
+    Response,
+)
+
+from rest_framework.views import (
+    APIView,
+)
+
+from .serializers import (
+    CambiarPasswordSerializer,
+)
+
+
+class CambiarPasswordView(
+    APIView
+):
+    permission_classes = [
+        IsAuthenticated
+    ]
+
+
+    def post(
+        self,
+        request,
+    ):
+        serializer = (
+            CambiarPasswordSerializer(
+                data=request.data,
+                context={
+                    "request":
+                        request,
+                },
+            )
+        )
+
+        serializer.is_valid(
+            raise_exception=True
+        )
+
+
+        user = request.user
+
+        user.set_password(
+            serializer
+            .validated_data[
+                "password_nueva"
+            ]
+        )
+
+        user.save(
+            update_fields=[
+                "password"
+            ]
+        )
+
+
+        return Response(
+            {
+                "detail": (
+                    "Contraseña actualizada "
+                    "correctamente."
+                )
+            },
+            status=
+                status.HTTP_200_OK,
+        )
