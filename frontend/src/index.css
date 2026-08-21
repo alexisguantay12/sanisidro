@@ -1,37 +1,90 @@
-import { Settings, Sprout } from "lucide-react";
-import { Link } from "react-router-dom";
+@import "tailwindcss";
 
-export default function AppHeader() {
-  return (
-    <header className="sticky top-0 z-40 border-b border-black/5 bg-[#F6F7F5]/90 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
+:root {
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
 
-        <div className="flex items-center gap-3">
+  color: #1b1e1c;
+  background: #f6f7f5;
 
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#18392B] text-white shadow-sm">
-            <Sprout size={20} />
-          </div>
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
 
-          <div>
-            <h1 className="text-base font-semibold tracking-tight text-[#1B1E1C]">
-              San Isidro
-            </h1>
+html,
+body,
+#root {
+  min-height: 100%;
+}
 
-            <p className="text-xs font-medium text-[#7A837D]">
-              Campaña 2026–2027
-            </p>
-          </div>
+html {
+  background: #f6f7f5;
+}
 
-        </div>
+body {
+  margin: 0;
+  min-width: 320px;
 
-        <Link
-          to="/configuracion"
-          className="flex h-10 w-10 items-center justify-center rounded-xl border border-black/5 bg-white text-[#4F5852] shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-        >
-          <Settings size={19} />
-        </Link>
+  background:
+    radial-gradient(
+      circle at top,
+      rgba(24, 57, 43, 0.055),
+      transparent 34rem
+    ),
+    #f6f7f5;
+}
 
-      </div>
-    </header>
-  );
+* {
+  box-sizing: border-box;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+input,
+select,
+textarea {
+  color: #1b1e1c;
+}
+
+::selection {
+  background: rgba(24, 57, 43, 0.16);
+}
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd3cd;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #aeb9b1;
 }
