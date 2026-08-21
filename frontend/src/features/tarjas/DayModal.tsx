@@ -87,7 +87,7 @@ export default function DayModal({
 
 
   function handleSave() {
-
+    if (!fecha) return
     onSave({
       fecha,
       fraccion,

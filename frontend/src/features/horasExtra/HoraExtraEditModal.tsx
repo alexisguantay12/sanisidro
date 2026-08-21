@@ -102,7 +102,7 @@ export default function HoraExtraEditModal({
 
       setLoading(true);
       setError("");
-
+      if (!horaExtra) return  
       await updateHoraExtra(
         horaExtra.id,
         horas
