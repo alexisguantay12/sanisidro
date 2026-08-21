@@ -5,13 +5,24 @@ import type {
   PeonPayload,
 } from "./types";
 
-
-export async function getPeones(): Promise<Peon[]> {
-  const response = await api.get<Peon[]>("peones/");
-
-  return response.data;
+interface PaginatedResponse<T> {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
 }
 
+export async function getPeones(): Promise<Peon[]> {
+  const response = await api.get<
+    Peon[] | PaginatedResponse<Peon>
+  >("peones/");
+
+  if (Array.isArray(response.data)) {
+    return response.data;
+  }
+
+  return response.data.results ?? [];
+}
 
 export async function createPeon(
   data: PeonPayload
@@ -24,7 +35,6 @@ export async function createPeon(
   return response.data;
 }
 
-
 export async function updatePeon(
   id: number,
   data: Partial<PeonPayload>
@@ -36,7 +46,6 @@ export async function updatePeon(
 
   return response.data;
 }
-
 
 export async function deletePeon(
   id: number

@@ -225,3 +225,252 @@ class HoraExtra(BaseAbstractWithUser):
             f"{self.peon} - {self.fecha} - "
             f"{self.cantidad_horas} h"
         )
+
+
+
+
+
+
+from decimal import Decimal
+
+from django.core.validators import MinValueValidator, MaxValueValidator
+from django.db import models
+
+
+# Ajustar este import a tu proyecto
+from applications.core.models import BaseAbstractWithUser
+
+
+# ============================================================
+# PROVEEDOR
+# ============================================================
+
+
+class Proveedor(BaseAbstractWithUser):
+    nombre = models.CharField(
+        max_length=150,
+        verbose_name="Nombre",
+    )
+
+    observacion = models.TextField(
+        blank=True,
+        default="",
+        verbose_name="Observación",
+    )
+
+    activo = models.BooleanField(
+        default=True,
+        verbose_name="Activo",
+    )
+
+    class Meta:
+        verbose_name = "Proveedor"
+        verbose_name_plural = "Proveedores"
+        ordering = ["nombre"]
+
+    def __str__(self):
+        return self.nombre
+
+
+# ============================================================
+# CONFIGURACION TRACTOR SERGIO
+# ============================================================
+
+
+class ConfiguracionTractor(BaseAbstractWithUser):
+    """
+    Configuración del valor por hora del tractor de Sergio.
+
+    Idealmente habrá un único registro activo.
+    """
+
+    valor_hora_sergio = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=[
+            MinValueValidator(Decimal("0.01")),
+        ],
+        verbose_name="Valor hora Sergio",
+    )
+
+    class Meta:
+        verbose_name = "Configuración Tractor"
+        verbose_name_plural = "Configuración Tractor"
+
+    def __str__(self):
+        return f"Hora Sergio: ${self.valor_hora_sergio}"
+
+
+# ============================================================
+# TRACTOR SERGIO
+# ============================================================
+
+
+class TractorSergio(BaseAbstractWithUser):
+
+    ESTADO_PENDIENTE = "pendiente"
+    ESTADO_PAGADA = "pagada"
+
+    ESTADO_CHOICES = [
+        (ESTADO_PENDIENTE, "Pendiente"),
+        (ESTADO_PAGADA, "Pagada"),
+    ]
+
+    fecha = models.DateField(
+        verbose_name="Fecha",
+    )
+
+    cantidad_horas = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        validators=[
+            MinValueValidator(Decimal("1")),
+            MaxValueValidator(Decimal("50")),
+        ],
+        verbose_name="Cantidad de horas",
+    )
+
+    valor_hora = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=[
+            MinValueValidator(Decimal("0.01")),
+        ],
+        verbose_name="Valor hora",
+    )
+
+    importe = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        verbose_name="Importe",
+    )
+
+    observacion = models.TextField(
+        blank=True,
+        default="",
+        verbose_name="Observación",
+    )
+
+    estado = models.CharField(
+        max_length=20,
+        choices=ESTADO_CHOICES,
+        default=ESTADO_PENDIENTE,
+        db_index=True,
+        verbose_name="Estado",
+    )
+
+    class Meta:
+        verbose_name = "Tractor Sergio"
+        verbose_name_plural = "Tractor Sergio"
+        ordering = ["-fecha", "-id"]
+
+    def __str__(self):
+        return (
+            f"{self.fecha} - "
+            f"{self.cantidad_horas} hs - "
+            f"${self.importe}"
+        )
+
+    def save(self, *args, **kwargs):
+        """
+        El importe SIEMPRE se calcula en backend.
+        """
+
+        self.importe = (
+            Decimal(str(self.cantidad_horas))
+            * Decimal(str(self.valor_hora))
+        )
+
+        super().save(*args, **kwargs)
+
+
+# ============================================================
+# TRACTOR TERCEROS
+# ============================================================
+
+
+class TractorTercero(BaseAbstractWithUser):
+
+    ESTADO_PENDIENTE = "pendiente"
+    ESTADO_PAGADA = "pagada"
+
+    ESTADO_CHOICES = [
+        (ESTADO_PENDIENTE, "Pendiente"),
+        (ESTADO_PAGADA, "Pagada"),
+    ]
+
+    fecha = models.DateField(
+        verbose_name="Fecha",
+    )
+
+    proveedor = models.ForeignKey(
+        Proveedor,
+        on_delete=models.PROTECT,
+        related_name="trabajos_tractor",
+        verbose_name="Proveedor",
+    )
+
+    cantidad_horas = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        validators=[
+            MinValueValidator(Decimal("1")),
+            MaxValueValidator(Decimal("50")),
+        ],
+        verbose_name="Cantidad de horas",
+    )
+
+    precio_hora = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=[
+            MinValueValidator(Decimal("0.01")),
+        ],
+        verbose_name="Precio por hora",
+    )
+
+    importe = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        verbose_name="Importe",
+    )
+
+    observacion = models.TextField(
+        blank=True,
+        default="",
+        verbose_name="Observación",
+    )
+
+    estado = models.CharField(
+        max_length=20,
+        choices=ESTADO_CHOICES,
+        default=ESTADO_PENDIENTE,
+        db_index=True,
+        verbose_name="Estado",
+    )
+
+    class Meta:
+        verbose_name = "Tractor Tercero"
+        verbose_name_plural = "Tractores Terceros"
+        ordering = ["-fecha", "-id"]
+
+    def __str__(self):
+        return (
+            f"{self.fecha} - "
+            f"{self.proveedor.nombre} - "
+            f"{self.cantidad_horas} hs"
+        )
+
+    def save(self, *args, **kwargs):
+        """
+        El importe SIEMPRE se calcula en backend.
+        """
+
+        self.importe = (
+            Decimal(str(self.cantidad_horas))
+            * Decimal(str(self.precio_hora))
+        )
+
+        super().save(*args, **kwargs)

@@ -13,6 +13,11 @@ import PeonesPage from "./pages/PeonesPage";
 import TarjasPage from "./pages/TarjasPage";
 import HorasExtraPage from "./pages/HorasExtraPage";
 
+import TractorPage from "./pages/TractorPage";
+import TractorSergioPage from "./pages/TractorSergioPage";
+import TractorTercerosPage from "./pages/TractorTerceroPage";
+
+
 function App() {
   return (
   <BrowserRouter>
@@ -35,6 +40,20 @@ function App() {
         <Route
           path="/horas-extra"
           element={<HorasExtraPage />}
+        />
+        <Route
+          path="/tractor"
+          element={<TractorPage />}
+        />
+
+        <Route
+          path="/tractor/sergio"
+          element={<TractorSergioPage />}
+        />
+
+        <Route
+          path="/tractor/terceros"
+          element={<TractorTercerosPage />}
         />
       </Route>
     </Route>

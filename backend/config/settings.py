@@ -60,6 +60,11 @@ MIDDLEWARE = [
 
 ]
 
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://sanisidroseclantas.duckdns.org",
+]
+
 ROOT_URLCONF = 'config.urls'
 
 TEMPLATES = [

@@ -344,3 +344,507 @@ class HoraExtraViewSet(viewsets.ModelViewSet):
         instance.delete(
             user=self.request.user
         )
+
+
+
+
+
+
+
+
+
+
+from decimal import Decimal
+
+from django.db.models import Sum
+from django.db.models.functions import Coalesce
+
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
+
+from .models import (
+    ConfiguracionTractor,
+    Proveedor,
+    TractorSergio,
+    TractorTercero,
+)
+
+from .serializers import (
+    ConfiguracionTractorSerializer,
+    ProveedorSerializer,
+    TractorSergioSerializer,
+    TractorTerceroSerializer,
+)
+
+
+# ============================================================
+# PROVEEDORES
+# ============================================================
+
+
+class ProveedorViewSet(viewsets.ModelViewSet):
+
+    serializer_class = ProveedorSerializer
+
+    def get_queryset(self):
+        return (
+            Proveedor.objects
+            .filter(
+                is_deleted=False,
+            )
+            .order_by("nombre")
+        )
+
+    def perform_destroy(self, instance):
+        instance.delete(
+            user=self.request.user
+        )
+
+
+# ============================================================
+# CONFIGURACION TRACTOR
+# ============================================================
+
+
+class ConfiguracionTractorViewSet(
+    viewsets.ModelViewSet
+):
+
+    serializer_class = (
+        ConfiguracionTractorSerializer
+    )
+
+    def get_queryset(self):
+        return (
+            ConfiguracionTractor.objects
+            .filter(
+                is_deleted=False,
+            )
+            .order_by("-id")
+        )
+
+    def perform_destroy(self, instance):
+        instance.delete(
+            user=self.request.user
+        )
+
+
+# ============================================================
+# TRACTOR SERGIO
+# ============================================================
+
+
+class TractorSergioViewSet(
+    viewsets.ModelViewSet
+):
+
+    serializer_class = TractorSergioSerializer
+
+    def get_queryset(self):
+
+        queryset = (
+            TractorSergio.objects
+            .filter(
+                is_deleted=False,
+            )
+            .order_by(
+                "-fecha",
+                "-id",
+            )
+        )
+
+        estado = self.request.query_params.get(
+            "estado"
+        )
+
+        if estado:
+            queryset = queryset.filter(
+                estado=estado
+            )
+
+        fecha_desde = (
+            self.request.query_params.get(
+                "fecha_desde"
+            )
+        )
+
+        fecha_hasta = (
+            self.request.query_params.get(
+                "fecha_hasta"
+            )
+        )
+
+        if fecha_desde:
+            queryset = queryset.filter(
+                fecha__gte=fecha_desde
+            )
+
+        if fecha_hasta:
+            queryset = queryset.filter(
+                fecha__lte=fecha_hasta
+            )
+
+        return queryset
+
+    # --------------------------------------------------------
+    # ELIMINAR
+    # --------------------------------------------------------
+
+    def destroy(
+        self,
+        request,
+        *args,
+        **kwargs,
+    ):
+
+        instance = self.get_object()
+
+        if (
+            instance.estado
+            != TractorSergio.ESTADO_PENDIENTE
+        ):
+            return Response(
+                {
+                    "detail": (
+                        "No se puede eliminar un "
+                        "registro que ya fue pagado."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        instance.delete(
+            user=request.user
+        )
+
+        return Response(
+            status=status.HTTP_204_NO_CONTENT
+        )
+
+    # --------------------------------------------------------
+    # PAGAR
+    # --------------------------------------------------------
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="pagar",
+    )
+    def pagar(
+        self,
+        request,
+        pk=None,
+    ):
+
+        instance = self.get_object()
+
+        if (
+            instance.estado
+            == TractorSergio.ESTADO_PAGADA
+        ):
+            return Response(
+                {
+                    "detail": (
+                        "El registro ya se encuentra pagado."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        instance.estado = (
+            TractorSergio.ESTADO_PAGADA
+        )
+
+        instance.user_updated = request.user
+
+        instance.save(
+            update_fields=[
+                "estado",
+                "user_updated",
+                "updated_at",
+            ]
+        )
+
+        serializer = self.get_serializer(
+            instance
+        )
+
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK,
+        )
+
+    # --------------------------------------------------------
+    # RESUMEN
+    # --------------------------------------------------------
+
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path="resumen",
+    )
+    def resumen(
+        self,
+        request,
+    ):
+
+        queryset = self.get_queryset()
+
+        pendientes = queryset.filter(
+            estado=TractorSergio.ESTADO_PENDIENTE
+        )
+
+        cantidad_pendientes = (
+            pendientes.count()
+        )
+
+        horas_pendientes = (
+            pendientes.aggregate(
+                total=Coalesce(
+                    Sum("cantidad_horas"),
+                    Decimal("0.00"),
+                )
+            )["total"]
+        )
+
+        importe_pendiente = (
+            pendientes.aggregate(
+                total=Coalesce(
+                    Sum("importe"),
+                    Decimal("0.00"),
+                )
+            )["total"]
+        )
+
+        return Response(
+            {
+                "cantidad_pendientes": (
+                    cantidad_pendientes
+                ),
+                "horas_pendientes": (
+                    horas_pendientes
+                ),
+                "importe_pendiente": (
+                    importe_pendiente
+                ),
+            }
+        )
+
+
+# ============================================================
+# TRACTOR TERCEROS
+# ============================================================
+
+
+class TractorTerceroViewSet(
+    viewsets.ModelViewSet
+):
+
+    serializer_class = (
+        TractorTerceroSerializer
+    )
+
+    def get_queryset(self):
+
+        queryset = (
+            TractorTercero.objects
+            .filter(
+                is_deleted=False,
+            )
+            .select_related(
+                "proveedor"
+            )
+            .order_by(
+                "-fecha",
+                "-id",
+            )
+        )
+
+        estado = self.request.query_params.get(
+            "estado"
+        )
+
+        proveedor = (
+            self.request.query_params.get(
+                "proveedor"
+            )
+        )
+
+        fecha_desde = (
+            self.request.query_params.get(
+                "fecha_desde"
+            )
+        )
+
+        fecha_hasta = (
+            self.request.query_params.get(
+                "fecha_hasta"
+            )
+        )
+
+        if estado:
+            queryset = queryset.filter(
+                estado=estado
+            )
+
+        if proveedor:
+            queryset = queryset.filter(
+                proveedor_id=proveedor
+            )
+
+        if fecha_desde:
+            queryset = queryset.filter(
+                fecha__gte=fecha_desde
+            )
+
+        if fecha_hasta:
+            queryset = queryset.filter(
+                fecha__lte=fecha_hasta
+            )
+
+        return queryset
+
+    # --------------------------------------------------------
+    # ELIMINAR
+    # --------------------------------------------------------
+
+    def destroy(
+        self,
+        request,
+        *args,
+        **kwargs,
+    ):
+
+        instance = self.get_object()
+
+        if (
+            instance.estado
+            != TractorTercero.ESTADO_PENDIENTE
+        ):
+            return Response(
+                {
+                    "detail": (
+                        "No se puede eliminar un "
+                        "registro que ya fue pagado."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        instance.delete(
+            user=request.user
+        )
+
+        return Response(
+            status=status.HTTP_204_NO_CONTENT
+        )
+
+    # --------------------------------------------------------
+    # PAGAR
+    # --------------------------------------------------------
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="pagar",
+    )
+    def pagar(
+        self,
+        request,
+        pk=None,
+    ):
+
+        instance = self.get_object()
+
+        if (
+            instance.estado
+            == TractorTercero.ESTADO_PAGADA
+        ):
+            return Response(
+                {
+                    "detail": (
+                        "El registro ya se encuentra pagado."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        instance.estado = (
+            TractorTercero.ESTADO_PAGADA
+        )
+
+        instance.user_updated = request.user
+
+        instance.save(
+            update_fields=[
+                "estado",
+                "user_updated",
+                "updated_at",
+            ]
+        )
+
+        serializer = self.get_serializer(
+            instance
+        )
+
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK,
+        )
+
+    # --------------------------------------------------------
+    # RESUMEN
+    # --------------------------------------------------------
+
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path="resumen",
+    )
+    def resumen(
+        self,
+        request,
+    ):
+
+        queryset = self.get_queryset()
+
+        pendientes = queryset.filter(
+            estado=TractorTercero.ESTADO_PENDIENTE
+        )
+
+        cantidad_pendientes = (
+            pendientes.count()
+        )
+
+        horas_pendientes = (
+            pendientes.aggregate(
+                total=Coalesce(
+                    Sum("cantidad_horas"),
+                    Decimal("0.00"),
+                )
+            )["total"]
+        )
+
+        importe_pendiente = (
+            pendientes.aggregate(
+                total=Coalesce(
+                    Sum("importe"),
+                    Decimal("0.00"),
+                )
+            )["total"]
+        )
+
+        return Response(
+            {
+                "cantidad_pendientes": (
+                    cantidad_pendientes
+                ),
+                "horas_pendientes": (
+                    horas_pendientes
+                ),
+                "importe_pendiente": (
+                    importe_pendiente
+                ),
+            }
+        )
