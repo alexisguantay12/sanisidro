@@ -23,7 +23,7 @@ export default function BottomNavigation() {
           Tarjas
         </NavLink>
 
-        <NavLink to="/mas" className={itemClass}>
+        <NavLink to="#" className={itemClass}>
           <Menu size={22} />
           Más
         </NavLink>
