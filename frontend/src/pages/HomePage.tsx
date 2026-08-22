@@ -5,6 +5,7 @@ import {
   Sprout,
   ShoppingBag,
   BarChart3,
+  WalletCards,
 } from "lucide-react";
 
 import {
@@ -53,6 +54,13 @@ const modules = [
       "Registrar ventas",
     icon: ShoppingBag,
     to: "/ventas",
+  },
+  {
+    title: "Administración",
+    description:
+      "Pagos y rendiciones",
+    icon: WalletCards,
+    to: "/administracion",
   },
   {
     title: "Resumen",

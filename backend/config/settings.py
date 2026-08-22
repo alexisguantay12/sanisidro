@@ -43,6 +43,7 @@ INSTALLED_APPS = [
 
     'applications.core',
     'applications.gestion',
+    'applications.administracion',
     
     "rest_framework",
     "corsheaders",
