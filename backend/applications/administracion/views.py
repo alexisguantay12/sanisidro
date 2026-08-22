@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from django.db import transaction
 from django.shortcuts import get_object_or_404
-
+from django.db.models import Q
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
@@ -63,12 +63,73 @@ def decimal_dos(value):
     )
 
 
+
+def recalcular_horas_extra_pendientes():
+    horas = (
+        HoraExtra.objects
+        .filter(
+            is_deleted=False,
+            estado=HoraExtra.Estado.PENDIENTE,
+        )
+    )
+
+    for hora in horas:
+        valor_jornal = (
+            obtener_valor_jornal(
+                hora.fecha
+            )
+        )
+
+        valor_hora = (
+            (
+                valor_jornal.valor
+                /
+                Decimal("8")
+            )
+            *
+            Decimal("1.25")
+        )
+
+        hora.valor_jornal_aplicado = (
+            valor_jornal.valor
+        )
+
+        hora.valor_hora = (
+            valor_hora
+        )
+
+        hora.total = (
+            valor_hora
+            *
+            Decimal(
+                str(
+                    hora.cantidad_horas
+                )
+            )
+        )
+        print(hora,"Cambios ",valor_hora)
+        hora.save(
+            update_fields=[
+                "valor_jornal_aplicado",
+                "valor_hora",
+                "total",
+            ]
+        )
+
+
+
 def obtener_valor_jornal(fecha):
     """
-    Obtiene el jornal que correspondía en la fecha de la tarja.
+    Obtiene el valor del jornal que correspondía
+    exactamente en la fecha indicada.
 
-    No filtramos exclusivamente por activo porque necesitamos
-    poder liquidar períodos históricos.
+    La vigencia se determina por:
+    - vigente_desde <= fecha
+    - vigente_hasta >= fecha
+      o vigente_hasta = NULL
+
+    No dependemos de 'activo' para permitir
+    consultas y liquidaciones históricas.
     """
 
     valor = (
@@ -76,6 +137,15 @@ def obtener_valor_jornal(fecha):
         .filter(
             is_deleted=False,
             vigente_desde__lte=fecha,
+        )
+        .filter(
+            Q(
+                vigente_hasta__gte=fecha
+            )
+            |
+            Q(
+                vigente_hasta__isnull=True
+            )
         )
         .order_by(
             "-vigente_desde",
@@ -85,14 +155,12 @@ def obtener_valor_jornal(fecha):
     )
 
     if not valor:
-        raise ValidationError(
-            {
-                "valor_jornal": (
-                    f"No existe un valor de jornal "
-                    f"vigente para la fecha {fecha}."
-                )
-            }
-        )
+        raise ValidationError({
+            "valor_jornal": (
+                "No existe un valor de jornal "
+                f"vigente para la fecha {fecha}."
+            )
+        })
 
     return valor
 

@@ -4,9 +4,12 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-
+from django.db.models import Q
+from django.utils import timezone
 from .models import Peon, Tarja
 from .serializers import TarjaSerializer,PeonSerializer
+from applications.administracion.views import recalcular_horas_extra_pendientes,obtener_valor_jornal
+
 
 class PeonViewSet(viewsets.ModelViewSet):
     serializer_class = PeonSerializer
@@ -45,6 +48,29 @@ class TarjaViewSet(
     permission_classes = [
         IsAuthenticated
     ]
+
+    # ================================================
+    # AUXILIAR - TARJA LIQUIDADA
+    # ================================================
+
+    def esta_liquidada(
+        self,
+        tarja,
+    ):
+        return (
+            tarja
+            .detalles_liquidacion
+            .filter(
+                is_deleted=False,
+                liquidacion__is_deleted=False,
+                liquidacion__estado="ACTIVA",
+            )
+            .exists()
+        )
+
+    # ================================================
+    # QUERYSET
+    # ================================================
 
     def get_queryset(self):
         queryset = (
@@ -101,6 +127,9 @@ class TarjaViewSet(
             "fecha"
         )
 
+    # ================================================
+    # CREAR
+    # ================================================
 
     def perform_create(
         self,
@@ -111,25 +140,62 @@ class TarjaViewSet(
                 self.request.user
         )
 
+    # ================================================
+    # ACTUALIZAR
+    # ================================================
 
     def perform_update(
         self,
         serializer,
     ):
+        instance = (
+            serializer.instance
+        )
+
+        if self.esta_liquidada(
+            instance
+        ):
+            raise serializers.ValidationError(
+                {
+                    "detail": (
+                        "La tarja ya fue liquidada "
+                        "y no puede modificarse."
+                    )
+                }
+            )
+
         serializer.save(
             user_updated=
                 self.request.user
         )
 
+    # ================================================
+    # ELIMINAR
+    # ================================================
 
     def perform_destroy(
         self,
         instance,
     ):
+        if self.esta_liquidada(
+            instance
+        ):
+            raise serializers.ValidationError(
+                {
+                    "detail": (
+                        "La tarja ya fue liquidada "
+                        "y no puede eliminarse."
+                    )
+                }
+            )
+
         instance.delete(
             user=self.request.user
         )
 
+    # ================================================
+    # CARGA MENSUAL
+    # ================================================
 
     @action(
         detail=False,
@@ -239,7 +305,6 @@ class TarjaViewSet(
                     )
                 )
 
-
                 # ========================================
                 # FECHA
                 # ========================================
@@ -258,7 +323,6 @@ class TarjaViewSet(
                         ),
                     )
 
-
                 # ========================================
                 # BUSCAR TARJA
                 # ========================================
@@ -273,6 +337,32 @@ class TarjaViewSet(
                     .first()
                 )
 
+                # ========================================
+                # BLOQUEAR TARJA LIQUIDADA
+                # ========================================
+
+                if (
+                    tarja
+                    and not tarja.is_deleted
+                    and self.esta_liquidada(
+                        tarja
+                    )
+                ):
+                    return Response(
+                        {
+                            "detail": (
+                                f"La tarja del "
+                                f"{fecha} ya fue "
+                                "liquidada y no "
+                                "puede modificarse "
+                                "ni eliminarse."
+                            )
+                        },
+                        status=(
+                            status
+                            .HTTP_400_BAD_REQUEST
+                        ),
+                    )
 
                 # ========================================
                 # ELIMINAR DÍA
@@ -291,7 +381,6 @@ class TarjaViewSet(
                         eliminados += 1
 
                     continue
-
 
                 # ========================================
                 # VALIDAR FRACCIÓN
@@ -316,7 +405,6 @@ class TarjaViewSet(
                         ),
                     )
 
-
                 # ========================================
                 # VALIDAR DESTINO
                 # ========================================
@@ -340,13 +428,11 @@ class TarjaViewSet(
                         ),
                     )
 
-
                 # ========================================
                 # DESTINATARIO
                 # ========================================
 
                 destinatario = None
-
 
                 if (
                     destino
@@ -393,10 +479,6 @@ class TarjaViewSet(
                             ),
                         )
 
-
-                    # No puede trabajar
-                    # para sí mismo.
-
                     if (
                         destinatario.id
                         == peon.id
@@ -416,13 +498,8 @@ class TarjaViewSet(
                             ),
                         )
 
-
-                # Si es San Isidro,
-                # SIEMPRE dejamos null.
-
                 else:
                     destinatario = None
-
 
                 # ========================================
                 # ACTUALIZAR
@@ -450,10 +527,6 @@ class TarjaViewSet(
                         destinatario
                     )
 
-
-                    # Restauramos en caso
-                    # de que estuviera eliminada.
-
                     tarja.is_deleted = False
 
                     tarja.deleted_at = None
@@ -468,7 +541,6 @@ class TarjaViewSet(
 
                     actualizados += 1
 
-
                 # ========================================
                 # CREAR
                 # ========================================
@@ -478,28 +550,21 @@ class TarjaViewSet(
                     Tarja.objects.create(
                         peon=peon,
                         fecha=fecha,
-
                         fraccion=fraccion,
-
                         tarea=tarea,
-
                         destino=destino,
-
                         destinatario=(
                             destinatario
                         ),
-
                         observacion=(
                             observacion
                         ),
-
                         user_made=(
                             request.user
                         ),
                     )
 
                     creados += 1
-
 
         return Response(
             {
@@ -542,18 +607,13 @@ class HoraExtraViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
 
         fecha = serializer.validated_data["fecha"]
-
+        print("Estpoy aca")
         valor_jornal = (
-            ValorJornal.objects
-            .filter(
-                is_deleted=False,
-                activo=True,
-                vigente_desde__lte=fecha,
+            obtener_valor_jornal(
+                fecha
             )
-            .order_by("-vigente_desde")
-            .first()
         )
-
+        print("Estpoy aca")
         if not valor_jornal:
             raise serializers.ValidationError({
                 "detail": (
@@ -561,13 +621,18 @@ class HoraExtraViewSet(viewsets.ModelViewSet):
                     "vigente para esa fecha."
                 )
             })
-
+        print("Estpoy aca")
         cantidad_horas = serializer.validated_data[
             "cantidad_horas"
         ]
-
         valor_hora = (
-            valor_jornal.valor / Decimal("8")
+            (
+                valor_jornal.valor
+                /
+                Decimal("8")
+            )
+            *
+            Decimal("1.25")
         )
 
         total = (
@@ -1313,10 +1378,11 @@ class ConsumoInsumoViewSet(viewsets.ModelViewSet):
             user=self.request.user
         )
 
-
+from datetime import timedelta
 class ValorJornalViewSet(
     viewsets.ModelViewSet
 ):
+
     serializer_class = (
         ValorJornalSerializer
     )
@@ -1326,46 +1392,126 @@ class ValorJornalViewSet(
     ]
 
     def get_queryset(self):
+
         return (
             ValorJornal.objects
-            .filter(is_deleted=False)
+            .filter(
+                is_deleted=False,
+            )
             .order_by(
                 "-vigente_desde",
                 "-id",
             )
-        )
+            )
 
     @transaction.atomic
     def perform_create(
         self,
         serializer,
     ):
-        ValorJornal.objects.filter(
-            is_deleted=False,
-            activo=True,
-        ).update(
-            activo=False
+        vigente_desde = (
+            serializer.validated_data[
+                "vigente_desde"
+            ]
         )
+
+        vigente_hasta = (
+            serializer.validated_data.get(
+                "vigente_hasta"
+            )
+        )
+
+        # Si el nuevo período queda abierto,
+        # cerramos automáticamente el anterior.
+        if vigente_hasta is None:
+
+            abiertos = list(
+                ValorJornal.objects
+                .select_for_update()
+                .filter(
+                    is_deleted=False,
+                    activo=True,
+                    vigente_hasta__isnull=True,
+                    vigente_desde__lt=
+                        vigente_desde,
+                )
+                .order_by(
+                    "-vigente_desde",
+                    "-id",
+                )
+            )
+
+            if len(abiertos) > 1:
+                raise serializers.ValidationError({
+                    "detail": (
+                        "Existen varios valores "
+                        "de jornal sin fecha hasta. "
+                        "Corregí los períodos antes "
+                        "de crear uno nuevo."
+                    )
+                })
+
+            if abiertos:
+
+                anterior = abiertos[0]
+
+                anterior.vigente_hasta = (
+                    vigente_desde
+                    -
+                    timedelta(
+                        days=1
+                    )
+                )
+
+                anterior.user_updated = (
+                    self.request.user
+                )
+
+                anterior.save(
+                    update_fields=[
+                        "vigente_hasta",
+                        "user_updated",
+                    ]
+                )
 
         serializer.save(
             activo=True,
             user_made=
                 self.request.user,
         )
-
+        recalcular_horas_extra_pendientes()
+   
+    @transaction.atomic
     def perform_update(
         self,
         serializer,
     ):
-        serializer.save(
-            user_updated=
-                self.request.user
-        )
+        try:
 
+            serializer.save(
+                user_updated=
+                    self.request.user
+            ) 
+            recalcular_horas_extra_pendientes()
+
+        except serializers.ValidationError:
+            raise
+
+        except Exception as exc:
+
+            raise serializers.ValidationError({
+                "detail": (
+                    f"{type(exc).__name__}: "
+                    f"{str(exc)}"
+                )
+            })
+
+        
     def perform_destroy(
         self,
         instance,
     ):
+
         instance.delete(
             user=self.request.user
         )
@@ -1379,11 +1525,26 @@ class ValorJornalViewSet(
         self,
         request,
     ):
+
+        hoy = (
+            timezone.localdate()
+        )
+
         valor = (
             ValorJornal.objects
             .filter(
                 is_deleted=False,
                 activo=True,
+                vigente_desde__lte=hoy,
+            )
+            .filter(
+                Q(
+                    vigente_hasta__isnull=True
+                )
+                |
+                Q(
+                    vigente_hasta__gte=hoy
+                )
             )
             .order_by(
                 "-vigente_desde",
@@ -1393,15 +1554,120 @@ class ValorJornalViewSet(
         )
 
         if not valor:
+
             return Response(
                 {
                     "detail": (
                         "No hay un valor "
-                        "de jornal vigente."
+                        "de jornal vigente "
+                        "para la fecha actual."
                     )
                 },
                 status=
-                    status.HTTP_404_NOT_FOUND,
+                    status
+                    .HTTP_404_NOT_FOUND,
+            )
+
+        serializer = (
+            self.get_serializer(
+                valor
+            )
+        )
+
+        return Response(
+            serializer.data
+        )
+
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path="por-fecha",
+    )
+    def por_fecha(
+        self,
+        request,
+    ):
+
+        fecha = (
+            request.query_params
+            .get(
+                "fecha"
+            )
+        )
+
+        if not fecha:
+
+            raise (
+                serializers
+                .ValidationError({
+                    "fecha": (
+                        "Debe indicar "
+                        "una fecha."
+                    )
+                })
+            )
+
+        from django.utils.dateparse import (
+            parse_date,
+        )
+
+        fecha_parseada = (
+            parse_date(
+                fecha
+            )
+        )
+
+        if not fecha_parseada:
+
+            raise (
+                serializers
+                .ValidationError({
+                    "fecha": (
+                        "La fecha no "
+                        "es válida."
+                    )
+                })
+            )
+
+        valor = (
+            ValorJornal.objects
+            .filter(
+                is_deleted=False,
+                activo=True,
+                vigente_desde__lte=
+                    fecha_parseada,
+            )
+            .filter(
+                Q(
+                    vigente_hasta__isnull=True
+                )
+                |
+                Q(
+                    vigente_hasta__gte=
+                    fecha_parseada
+                )
+            )
+            .order_by(
+                "-vigente_desde",
+                "-id",
+            )
+            .first()
+        )
+
+        if not valor:
+
+            return Response(
+                {
+                    "detail": (
+                        "No existe un valor "
+                        "de jornal vigente "
+                        "para la fecha "
+                        f"{fecha_parseada}."
+                    )
+                },
+                status=
+                    status
+                    .HTTP_404_NOT_FOUND,
             )
 
         serializer = (

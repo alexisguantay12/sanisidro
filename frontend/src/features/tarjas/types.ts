@@ -21,6 +21,7 @@ export type DestinoTarja =
 
 
 export interface Tarja {
+  liquidada: boolean;
   id: number;
 
   peon: number;
@@ -64,7 +65,7 @@ export interface TarjaLocal {
   destinatario_nombre?:
     | string
     | null;
-
+  liquidada: boolean;
   observacion: string;
 
   modified?: boolean;

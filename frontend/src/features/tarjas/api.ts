@@ -2,12 +2,12 @@ import api from "../../api/axios";
 
 import type {
   CargaMensualPayload,
-  Tarja,
+  Tarja, 
 } from "./types";
 
 
 export async function getTarjasMes(
-  peonId: number,
+  peonId: number,  
   year: number,
   month: number
 ): Promise<Tarja[]> {

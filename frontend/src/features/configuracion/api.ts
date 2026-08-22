@@ -123,33 +123,71 @@ export async function deleteInsumo(
 // VALOR JORNAL
 // ============================================================
 
-export async function getValoresJornal() {
+export interface ValorJornalPayload {
+  valor: number;
+
+  vigente_desde: string;
+
+  vigente_hasta:
+    | string
+    | null;
+}
+
+
+export async function getValoresJornal():
+Promise<ValorJornal[]> {
+
   const response =
-    await api.get<ValorJornal[]>(
-      "/valor-jornal/"
+    await api.get<
+      ValorJornal[]
+    >(
+      "valor-jornal/"
     );
 
   return response.data;
 }
 
-export async function getValorJornalActual() {
+
+export async function getValorJornalActual():
+Promise<ValorJornal> {
+
   const response =
-    await api.get<ValorJornal>(
-      "/valor-jornal/actual/"
+    await api.get<
+      ValorJornal
+    >(
+      "valor-jornal/actual/"
     );
 
   return response.data;
 }
+
 
 export async function createValorJornal(
-  data: {
-    valor: number;
-    vigente_desde: string;
-  }
+  data: ValorJornalPayload
 ) {
+
   const response =
-    await api.post<ValorJornal>(
-      "/valor-jornal/",
+    await api.post<
+      ValorJornal
+    >(
+      "valor-jornal/",
+      data
+    );
+
+  return response.data;
+}
+
+
+export async function updateValorJornal(
+  id: number,
+  data: ValorJornalPayload
+) {
+
+  const response =
+    await api.patch<
+      ValorJornal
+    >(
+      `valor-jornal/${id}/`,
       data
     );
 

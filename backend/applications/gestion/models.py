@@ -166,16 +166,31 @@ from django.db import models
 from applications.core.models import BaseAbstractWithUser
 
 
-class ValorJornal(BaseAbstractWithUser):
+class ValorJornal(
+    BaseAbstractWithUser
+):
+
     valor = models.DecimalField(
         max_digits=12,
         decimal_places=2,
-        validators=[MinValueValidator(Decimal("0.01"))],
+        validators=[
+            MinValueValidator(
+                Decimal("0.01")
+            )
+        ],
         verbose_name="valor del jornal",
     )
 
     vigente_desde = models.DateField(
-        verbose_name="vigente desde"
+        verbose_name="vigente desde",
+        db_index=True,
+    )
+
+    vigente_hasta = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="vigente hasta",
+        db_index=True,
     )
 
     activo = models.BooleanField(
@@ -184,12 +199,74 @@ class ValorJornal(BaseAbstractWithUser):
     )
 
     class Meta:
-        ordering = ["-vigente_desde", "-id"]
-        verbose_name = "Valor del jornal"
-        verbose_name_plural = "Valores del jornal"
+
+        ordering = [
+            "-vigente_desde",
+            "-id",
+        ]
+
+        verbose_name = (
+            "Valor del jornal"
+        )
+
+        verbose_name_plural = (
+            "Valores del jornal"
+        )
+
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    Q(
+                        vigente_hasta__isnull=True
+                    )
+                    |
+                    Q(
+                        vigente_hasta__gte=
+                        models.F(
+                            "vigente_desde"
+                        )
+                    )
+                ),
+                name=(
+                    "valor_jornal_"
+                    "vigencia_valida"
+                ),
+            ),
+        ]
+
+    def clean(self):
+
+        super().clean()
+
+        if (
+            self.vigente_hasta
+            and
+            self.vigente_hasta
+            <
+            self.vigente_desde
+        ):
+            raise ValidationError({
+                "vigente_hasta": (
+                    "La fecha hasta no "
+                    "puede ser anterior "
+                    "a la fecha desde."
+                )
+            })
 
     def __str__(self):
-        return f"${self.valor} desde {self.vigente_desde}"
+
+        hasta = (
+            self.vigente_hasta
+            if self.vigente_hasta
+            else "actualidad"
+        )
+
+        return (
+            f"${self.valor} "
+            f"desde "
+            f"{self.vigente_desde} "
+            f"hasta {hasta}"
+        )
 
 
 

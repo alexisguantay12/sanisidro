@@ -22,9 +22,21 @@ export interface Insumo {
 
 export interface ValorJornal {
   id: number;
+
   valor: string;
+
   vigente_desde: string;
+
+  vigente_hasta:
+    | string
+    | null;
+
+  vigente_hasta_display:
+    string;
+
   activo: boolean;
+
+  es_actual: boolean;
 }
 
 export interface ConfiguracionTractor {

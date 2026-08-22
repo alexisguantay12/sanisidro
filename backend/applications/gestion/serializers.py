@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from .models import Peon, Tarja, HoraExtra, ValorJornal
-
+from django.db.models import Q
 
 class PeonSerializer(serializers.ModelSerializer):
 
@@ -64,34 +64,84 @@ class TarjaSerializer(
         )
     )
 
+    liquidada = (
+        serializers.SerializerMethodField()
+    )
+
     class Meta:
         model = Tarja
 
         fields = [
             "id",
-
             "peon",
             "peon_nombre",
-
             "fecha",
-
             "fraccion",
             "fraccion_display",
-
             "tarea",
             "tarea_display",
-
             "destino",
             "destino_display",
-
             "destinatario",
             "destinatario_nombre",
-
             "observacion",
+            "liquidada",
         ]
 
-    def validate(self, attrs):
+    def get_liquidada(
+        self,
+        obj,
+    ):
+        """
+        Una tarja está liquidada cuando pertenece
+        a una liquidación de personal ACTIVA.
+
+        Si la liquidación fue anulada, automáticamente
+        vuelve a considerarse editable.
+        """
+
+        return (
+            obj.detalles_liquidacion
+            .filter(
+                is_deleted=False,
+                liquidacion__is_deleted=False,
+                liquidacion__estado="ACTIVA",
+            )
+            .exists()
+        )
+
+    def validate(
+        self,
+        attrs,
+    ):
         instance = self.instance
+
+        # ============================================
+        # BLOQUEAR EDICIÓN DE TARJA LIQUIDADA
+        # ============================================
+
+        if instance:
+
+            liquidada = (
+                instance
+                .detalles_liquidacion
+                .filter(
+                    is_deleted=False,
+                    liquidacion__is_deleted=False,
+                    liquidacion__estado="ACTIVA",
+                )
+                .exists()
+            )
+
+            if liquidada:
+                raise serializers.ValidationError(
+                    {
+                        "detail": (
+                            "La tarja ya fue liquidada "
+                            "y no puede modificarse."
+                        )
+                    }
+                )
 
         peon = attrs.get(
             "peon",
@@ -120,9 +170,9 @@ class TarjaSerializer(
             ),
         )
 
-        # --------------------------------------------
+        # ============================================
         # SAN ISIDRO
-        # --------------------------------------------
+        # ============================================
 
         if (
             destino
@@ -130,61 +180,340 @@ class TarjaSerializer(
         ):
             attrs["destinatario"] = None
 
-        # --------------------------------------------
+        # ============================================
         # EXTERNO
-        # --------------------------------------------
+        # ============================================
 
         if (
             destino
             == Tarja.Destino.EXTERNO
         ):
+
             if not destinatario:
-                raise serializers.ValidationError({
-                    "destinatario": (
-                        "Debe seleccionar "
-                        "un destinatario."
-                    )
-                })
+                raise serializers.ValidationError(
+                    {
+                        "destinatario": (
+                            "Debe seleccionar "
+                            "un destinatario."
+                        )
+                    }
+                )
 
             if (
                 peon
                 and destinatario.id
                 == peon.id
             ):
-                raise serializers.ValidationError({
-                    "destinatario": (
-                        "El peón no puede "
-                        "trabajar para sí mismo."
-                    )
-                })
+                raise serializers.ValidationError(
+                    {
+                        "destinatario": (
+                            "El peón no puede "
+                            "trabajar para sí mismo."
+                        )
+                    }
+                )
 
             if (
                 destinatario.is_deleted
                 or not destinatario.activo
             ):
-                raise serializers.ValidationError({
-                    "destinatario": (
-                        "El destinatario "
-                        "seleccionado no está activo."
-                    )
-                })
+                raise serializers.ValidationError(
+                    {
+                        "destinatario": (
+                            "El destinatario "
+                            "seleccionado no está activo."
+                        )
+                    }
+                )
 
         return attrs
-    
-    
 
+class ValorJornalSerializer(
+    serializers.ModelSerializer
+):
 
-class ValorJornalSerializer(serializers.ModelSerializer):
+    vigente_hasta_display = (
+        serializers.SerializerMethodField()
+    )
+
+    es_actual = (
+        serializers.SerializerMethodField()
+    )
 
     class Meta:
+
         model = ValorJornal
+
         fields = [
             "id",
             "valor",
             "vigente_desde",
+            "vigente_hasta",
+            "vigente_hasta_display",
             "activo",
+            "es_actual",
         ]
 
+        read_only_fields = [
+            "activo",
+            "es_actual",
+            "vigente_hasta_display",
+        ]
+
+    def get_vigente_hasta_display(
+        self,
+        obj,
+    ):
+
+        if not obj.vigente_hasta:
+            return "Actualidad"
+
+        return (
+            obj.vigente_hasta
+        )
+
+    def get_es_actual(
+        self,
+        obj,
+    ):
+
+        from django.utils import timezone
+
+        hoy = (
+            timezone.localdate()
+        )
+
+        if not obj.activo:
+            return False
+
+        if (
+            obj.vigente_desde
+            >
+            hoy
+        ):
+            return False
+
+        if (
+            obj.vigente_hasta
+            and
+            obj.vigente_hasta
+            <
+            hoy
+        ):
+            return False
+
+        return True
+
+    def validate(
+        self,
+        attrs,
+    ):
+
+        instance = (
+            self.instance
+        )
+
+        vigente_desde = (
+            attrs.get(
+                "vigente_desde",
+                (
+                    instance.vigente_desde
+                    if instance
+                    else None
+                ),
+            )
+        )
+
+        vigente_hasta = (
+            attrs.get(
+                "vigente_hasta",
+                (
+                    instance.vigente_hasta
+                    if instance
+                    else None
+                ),
+            )
+        )
+
+        if not vigente_desde:
+            raise serializers.ValidationError({
+                "vigente_desde": (
+                    "Debe indicar la "
+                    "fecha desde."
+                )
+            })
+
+        if (
+            vigente_hasta
+            and
+            vigente_hasta
+            <
+            vigente_desde
+        ):
+            raise serializers.ValidationError({
+                "vigente_hasta": (
+                    "La fecha hasta no "
+                    "puede ser anterior "
+                    "a la fecha desde."
+                )
+            })
+
+        queryset = (
+            ValorJornal.objects
+            .filter(
+                is_deleted=False,
+                activo=True,
+            )
+        )
+
+        if instance:
+            queryset = (
+                queryset.exclude(
+                    pk=instance.pk
+                )
+            )
+
+        # --------------------------------
+        # Buscar cualquier período
+        # que pueda tocar al nuevo.
+        # --------------------------------
+
+        superpuestos = (
+            queryset.filter(
+                Q(
+                    vigente_hasta__isnull=True
+                )
+                |
+                Q(
+                    vigente_hasta__gte=
+                    vigente_desde
+                )
+            )
+        )
+
+        if vigente_hasta:
+
+            superpuestos = (
+                superpuestos.filter(
+                    vigente_desde__lte=
+                    vigente_hasta
+                )
+            )
+
+        # --------------------------------
+        # CASO ESPECIAL:
+        #
+        # Crear un nuevo jornal abierto.
+        #
+        # Permitimos que se encuentre
+        # con UN período anterior que
+        # actualmente esté abierto,
+        # porque el ViewSet lo cerrará
+        # automáticamente el día anterior.
+        # --------------------------------
+
+        if (
+            instance is None
+            and
+            vigente_hasta is None
+        ):
+
+            anteriores_abiertos = (
+                superpuestos.filter(
+                    vigente_hasta__isnull=True,
+                    vigente_desde__lt=
+                    vigente_desde,
+                )
+            )
+
+            cantidad_anteriores = (
+                anteriores_abiertos.count()
+            )
+
+            if (
+                cantidad_anteriores
+                >
+                1
+            ):
+                raise serializers.ValidationError(
+                    (
+                        "Existen varios valores "
+                        "de jornal abiertos. "
+                        "Debe corregirse la "
+                        "configuración antes "
+                        "de crear uno nuevo."
+                    )
+                )
+
+            ids_permitidos = (
+                anteriores_abiertos.values_list(
+                    "id",
+                    flat=True,
+                )
+            )
+
+            superpuestos_invalidos = (
+                superpuestos.exclude(
+                    id__in=ids_permitidos
+                )
+            )
+
+            if (
+                superpuestos_invalidos
+                .exists()
+            ):
+
+                registro = (
+                    superpuestos_invalidos
+                    .order_by(
+                        "vigente_desde"
+                    )
+                    .first()
+                )
+
+                raise serializers.ValidationError({
+                    "vigente_desde": (
+                        "El período indicado "
+                        "se superpone con el "
+                        "jornal vigente desde "
+                        f"{registro.vigente_desde}."
+                    )
+                })
+
+            return attrs
+
+        # --------------------------------
+        # CREACIÓN HISTÓRICA O EDICIÓN
+        #
+        # No permitimos ningún solapamiento.
+        # --------------------------------
+
+        if superpuestos.exists():
+
+            registro = (
+                superpuestos
+                .order_by(
+                    "vigente_desde"
+                )
+                .first()
+            )
+
+            hasta = (
+                registro.vigente_hasta
+                if registro.vigente_hasta
+                else "actualidad"
+            )
+
+            raise serializers.ValidationError({
+                "vigente_desde": (
+                    "El período se superpone "
+                    "con otro valor de jornal: "
+                    f"{registro.vigente_desde} "
+                    f"hasta {hasta}."
+                )
+            })
+
+        return attrs
 
 class HoraExtraSerializer(serializers.ModelSerializer):
 
@@ -732,26 +1061,7 @@ class InsumoSerializer(serializers.ModelSerializer):
         ]
 
 
-# ============================================================
-# VALOR JORNAL
-# ============================================================
-
-
-class ValorJornalSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ValorJornal
-
-        fields = [
-            "id",
-            "valor",
-            "vigente_desde",
-            "activo",
-        ]
-
-        read_only_fields = [
-            "id",
-            "activo",
-        ]
+ 
 
 
 # ============================================================

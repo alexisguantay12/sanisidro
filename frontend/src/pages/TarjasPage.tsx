@@ -30,9 +30,7 @@ import type {
   Peon,
 } from "../features/peones/types";
 
-import type {
-  TarjaLocal,
-} from "../features/tarjas/types";
+import type { TarjaLocal } from "../features/tarjas/types";
 
 
 const monthFormatter =
@@ -194,6 +192,9 @@ export default function TarjasPage() {
             observacion:
               tarja.observacion,
 
+            liquidada:
+              tarja.liquidada ,
+
             modified: false,
           };
         }
@@ -218,6 +219,8 @@ export default function TarjasPage() {
         ).filter(
           (item) =>
             item.modified
+            &&
+            !item.liquidada
         ),
       [registros]
     );
@@ -263,9 +266,74 @@ export default function TarjasPage() {
     ).length;
 
 
+  const diasLiquidados =
+    Object.values(
+      registros
+    ).filter(
+      (item) =>
+        item.liquidada
+    ).length;
+
+
+  function showMessage(
+    text: string
+  ) {
+    setMessage(text);
+
+    window.setTimeout(
+      () =>
+        setMessage(""),
+      3000
+    );
+  }
+
+
+  function handleDayClick(
+    fecha: string
+  ) {
+
+    const registro =
+      registros[fecha];
+
+
+    if (
+      registro?.liquidada
+    ) {
+      showMessage(
+        "Este día ya fue liquidado y no puede modificarse."
+      );
+
+      return;
+    }
+
+
+    setSelectedDate(
+      fecha
+    );
+  }
+
+
   function handleDaySave(
     registro: TarjaLocal
   ) {
+
+    const actual =
+      registros[
+        registro.fecha
+      ];
+
+
+    if (
+      actual?.liquidada
+    ) {
+      showMessage(
+        "Este día ya fue liquidado y no puede modificarse."
+      );
+
+      return;
+    }
+
+
     setRegistros(
       (current) => ({
         ...current,
@@ -339,15 +407,8 @@ export default function TarjasPage() {
       await loadMonth();
 
 
-      setMessage(
+      showMessage(
         "Tarjas guardadas correctamente."
-      );
-
-
-      window.setTimeout(
-        () =>
-          setMessage(""),
-        2500
       );
 
     } finally {
@@ -360,7 +421,7 @@ export default function TarjasPage() {
     <>
 
       {message && (
-        <div className="fixed left-1/2 top-5 z-[70] -translate-x-1/2 rounded-xl bg-[#18392B] px-5 py-3 text-sm font-semibold text-white shadow-xl">
+        <div className="fixed left-1/2 top-5 z-[70] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-xl bg-[#18392B] px-5 py-3 text-center text-sm font-semibold text-white shadow-xl">
           {message}
         </div>
       )}
@@ -371,6 +432,7 @@ export default function TarjasPage() {
         <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
 
           {/* HEADER */}
+
           <div className="mb-6">
 
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#859089]">
@@ -390,6 +452,7 @@ export default function TarjasPage() {
 
 
           {/* PEÓN */}
+
           <section className="mb-4 rounded-[24px] border border-[#E4E8E5] bg-white p-4 shadow-[0_8px_28px_rgba(27,30,28,0.04)] sm:p-5">
 
             <div className="flex items-start gap-3">
@@ -479,6 +542,7 @@ export default function TarjasPage() {
             <>
 
               {/* MES */}
+
               <section className="mb-4 rounded-[24px] border border-[#E4E8E5] bg-white p-3 shadow-[0_8px_28px_rgba(27,30,28,0.04)]">
 
                 <div className="flex items-center justify-between gap-3">
@@ -533,7 +597,8 @@ export default function TarjasPage() {
 
 
               {/* RESUMEN */}
-              <section className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+
+              <section className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
 
                 <div className="rounded-[22px] border border-[#E4E8E5] bg-white p-3 shadow-[0_8px_24px_rgba(27,30,28,0.035)] sm:p-4">
 
@@ -586,10 +651,24 @@ export default function TarjasPage() {
 
                 </div>
 
+
+                <div className="col-span-2 rounded-[22px] border border-blue-100 bg-blue-50 p-3 shadow-[0_8px_24px_rgba(27,30,28,0.035)] sm:col-span-1 sm:p-4">
+
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-blue-500 sm:text-xs">
+                    Liquidados
+                  </p>
+
+                  <p className="mt-2 text-xl font-semibold text-blue-700 sm:text-2xl">
+                    {diasLiquidados}
+                  </p>
+
+                </div>
+
               </section>
 
 
               {/* CALENDARIO */}
+
               {loading ? (
 
                 <div className="rounded-[24px] border border-[#E4E8E5] bg-white px-6 py-16 text-center shadow-[0_8px_28px_rgba(27,30,28,0.04)]">
@@ -614,7 +693,7 @@ export default function TarjasPage() {
                   }
 
                   onDayClick={
-                    setSelectedDate
+                    handleDayClick
                   }
                 />
 
@@ -622,6 +701,7 @@ export default function TarjasPage() {
 
 
               {/* LEYENDA */}
+
               <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-3 rounded-[22px] border border-[#E4E8E5] bg-white px-4 py-3 shadow-[0_8px_24px_rgba(27,30,28,0.035)]">
 
                 <div className="flex items-center gap-2 text-xs font-medium text-[#56605A]">
@@ -637,14 +717,30 @@ export default function TarjasPage() {
 
 
                 <div className="flex items-center gap-2 text-xs font-medium text-[#56605A]">
-                  <span className="h-2.5 w-2.5 rounded-full bg-sky-500" />
+                  <span
+                    className="
+                      h-0
+                      w-0
+                      border-l-[9px]
+                      border-l-transparent
+                      border-t-[9px]
+                      border-t-rose-400
+                    "
+                  />
+
                   Trabajo externo
+                </div>
+
+                <div className="flex items-center gap-2 text-xs font-medium text-[#56605A]">
+                  <span className="h-3 w-3 rounded bg-blue-500" />
+                  Liquidado
                 </div>
 
               </div>
 
 
               {/* GUARDAR */}
+
               {modifiedRecords.length >
                 0 && (
 

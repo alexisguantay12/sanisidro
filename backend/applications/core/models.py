@@ -60,3 +60,4 @@ class BaseAbstractWithUser(SoftDeletionModel, TimestampsModel):
                 "user_deleted",
             ]
         )
+

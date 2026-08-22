@@ -6,9 +6,11 @@ import {
 import {
   ArrowLeft,
   Banknote,
+  CalendarDays,
   Clock3,
   History,
   Pencil,
+  Plus,
   Sprout,
 } from "lucide-react";
 
@@ -44,6 +46,7 @@ import type {
 function money(
   value: string | number
 ) {
+
   return new Intl.NumberFormat(
     "es-AR",
     {
@@ -52,14 +55,20 @@ function money(
       maximumFractionDigits: 2,
     }
   ).format(
-    Number(value || 0)
+    Number(
+      value || 0
+    )
   );
 }
 
 
 function date(
-  value: string
+  value:
+    | string
+    | null
+    | undefined
 ) {
+
   if (!value) {
     return "-";
   }
@@ -75,6 +84,7 @@ function date(
 
 
 export default function ValoresPage() {
+
   const navigate =
     useNavigate();
 
@@ -82,7 +92,9 @@ export default function ValoresPage() {
   const [
     jornal,
     setJornal,
-  ] = useState<ValorJornal | null>(
+  ] = useState<
+    ValorJornal | null
+  >(
     null
   );
 
@@ -90,13 +102,19 @@ export default function ValoresPage() {
   const [
     historial,
     setHistorial,
-  ] = useState<ValorJornal[]>([]);
+  ] = useState<
+    ValorJornal[]
+  >(
+    []
+  );
 
 
   const [
     tractor,
     setTractor,
-  ] = useState<ConfiguracionTractor | null>(
+  ] = useState<
+    ConfiguracionTractor | null
+  >(
     null
   );
 
@@ -114,6 +132,16 @@ export default function ValoresPage() {
 
 
   const [
+    jornalSeleccionado,
+    setJornalSeleccionado,
+  ] = useState<
+    ValorJornal | null
+  >(
+    null
+  );
+
+
+  const [
     tractorOpen,
     setTractorOpen,
   ] = useState(false);
@@ -126,14 +154,20 @@ export default function ValoresPage() {
 
 
   async function loadData() {
+
     try {
+
       const historialData =
         await getValoresJornal();
 
       setHistorial(
         historialData
       );
-    } catch (error) {
+
+    } catch (
+      error
+    ) {
+
       console.error(
         "Error cargando historial de jornales:",
         error
@@ -144,13 +178,18 @@ export default function ValoresPage() {
 
 
     try {
+
       const jornalActual =
         await getValorJornalActual();
 
       setJornal(
         jornalActual
       );
-    } catch (error) {
+
+    } catch (
+      error
+    ) {
+
       console.error(
         "Error cargando jornal actual:",
         error
@@ -161,13 +200,18 @@ export default function ValoresPage() {
 
 
     try {
+
       const tractorActual =
         await getConfiguracionTractorActual();
 
       setTractor(
         tractorActual
       );
-    } catch (error) {
+
+    } catch (
+      error
+    ) {
+
       console.error(
         "Error cargando configuración del tractor:",
         error
@@ -178,32 +222,86 @@ export default function ValoresPage() {
 
 
     try {
+
       const configuracionAlmacigo =
         await getConfiguracionAlmacigoActual();
 
       setValorAlmacigo(
-        configuracionAlmacigo.valor
+        configuracionAlmacigo
+          .valor
       );
-    } catch (error) {
+
+    } catch (
+      error
+    ) {
+
       console.error(
         "Error cargando valor del almácigo:",
         error
       );
 
-      setValorAlmacigo("0");
+      setValorAlmacigo(
+        "0"
+      );
     }
   }
 
 
-  useEffect(() => {
-    void loadData();
-  }, []);
+  useEffect(
+    () => {
+
+      void loadData();
+
+    },
+    []
+  );
+
+
+  function abrirNuevoJornal() {
+
+    setJornalSeleccionado(
+      null
+    );
+
+    setJornalOpen(
+      true
+    );
+  }
+
+
+  function abrirEditarJornal(
+    item: ValorJornal
+  ) {
+
+    setJornalSeleccionado(
+      item
+    );
+
+    setJornalOpen(
+      true
+    );
+  }
+
+
+  function cerrarJornalModal() {
+
+    setJornalOpen(
+      false
+    );
+
+    setJornalSeleccionado(
+      null
+    );
+  }
 
 
   return (
     <>
+
       <div className="min-h-full bg-[#F6F8F6]">
+
         <div className="mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-7">
+
           <button
             type="button"
             onClick={() =>
@@ -213,15 +311,18 @@ export default function ValoresPage() {
             }
             className="mb-5 flex items-center gap-2 text-sm font-semibold text-[#667069] hover:text-[#18392B]"
           >
+
             <ArrowLeft
               size={17}
             />
 
             Configuración
+
           </button>
 
 
           <div className="mb-6">
+
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#859089]">
               Configuración
             </p>
@@ -235,65 +336,100 @@ export default function ValoresPage() {
               cálculos automáticos del
               sistema.
             </p>
+
           </div>
 
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+
             {/* VALOR JORNAL */}
+
             <div className="rounded-[26px] border border-[#E4E8E5] bg-white p-5 shadow-[0_8px_28px_rgba(27,30,28,0.04)] sm:p-6">
+
               <div className="flex items-start justify-between gap-4">
+
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#EEF3EF] text-[#18392B]">
                   <Banknote
                     size={22}
                   />
                 </div>
 
+
                 <button
                   type="button"
-                  onClick={() =>
-                    setJornalOpen(
-                      true
-                    )
+                  onClick={
+                    abrirNuevoJornal
                   }
                   className="flex h-10 items-center gap-2 rounded-xl border border-[#DDE3DF] px-3 text-sm font-semibold text-[#59615C] transition hover:bg-[#F7F8F7]"
                 >
-                  <Pencil
-                    size={15}
+
+                  <Plus
+                    size={16}
                   />
 
-                  Actualizar
+                  Nuevo valor
+
                 </button>
+
               </div>
 
 
               <p className="mt-5 text-sm font-semibold text-[#737C76]">
-                Valor Jornal
+                Jornal actual
               </p>
 
 
               <p className="mt-2 text-3xl font-semibold tracking-tight text-[#1B1E1C]">
+
                 {jornal
                   ? money(
                       jornal.valor
                     )
                   : "Sin configurar"}
+
               </p>
 
 
               {jornal && (
-                <p className="mt-2 text-xs text-[#8B948E]">
-                  Vigente desde{" "}
+
+                <div className="mt-3 flex items-center gap-2 text-xs text-[#8B948E]">
+
+                  <CalendarDays
+                    size={14}
+                  />
+
+                  Desde{" "}
+
                   {date(
-                    jornal.vigente_desde
+                    jornal
+                      .vigente_desde
                   )}
-                </p>
+
+                  {" · "}
+
+                  {jornal
+                    .vigente_hasta
+                    ? (
+                        `Hasta ${date(
+                          jornal
+                            .vigente_hasta
+                        )}`
+                      )
+                    : "Hasta actualidad"}
+
+                </div>
+
               )}
+
             </div>
 
 
             {/* TRACTOR */}
+
             <div className="rounded-[26px] border border-[#E4E8E5] bg-white p-5 shadow-[0_8px_28px_rgba(27,30,28,0.04)] sm:p-6">
+
               <div className="flex items-start justify-between gap-4">
+
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#EEF3EF] text-[#18392B]">
                   <Clock3
                     size={22}
@@ -309,12 +445,15 @@ export default function ValoresPage() {
                   }
                   className="flex h-10 items-center gap-2 rounded-xl border border-[#DDE3DF] px-3 text-sm font-semibold text-[#59615C] transition hover:bg-[#F7F8F7]"
                 >
+
                   <Pencil
                     size={15}
                   />
 
                   Editar
+
                 </button>
+
               </div>
 
 
@@ -324,11 +463,14 @@ export default function ValoresPage() {
 
 
               <p className="mt-2 text-3xl font-semibold tracking-tight text-[#1B1E1C]">
+
                 {tractor
                   ? money(
-                      tractor.valor_hora_sergio
+                      tractor
+                        .valor_hora_sergio
                     )
                   : "Sin configurar"}
+
               </p>
 
 
@@ -337,17 +479,22 @@ export default function ValoresPage() {
                 registrar nuevas horas
                 del tractor.
               </p>
+
             </div>
 
 
             {/* ALMÁCIGOS */}
+
             <div className="rounded-[26px] border border-[#E4E8E5] bg-white p-5 shadow-[0_8px_28px_rgba(27,30,28,0.04)] sm:p-6">
+
               <div className="flex items-start justify-between gap-4">
+
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#EEF3EF] text-[#18392B]">
                   <Sprout
                     size={22}
                   />
                 </div>
+
 
                 <button
                   type="button"
@@ -358,12 +505,15 @@ export default function ValoresPage() {
                   }
                   className="flex h-10 items-center gap-2 rounded-xl border border-[#DDE3DF] px-3 text-sm font-semibold text-[#59615C] transition hover:bg-[#F7F8F7]"
                 >
+
                   <Pencil
                     size={15}
                   />
 
                   Editar
+
                 </button>
+
               </div>
 
 
@@ -373,6 +523,7 @@ export default function ValoresPage() {
 
 
               <p className="mt-2 text-3xl font-semibold tracking-tight text-[#1B1E1C]">
+
                 {Number(
                   valorAlmacigo
                 ) > 0
@@ -380,6 +531,7 @@ export default function ValoresPage() {
                       valorAlmacigo
                     )
                   : "Sin configurar"}
+
               </p>
 
 
@@ -388,103 +540,196 @@ export default function ValoresPage() {
                 al registrar nuevas
                 compras de almácigos.
               </p>
+
             </div>
+
           </div>
 
 
           {/* HISTORIAL JORNAL */}
+
           <div className="mt-6 overflow-hidden rounded-[24px] border border-[#E4E8E5] bg-white shadow-[0_8px_28px_rgba(27,30,28,0.04)]">
+
             <div className="flex items-center gap-3 border-b border-[#E8ECE9] px-5 py-4">
+
               <History
                 size={18}
                 className="text-[#60766A]"
               />
 
               <div>
+
                 <p className="text-sm font-semibold text-[#333936]">
-                  Historial de jornales
+                  Valores de jornal
                 </p>
 
                 <p className="text-xs text-[#8B948E]">
-                  Valores registrados
-                  anteriormente.
+                  Historial y períodos
+                  de vigencia.
                 </p>
+
               </div>
+
             </div>
 
 
             {historial.length === 0 ? (
+
               <div className="px-5 py-10 text-center text-sm text-[#8B948E]">
                 No hay valores
                 registrados.
               </div>
-            ) : (
-              <div className="divide-y divide-[#EEF1EF]">
-                {historial.map(
-                  (item) => (
-                    <div
-                      key={item.id}
-                      className="flex items-center justify-between gap-4 px-5 py-4"
-                    >
-                      <div>
-                        <p className="text-sm font-semibold text-[#333936]">
-                          {money(
-                            item.valor
-                          )}
-                        </p>
 
-                        <p className="mt-1 text-xs text-[#8B948E]">
-                          Desde{" "}
-                          {date(
-                            item.vigente_desde
+            ) : (
+
+              <div className="divide-y divide-[#EEF1EF]">
+
+                {historial.map(
+                  (
+                    item
+                  ) => (
+
+                    <div
+                      key={
+                        item.id
+                      }
+                      className="flex flex-col gap-4 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
+                    >
+
+                      <div className="min-w-0">
+
+                        <div className="flex flex-wrap items-center gap-2">
+
+                          <p className="text-base font-semibold text-[#333936]">
+
+                            {money(
+                              item.valor
+                            )}
+
+                          </p>
+
+
+                          {item.es_actual && (
+
+                            <span className="rounded-full bg-[#EAF4ED] px-2.5 py-1 text-[11px] font-semibold text-[#326344]">
+                              Actual
+                            </span>
+
                           )}
-                        </p>
+
+                        </div>
+
+
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-[#8B948E]">
+
+                          <span>
+                            {date(
+                              item
+                                .vigente_desde
+                            )}
+                          </span>
+
+                          <span>
+                            →
+                          </span>
+
+                          <span>
+
+                            {item
+                              .vigente_hasta
+                              ? date(
+                                  item
+                                    .vigente_hasta
+                                )
+                              : "Actualidad"}
+
+                          </span>
+
+                        </div>
+
                       </div>
 
 
-                      {item.activo && (
-                        <span className="rounded-full bg-[#EEF3EF] px-3 py-1 text-xs font-semibold text-[#466052]">
-                          Vigente
-                        </span>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          abrirEditarJornal(
+                            item
+                          )
+                        }
+                        className="flex h-10 items-center justify-center gap-2 rounded-xl border border-[#DDE3DF] px-3 text-sm font-semibold text-[#59615C] transition hover:bg-[#F7F8F7] sm:w-auto"
+                      >
+
+                        <Pencil
+                          size={15}
+                        />
+
+                        Editar
+
+                      </button>
+
                     </div>
+
                   )
                 )}
+
               </div>
+
             )}
+
           </div>
+
         </div>
+
       </div>
 
 
       {/* MODAL JORNAL */}
+
       <ValorJornalModal
-        open={jornalOpen}
-        onClose={() =>
-          setJornalOpen(false)
+        open={
+          jornalOpen
         }
-        onSuccess={loadData}
+        valorJornal={
+          jornalSeleccionado
+        }
+        onClose={
+          cerrarJornalModal
+        }
+        onSuccess={
+          loadData
+        }
       />
 
 
       {/* MODAL TRACTOR */}
+
       <TractorValorModal
-        open={tractorOpen}
+        open={
+          tractorOpen
+        }
         valorActual={
           tractor
             ?.valor_hora_sergio ??
           ""
         }
         onClose={() =>
-          setTractorOpen(false)
+          setTractorOpen(
+            false
+          )
         }
-        onSuccess={loadData}
+        onSuccess={
+          loadData
+        }
       />
 
 
       {/* MODAL ALMÁCIGO */}
+
       <ValorAlmacigoModal
-        open={almacigoModalOpen}
+        open={
+          almacigoModalOpen
+        }
         valorActual={
           valorAlmacigo
         }
@@ -493,8 +738,11 @@ export default function ValoresPage() {
             false
           )
         }
-        onSuccess={loadData}
+        onSuccess={
+          loadData
+        }
       />
+
     </>
   );
 }

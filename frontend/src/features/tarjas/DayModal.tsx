@@ -300,6 +300,10 @@ export default function DayModal({
           ? observacion
           : "",
 
+      liquidada:
+        registro?.liquidada ??
+        false,
+
       modified: true,
     });
 
