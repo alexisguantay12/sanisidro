@@ -1492,3 +1492,390 @@ class CambiarPasswordView(
             status=
                 status.HTTP_200_OK,
         )
+
+from decimal import Decimal
+
+from rest_framework import (
+    status,
+    viewsets,
+)
+
+from rest_framework.decorators import action
+
+from rest_framework.permissions import (
+    IsAuthenticated,
+)
+
+from rest_framework.response import Response
+
+from .models import (
+    Almacigo,
+    ConfiguracionAlmacigo,
+)
+
+from .serializers import (
+    AlmacigoSerializer,
+    ConfiguracionAlmacigoSerializer,
+)
+class ConfiguracionAlmacigoViewSet(
+    viewsets.ViewSet
+):
+    permission_classes = [
+        IsAuthenticated
+    ]
+
+    def _get_configuracion(
+        self,
+        request,
+    ):
+        configuracion, created = (
+            ConfiguracionAlmacigo.objects.get_or_create(
+                pk=1,
+                defaults={
+                    "valor":
+                        Decimal("65000.00"),
+                    "user_made":
+                        request.user,
+                    "user_updated":
+                        request.user,
+                },
+            )
+        )
+
+        return configuracion
+
+    @action(
+        detail=False,
+        methods=[
+            "get",
+            "patch",
+        ],
+        url_path="actual",
+    )
+    def actual(
+        self,
+        request,
+    ):
+        configuracion = (
+            self._get_configuracion(
+                request
+            )
+        )
+
+        if request.method == "GET":
+            serializer = (
+                ConfiguracionAlmacigoSerializer(
+                    configuracion
+                )
+            )
+
+            return Response(
+                serializer.data
+            )
+
+        serializer = (
+            ConfiguracionAlmacigoSerializer(
+                configuracion,
+                data=request.data,
+                partial=True,
+            )
+        )
+
+        serializer.is_valid(
+            raise_exception=True
+        )
+
+        serializer.save(
+            user_updated=request.user
+        )
+
+        return Response(
+            serializer.data
+        )
+
+
+from rest_framework import (
+    status,
+    viewsets,
+)
+
+from rest_framework.permissions import (
+    IsAuthenticated,
+)
+
+from rest_framework.response import (
+    Response,
+)
+
+from .models import (
+    Almacigo,
+)
+
+from .serializers import (
+    AlmacigoSerializer,
+)
+
+
+class AlmacigoViewSet(
+    viewsets.ModelViewSet
+):
+    serializer_class = (
+        AlmacigoSerializer
+    )
+
+    permission_classes = [
+        IsAuthenticated,
+    ]
+
+    queryset = (
+        Almacigo.objects.all()
+        .order_by(
+            "-fecha",
+            "-id",
+        )
+    )
+
+    def perform_create(
+        self,
+        serializer,
+    ):
+        serializer.save(
+            user_made=
+                self.request.user,
+            user_updated=
+                self.request.user,
+        )
+
+    def perform_update(
+        self,
+        serializer,
+    ):
+        serializer.save(
+            user_updated=
+                self.request.user,
+        )
+
+    def destroy(
+        self,
+        request,
+        *args,
+        **kwargs,
+    ):
+        instance = (
+            self.get_object()
+        )
+
+        if (
+            instance.estado
+            !=
+            Almacigo.ESTADO_PENDIENTE
+        ):
+            return Response(
+                {
+                    "detail":
+                        "No se puede eliminar "
+                        "un registro que ya "
+                        "fue procesado."
+                },
+                status=(
+                    status
+                    .HTTP_400_BAD_REQUEST
+                ),
+            )
+
+        if hasattr(
+            instance,
+            "user_deleted",
+        ):
+            instance.user_deleted = (
+                request.user
+            )
+
+            instance.save(
+                update_fields=[
+                    "user_deleted",
+                ]
+            )
+
+        instance.delete()
+
+        return Response(
+            status=(
+                status
+                .HTTP_204_NO_CONTENT
+            )
+        )
+
+
+
+
+from django.db import transaction
+from django.db.models import Prefetch
+
+from rest_framework import status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework.viewsets import ModelViewSet
+
+from .models import (
+    Comprador,
+    Venta,
+    PagoVenta,
+)
+
+from .serializers import (
+    CompradorSerializer,
+    VentaSerializer,
+    PagoVentaSerializer,
+)
+
+
+class CompradorViewSet(ModelViewSet):
+    serializer_class = CompradorSerializer
+
+    queryset = Comprador.objects.filter(
+        is_deleted=False,
+    ).order_by(
+        "nombre",
+    )
+
+    def perform_create(self, serializer):
+        serializer.save(
+            user_made=self.request.user,
+        )
+
+    def perform_update(self, serializer):
+        serializer.save(
+            user_updated=self.request.user,
+        )
+
+    def perform_destroy(self, instance):
+        instance.delete(
+            user=self.request.user,
+        )
+
+
+class VentaViewSet(ModelViewSet):
+    serializer_class = VentaSerializer
+
+    def get_queryset(self):
+        queryset = (
+            Venta.objects
+            .filter(
+                is_deleted=False,
+            )
+            .select_related(
+                "comprador",
+            )
+            .prefetch_related(
+                Prefetch(
+                    "pagos",
+                    queryset=PagoVenta.objects.filter(
+                        is_deleted=False,
+                    ).order_by(
+                        "-fecha",
+                        "-id",
+                    ),
+                )
+            )
+            .order_by(
+                "-fecha",
+                "-id",
+            )
+        )
+
+        estado = self.request.query_params.get(
+            "estado"
+        )
+
+        comprador = (
+            self.request.query_params.get(
+                "comprador"
+            )
+        )
+
+        if estado:
+            queryset = queryset.filter(
+                estado=estado.upper(),
+            )
+
+        if comprador:
+            queryset = queryset.filter(
+                comprador_id=comprador,
+            )
+
+        return queryset
+
+    def perform_destroy(self, instance):
+        instance.delete(
+            user=self.request.user,
+        )
+
+    @action(
+        detail=True,
+        methods=["get"],
+        url_path="pagos",
+    )
+    def pagos(self, request, pk=None):
+        venta = self.get_object()
+
+        pagos = venta.pagos.filter(
+            is_deleted=False,
+        ).order_by(
+            "-fecha",
+            "-id",
+        )
+
+        serializer = PagoVentaSerializer(
+            pagos,
+            many=True,
+            context={
+                "request": request,
+            },
+        )
+
+        return Response(
+            serializer.data
+        )
+
+
+class PagoVentaViewSet(ModelViewSet):
+    serializer_class = PagoVentaSerializer
+
+    def get_queryset(self):
+        queryset = (
+            PagoVenta.objects
+            .filter(
+                is_deleted=False,
+                venta__is_deleted=False,
+            )
+            .select_related(
+                "venta",
+                "venta__comprador",
+            )
+            .order_by(
+                "-fecha",
+                "-id",
+            )
+        )
+
+        venta = self.request.query_params.get(
+            "venta"
+        )
+
+        if venta:
+            queryset = queryset.filter(
+                venta_id=venta,
+            )
+
+        return queryset
+
+    @transaction.atomic
+    def perform_destroy(self, instance):
+        venta = instance.venta
+
+        instance.delete(
+            user=self.request.user,
+        )
+
+        venta.actualizar_estado()

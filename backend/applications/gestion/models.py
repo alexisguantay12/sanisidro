@@ -605,3 +605,373 @@ class ConsumoInsumo(BaseAbstractWithUser):
         )
 
 
+
+
+
+
+from decimal import Decimal
+
+from django.core.validators import MinValueValidator
+from django.db import models
+
+# Importá BaseAbstractWithUser desde donde lo tengas.
+# Si está en este mismo archivo, NO agregues este import.
+#
+# from .base_models import BaseAbstractWithUser
+
+
+class ConfiguracionAlmacigo(BaseAbstractWithUser):
+    valor = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("65000.00"),
+        validators=[
+            MinValueValidator(Decimal("0.01"))
+        ],
+        verbose_name="valor del almácigo",
+    )
+
+    class Meta:
+        verbose_name = "configuración de almácigo"
+        verbose_name_plural = "configuración de almácigos"
+
+    def __str__(self):
+        return f"Valor almácigo: ${self.valor}"
+
+
+class Almacigo(BaseAbstractWithUser):
+    ESTADO_PENDIENTE = "PENDIENTE"
+    ESTADO_PAGADA = "PAGADA"
+
+    ESTADOS = [
+        (
+            ESTADO_PENDIENTE,
+            "Pendiente",
+        ),
+        (
+            ESTADO_PAGADA,
+            "Pagada",
+        ),
+    ]
+
+    fecha = models.DateField(
+        verbose_name="fecha",
+    )
+
+    cantidad = models.PositiveIntegerField(
+        validators=[
+            MinValueValidator(1)
+        ],
+        verbose_name="cantidad",
+    )
+
+    observacion = models.TextField(
+        blank=True,
+        default="",
+        verbose_name="observación",
+    )
+
+    valor_unitario = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=[
+            MinValueValidator(
+                Decimal("0.01")
+            )
+        ],
+        verbose_name="valor unitario",
+    )
+
+    importe = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        validators=[
+            MinValueValidator(
+                Decimal("0.01")
+            )
+        ],
+        verbose_name="importe",
+    )
+
+    estado = models.CharField(
+        max_length=20,
+        choices=ESTADOS,
+        default=ESTADO_PENDIENTE,
+        db_index=True,
+        verbose_name="estado",
+    )
+
+    class Meta:
+        ordering = [
+            "-fecha",
+            "-id",
+        ]
+        verbose_name = "almácigo"
+        verbose_name_plural = "almácigos"
+
+    def __str__(self):
+        return (
+            f"{self.fecha} - "
+            f"{self.cantidad} - "
+            f"${self.importe}"
+        )
+
+
+
+from decimal import Decimal
+
+from django.core.exceptions import ValidationError
+from django.db import models
+from django.db.models import Sum
+ 
+
+class Comprador(BaseAbstractWithUser):
+    nombre = models.CharField(
+        max_length=150,
+        verbose_name="nombre",
+    )
+
+    cuit = models.CharField(
+        max_length=20,
+        null=True,
+        blank=True,
+        unique=True,
+        verbose_name="CUIT",
+    )
+
+    telefono = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
+        verbose_name="teléfono",
+    )
+
+    observacion = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name="observación",
+    )
+
+    class Meta:
+        verbose_name = "comprador"
+        verbose_name_plural = "compradores"
+        ordering = ["nombre"]
+
+    def __str__(self):
+        return self.nombre
+
+
+class Venta(BaseAbstractWithUser):
+
+    class Estado(models.TextChoices):
+        PENDIENTE = "PENDIENTE", "Pendiente"
+        PARCIAL = "PARCIAL", "Parcial"
+        PAGADA = "PAGADA", "Pagada"
+
+    comprador = models.ForeignKey(
+        Comprador,
+        on_delete=models.PROTECT,
+        related_name="ventas",
+        verbose_name="comprador",
+    )
+
+    fecha = models.DateField(
+        verbose_name="fecha",
+    )
+
+    cantidad_bolsas = models.IntegerField(
+        verbose_name="cantidad de bolsas",
+    )
+
+    precio_unitario = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        verbose_name="precio unitario",
+    )
+
+    observacion = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name="observación",
+    )
+
+    estado = models.CharField(
+        max_length=20,
+        choices=Estado.choices,
+        default=Estado.PENDIENTE,
+        editable=False,
+        verbose_name="estado",
+    )
+
+    class Meta:
+        verbose_name = "venta"
+        verbose_name_plural = "ventas"
+        ordering = ["-fecha", "-id"]
+
+    def __str__(self):
+        return (
+            f"Venta #{self.pk} - "
+            f"{self.comprador} - "
+            f"{self.cantidad_bolsas} bolsas"
+        )
+
+    @property
+    def total(self):
+        return (
+            Decimal(self.cantidad_bolsas)
+            * self.precio_unitario
+        )
+
+    @property
+    def cantidad_bolsas_pagadas(self):
+        resultado = self.pagos.filter(
+            is_deleted=False,
+        ).aggregate(
+            total=Sum("cantidad_bolsas")
+        )
+
+        return resultado["total"] or 0
+
+    @property
+    def cantidad_bolsas_pendientes(self):
+        pagadas = self.cantidad_bolsas_pagadas
+
+        return max(
+            self.cantidad_bolsas - pagadas,
+            0,
+        )
+
+    @property
+    def total_pagado(self):
+        resultado = self.pagos.filter(
+            is_deleted=False,
+        ).aggregate(
+            total=Sum("importe")
+        )
+
+        return resultado["total"] or Decimal("0.00")
+
+    @property
+    def saldo_pendiente(self):
+        saldo = self.total - self.total_pagado
+
+        return max(
+            saldo,
+            Decimal("0.00"),
+        )
+
+    def actualizar_estado(self):
+        pagadas = self.cantidad_bolsas_pagadas
+
+        if pagadas <= 0:
+            nuevo_estado = self.Estado.PENDIENTE
+
+        elif pagadas >= self.cantidad_bolsas:
+            nuevo_estado = self.Estado.PAGADA
+
+        else:
+            nuevo_estado = self.Estado.PARCIAL
+
+        if self.estado != nuevo_estado:
+            self.estado = nuevo_estado
+
+            self.save(
+                update_fields=[
+                    "estado",
+                ]
+            )
+
+        return nuevo_estado
+
+
+class PagoVenta(BaseAbstractWithUser):
+    venta = models.ForeignKey(
+        Venta,
+        on_delete=models.PROTECT,
+        related_name="pagos",
+        verbose_name="venta",
+    )
+
+    fecha = models.DateField(
+        verbose_name="fecha",
+    )
+
+    cantidad_bolsas = models.IntegerField(
+        verbose_name="cantidad de bolsas pagadas",
+    )
+
+    importe = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        editable=False,
+        verbose_name="importe",
+    )
+
+    observacion = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name="observación",
+    )
+
+    class Meta:
+        verbose_name = "pago de venta"
+        verbose_name_plural = "pagos de ventas"
+        ordering = ["-fecha", "-id"]
+
+    def __str__(self):
+        return (
+            f"Pago #{self.pk} - "
+            f"Venta #{self.venta_id} - "
+            f"{self.cantidad_bolsas} bolsas"
+        )
+
+    def clean(self):
+        super().clean()
+
+        if not self.venta_id:
+            return
+
+        if self.cantidad_bolsas < 1:
+            raise ValidationError(
+                {
+                    "cantidad_bolsas": (
+                        "La cantidad de bolsas debe ser mayor a 0."
+                    )
+                }
+            )
+
+        pagos = self.venta.pagos.filter(
+            is_deleted=False,
+        )
+
+        if self.pk:
+            pagos = pagos.exclude(pk=self.pk)
+
+        ya_pagadas = pagos.aggregate(
+            total=Sum("cantidad_bolsas")
+        )["total"] or 0
+
+        disponibles = (
+            self.venta.cantidad_bolsas
+            - ya_pagadas
+        )
+
+        if self.cantidad_bolsas > disponibles:
+            raise ValidationError(
+                {
+                    "cantidad_bolsas": (
+                        f"Solo quedan {disponibles} bolsas "
+                        "pendientes de pago."
+                    )
+                }
+            )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+
+        self.importe = (
+            Decimal(self.cantidad_bolsas)
+            * self.venta.precio_unitario
+        )
+
+        super().save(*args, **kwargs)

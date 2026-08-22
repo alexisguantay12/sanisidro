@@ -35,6 +35,12 @@ const modules = [
     to: "/tractor",
   },
   {
+    title: "Almácigos",
+    description: "Compras y consumo",
+    icon: Sprout,
+    to: "/almacigos",
+  },
+  {
     title: "Insumos",
     description:
       "Uso en la tierra",

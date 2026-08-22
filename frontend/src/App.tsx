@@ -31,6 +31,9 @@ import ValoresPage
 
 import CambiarPasswordPage from "./pages/CambiarPasswordPage";
 
+import AlmacigosPage from "./pages/AlmacigoPage";
+import CompradoresPage from "./features/configuracion/compradores/CompradoresPage";
+import VentasPage from "./pages/VentasPage";
 
 function App() {
   return (
@@ -82,6 +85,10 @@ function App() {
           path="/configuracion/proveedores"
           element={<ProveedoresPage />}
         />
+        <Route
+          path="/configuracion/compradores"
+          element={<CompradoresPage />}
+        />
 
         <Route
           path="/configuracion/insumos"
@@ -97,6 +104,16 @@ function App() {
           element={
             <CambiarPasswordPage />
           }
+        />
+        <Route
+          path="/almacigos"
+          element={
+            <AlmacigosPage />
+          }
+        />
+        <Route
+          path="/ventas"
+          element={<VentasPage />}
         />
 
       </Route>

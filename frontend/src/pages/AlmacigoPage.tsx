@@ -5,38 +5,22 @@ import {
 } from "react";
 
 import {
-  ArrowLeft,
   Edit3,
   Plus,
   Search,
+  Sprout,
   Trash2,
-  Users,
 } from "lucide-react";
+ 
+import { deleteAlmacigo,getAlmacigos } from "../features/almacigos/api";
 
-import {
-  useNavigate,
-} from "react-router-dom";
 
-import {
-  deleteTractorTercero,
-  getProveedores,
-  getTractorTerceros,
-} from "../features/tractor/api";
+import type { Almacigo } from "../features/almacigos/types";
+import AlmacigoCreateModal from "../features/almacigos/AlmacigoCreateModal";
 
-import type {
-  Proveedor,
-  TractorTercero,
-} from "../features/tractor/types";
+import AlmacigoEditModal from "../features/almacigos/AlmacigoEditModal";
 
-import TractorCreateTerceroModal
-  from "../features/tractor/TractorCreateTerceroModal";
-
-import TractorEditTerceroModal
-  from "../features/tractor/TractorEditTerceroModal";
-
-import TractorDeleteModal
-  from "../features/tractor/TractorDeleteModal";
-
+import AlmacigoDeleteModal from "../features/almacigos/AlmacigoDeleteModal";
 
 function money(
   value: string | number
@@ -49,7 +33,7 @@ function money(
       maximumFractionDigits: 2,
     }
   ).format(
-    Number(value)
+    Number(value || 0)
   );
 }
 
@@ -71,28 +55,21 @@ function formatDate(
 }
 
 
-export default function TractorTercerosPage() {
-  const navigate =
-    useNavigate();
+export default function AlmacigosPage() {
+  const [
+    almacigos,
+    setAlmacigos,
+  ] = useState<Almacigo[]>([]);
 
   const [
-    registros,
-    setRegistros,
-  ] = useState<
-    TractorTercero[]
-  >([]);
-
-  const [
-    proveedores,
-    setProveedores,
-  ] = useState<
-    Proveedor[]
-  >([]);
+    search,
+    setSearch,
+  ] = useState("");
 
   const [
     loading,
     setLoading,
-  ] = useState(true);
+  ] = useState(false);
 
   const [
     error,
@@ -105,28 +82,23 @@ export default function TractorTercerosPage() {
   ] = useState("");
 
   const [
-    search,
-    setSearch,
-  ] = useState("");
-
-  const [
     createOpen,
     setCreateOpen,
   ] = useState(false);
 
   const [
-    editing,
-    setEditing,
-  ] = useState<
-    TractorTercero | null
-  >(null);
+    editingAlmacigo,
+    setEditingAlmacigo,
+  ] = useState<Almacigo | null>(
+    null
+  );
 
   const [
-    deleting,
-    setDeleting,
-  ] = useState<
-    TractorTercero | null
-  >(null);
+    deletingAlmacigo,
+    setDeletingAlmacigo,
+  ] = useState<Almacigo | null>(
+    null
+  );
 
   const [
     deleteLoading,
@@ -134,35 +106,25 @@ export default function TractorTercerosPage() {
   ] = useState(false);
 
 
-  async function loadData() {
+  async function loadAlmacigos() {
     try {
       setLoading(true);
       setError("");
 
-      const [
-        trabajosData,
-        proveedoresData,
-      ] = await Promise.all([
-        getTractorTerceros(),
-        getProveedores(),
-      ]);
+      const data =
+        await getAlmacigos();
 
-      setRegistros(
-        trabajosData
+      setAlmacigos(
+        data
       );
 
-      setProveedores(
-        proveedoresData.filter(
-          (item) =>
-            item.activo
-        )
-      );
-
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
 
       setError(
-        "No se pudieron cargar los trabajos de terceros."
+        error?.response?.data
+          ?.detail ??
+          "No se pudieron cargar los almácigos."
       );
 
     } finally {
@@ -172,111 +134,68 @@ export default function TractorTercerosPage() {
 
 
   useEffect(() => {
-    void loadData();
+    void loadAlmacigos();
   }, []);
 
 
   function showMessage(
-    text: string
+    value: string
   ) {
-    setMessage(text);
+    setMessage(
+      value
+    );
 
     window.setTimeout(
-      () => setMessage(""),
+      () => {
+        setMessage("");
+      },
       2500
     );
   }
 
 
-  async function refresh(
-    text?: string
-  ) {
-    const data =
-      await getTractorTerceros();
+  async function handleCreateSuccess() {
+    await loadAlmacigos();
 
-    setRegistros(data);
-
-    if (text) {
-      showMessage(text);
-    }
+    showMessage(
+      "Registro creado correctamente."
+    );
   }
 
 
-  const filtered =
-    useMemo(() => {
-      const query =
-        search
-          .trim()
-          .toLowerCase();
-
-      if (!query) {
-        return registros;
-      }
-
-      return registros.filter(
-        (registro) =>
-          registro.proveedor_nombre
-            .toLowerCase()
-            .includes(query) ||
-          registro.observacion
-            ?.toLowerCase()
-            .includes(query) ||
-          formatDate(
-            registro.fecha
-          )
-            .toLowerCase()
-            .includes(query)
-      );
-
-    }, [
-      registros,
-      search,
-    ]);
-
-
-  const pendientes =
-    registros.filter(
-      (item) =>
-        item.estado ===
-        "pendiente"
+  async function handleEditSuccess() {
+    setEditingAlmacigo(
+      null
     );
 
+    await loadAlmacigos();
 
-  const horasPendientes =
-    pendientes.reduce(
-      (total, item) =>
-        total +
-        Number(
-          item.cantidad_horas
-        ),
-      0
+    showMessage(
+      "Registro actualizado correctamente."
     );
+  }
 
 
-  const importePendiente =
-    pendientes.reduce(
-      (total, item) =>
-        total +
-        Number(item.importe),
-      0
-    );
-
-
-  async function handleDelete() {
-    if (!deleting) {
+  async function handleDeleteConfirm() {
+    if (!deletingAlmacigo) {
       return;
     }
 
     try {
       setDeleteLoading(true);
+      setError("");
 
-      await deleteTractorTercero(
-        deleting.id
+      await deleteAlmacigo(
+        deletingAlmacigo.id
       );
 
-      setDeleting(null);
+      setDeletingAlmacigo(
+        null
+      );
 
-      await refresh(
+      await loadAlmacigos();
+
+      showMessage(
         "Registro eliminado correctamente."
       );
 
@@ -286,13 +205,80 @@ export default function TractorTercerosPage() {
       setError(
         error?.response?.data
           ?.detail ??
-        "No se pudo eliminar el registro."
+          "No se pudo eliminar el registro."
       );
 
     } finally {
       setDeleteLoading(false);
     }
   }
+
+
+  const filteredAlmacigos =
+    useMemo(() => {
+      const query =
+        search
+          .trim()
+          .toLowerCase();
+
+      if (!query) {
+        return almacigos;
+      }
+
+      return almacigos.filter(
+        (item) =>
+          formatDate(
+            item.fecha
+          )
+            .toLowerCase()
+            .includes(query) ||
+          item.observacion
+            ?.toLowerCase()
+            .includes(query) ||
+          item.estado_display
+            ?.toLowerCase()
+            .includes(query)
+      );
+    }, [
+      almacigos,
+      search,
+    ]);
+
+
+  const pendientes =
+    almacigos.filter(
+      (item) =>
+        item.estado ===
+        "PENDIENTE"
+    );
+
+
+  const totalPendiente =
+    pendientes.reduce(
+      (
+        acc,
+        item
+      ) =>
+        acc +
+        Number(
+          item.importe
+        ),
+      0
+    );
+
+
+  const cantidadPendiente =
+    pendientes.reduce(
+      (
+        acc,
+        item
+      ) =>
+        acc +
+        Number(
+          item.cantidad
+        ),
+      0
+    );
 
 
   return (
@@ -303,46 +289,42 @@ export default function TractorTercerosPage() {
         </div>
       )}
 
+
       <div className="min-h-full bg-[#F6F8F6]">
         <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
-
-          <button
-            type="button"
-            onClick={() =>
-              navigate("/tractor")
-            }
-            className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-[#68716B] hover:text-[#18392B]"
-          >
-            <ArrowLeft size={17} />
-            Tractor
-          </button>
-
 
           {/* HEADER */}
           <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#859089]">
-                Tractor
+                Producción
               </p>
 
               <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[#1B1E1C] sm:text-3xl">
-                Terceros
+                Almácigos
               </h1>
 
               <p className="mt-2 max-w-2xl text-sm text-[#78817B]">
-                Servicios realizados por
-                proveedores externos.
+                Registrá y administrá
+                las compras de almácigos
+                utilizadas en la finca.
               </p>
             </div>
+
 
             <button
               type="button"
               onClick={() =>
-                setCreateOpen(true)
+                setCreateOpen(
+                  true
+                )
               }
               className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#18392B] px-5 text-sm font-semibold text-white shadow-[0_8px_22px_rgba(24,57,43,0.16)] transition hover:bg-[#204A38]"
             >
-              <Plus size={18} />
+              <Plus
+                size={18}
+              />
+
               Nueva carga
             </button>
           </div>
@@ -350,6 +332,7 @@ export default function TractorTercerosPage() {
 
           {/* RESUMEN */}
           <section className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+
             <div className="rounded-[24px] border border-[#E4E8E5] bg-white p-4 shadow-[0_8px_28px_rgba(27,30,28,0.04)]">
               <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#8B948E]">
                 Pendientes
@@ -364,19 +347,21 @@ export default function TractorTercerosPage() {
               </p>
             </div>
 
+
             <div className="rounded-[24px] border border-[#E4E8E5] bg-white p-4 shadow-[0_8px_28px_rgba(27,30,28,0.04)]">
               <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#8B948E]">
-                Horas
+                Cantidad
               </p>
 
               <p className="mt-2 text-2xl font-semibold text-[#18392B]">
-                {horasPendientes}
+                {cantidadPendiente}
               </p>
 
               <p className="mt-1 text-xs text-[#8B948E]">
-                pendientes
+                almácigos pendientes
               </p>
             </div>
+
 
             <div className="col-span-2 rounded-[24px] bg-[#18392B] p-4 text-white shadow-[0_8px_28px_rgba(24,57,43,0.14)] sm:col-span-1">
               <p className="text-xs font-semibold uppercase tracking-[0.08em] text-white/60">
@@ -385,7 +370,7 @@ export default function TractorTercerosPage() {
 
               <p className="mt-2 truncate text-xl font-semibold">
                 {money(
-                  importePendiente
+                  totalPendiente
                 )}
               </p>
 
@@ -393,6 +378,7 @@ export default function TractorTercerosPage() {
                 importe pendiente
               </p>
             </div>
+
           </section>
 
 
@@ -412,13 +398,14 @@ export default function TractorTercerosPage() {
                     e.target.value
                   )
                 }
-                placeholder="Buscar proveedor, fecha u observación..."
+                placeholder="Buscar fecha, observación o estado..."
                 className="h-12 w-full rounded-2xl border border-[#DDE3DF] bg-[#FAFBFA] pl-11 pr-4 text-sm text-[#333936] outline-none placeholder:text-[#A3AAA5] focus:border-[#9FB4A6] focus:bg-white focus:ring-4 focus:ring-[#18392B]/5"
               />
             </div>
           </div>
 
 
+          {/* ERROR */}
           {error && (
             <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
               {error}
@@ -426,55 +413,71 @@ export default function TractorTercerosPage() {
           )}
 
 
+          {/* LOADING */}
           {loading ? (
             <div className="rounded-[24px] border border-[#E4E8E5] bg-white px-6 py-16 text-center shadow-[0_8px_28px_rgba(27,30,28,0.04)]">
+
               <div className="mx-auto h-8 w-8 animate-spin rounded-full border-[3px] border-[#E2E7E3] border-t-[#18392B]" />
 
               <p className="mt-4 text-sm text-[#78817B]">
-                Cargando trabajos...
+                Cargando almácigos...
               </p>
+
             </div>
-          ) : filtered.length === 0 ? (
+
+          ) : filteredAlmacigos.length === 0 ? (
+
+            /* VACÍO */
             <div className="rounded-[24px] border border-[#E4E8E5] bg-white px-6 py-14 text-center shadow-[0_8px_28px_rgba(27,30,28,0.04)]">
+
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#EEF3EF] text-[#537060]">
-                <Users size={22} />
+                <Sprout
+                  size={22}
+                />
               </div>
 
               <h3 className="mt-4 text-base font-semibold text-[#272C29]">
-                No hay trabajos
+                {search
+                  ? "No encontramos registros"
+                  : "No hay almácigos"}
               </h3>
 
               <p className="mt-1 text-sm text-[#808983]">
-                Los servicios contratados
-                a terceros aparecerán acá.
+                {search
+                  ? "No encontramos registros con ese criterio."
+                  : "Todavía no se registraron compras de almácigos."}
               </p>
+
             </div>
+
           ) : (
             <>
+
               {/* DESKTOP */}
               <div className="hidden overflow-hidden rounded-[24px] border border-[#E4E8E5] bg-white shadow-[0_8px_28px_rgba(27,30,28,0.04)] md:block">
+
                 <div className="overflow-x-auto">
+
                   <table className="w-full">
+
                     <thead>
+
                       <tr className="border-b border-[#E8ECE9] bg-[#FAFBFA]">
+
                         <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-[0.08em] text-[#8B948E]">
                           Fecha
                         </th>
 
                         <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-[0.08em] text-[#8B948E]">
-                          Proveedor
+                          Cantidad
                         </th>
 
                         <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-[0.08em] text-[#8B948E]">
-                          Horas
+                          Valor unit.
                         </th>
 
                         <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-[0.08em] text-[#8B948E]">
-                          Precio / hora
-                        </th>
-
-                        <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-[0.08em] text-[#8B948E]">
-                          Importe
+                          Total
                         </th>
 
                         <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-[0.08em] text-[#8B948E]">
@@ -488,306 +491,393 @@ export default function TractorTercerosPage() {
                         <th className="px-5 py-4 text-right text-xs font-semibold uppercase tracking-[0.08em] text-[#8B948E]">
                           Acciones
                         </th>
+
                       </tr>
+
                     </thead>
 
+
                     <tbody>
-                      {filtered.map(
-                        (registro) => {
+
+                      {filteredAlmacigos.map(
+                        (item) => {
+
                           const pendiente =
-                            registro.estado ===
-                            "pendiente";
+                            item.estado ===
+                            "PENDIENTE";
+
 
                           return (
                             <tr
-                              key={registro.id}
+                              key={
+                                item.id
+                              }
                               className="border-b border-[#EEF1EF] last:border-b-0 hover:bg-[#FAFBFA]"
                             >
+
+                              {/* FECHA */}
                               <td className="whitespace-nowrap px-5 py-4 text-sm font-medium text-[#59615C]">
                                 {formatDate(
-                                  registro.fecha
+                                  item.fecha
                                 )}
                               </td>
 
-                              <td className="px-5 py-4 text-sm font-semibold text-[#242925]">
+
+                              {/* CANTIDAD */}
+                              <td className="px-5 py-4 text-sm font-semibold text-[#333936]">
                                 {
-                                  registro.proveedor_nombre
+                                  item.cantidad
                                 }
                               </td>
 
-                              <td className="px-5 py-4 text-sm font-semibold text-[#333936]">
-                                {Number(
-                                  registro.cantidad_horas
-                                )} h
-                              </td>
 
+                              {/* VALOR UNITARIO */}
                               <td className="whitespace-nowrap px-5 py-4 text-sm text-[#727B75]">
                                 {money(
-                                  registro.precio_hora
+                                  item.valor_unitario
                                 )}
                               </td>
 
+
+                              {/* TOTAL */}
                               <td className="whitespace-nowrap px-5 py-4 text-sm font-semibold text-[#18392B]">
                                 {money(
-                                  registro.importe
+                                  item.importe
                                 )}
                               </td>
 
-                              <td className="max-w-[280px] px-5 py-4">
-                                <p
-                                  title={
-                                    registro.observacion
+
+                              {/* OBSERVACIÓN */}
+                              <td className="max-w-[280px] px-5 py-4 text-sm text-[#727B75]">
+                                <p className="truncate">
+                                  {
+                                    item.observacion ||
+                                    "-"
                                   }
-                                  className="truncate text-sm text-[#727B75]"
-                                >
-                                  {registro.observacion ||
-                                    "—"}
                                 </p>
                               </td>
 
+
+                              {/* ESTADO */}
                               <td className="px-5 py-4">
+
                                 {pendiente ? (
+
                                   <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1.5 text-[11px] font-semibold text-amber-700">
+
                                     <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+
                                     Pendiente
+
                                   </span>
+
                                 ) : (
+
                                   <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-700">
+
                                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+
                                     Pagada
+
                                   </span>
+
                                 )}
+
                               </td>
 
+
+                              {/* ACCIONES */}
                               <td className="px-5 py-4">
+
                                 {pendiente && (
                                   <div className="flex justify-end gap-2">
+
                                     <button
                                       type="button"
                                       title="Editar"
                                       onClick={() =>
-                                        setEditing(
-                                          registro
+                                        setEditingAlmacigo(
+                                          item
                                         )
                                       }
                                       className="flex h-9 w-9 items-center justify-center rounded-xl text-[#657068] transition hover:bg-[#EEF3EF] hover:text-[#18392B]"
                                     >
-                                      <Edit3 size={17} />
+                                      <Edit3
+                                        size={17}
+                                      />
                                     </button>
+
 
                                     <button
                                       type="button"
                                       title="Eliminar"
                                       onClick={() =>
-                                        setDeleting(
-                                          registro
+                                        setDeletingAlmacigo(
+                                          item
                                         )
                                       }
                                       className="flex h-9 w-9 items-center justify-center rounded-xl text-[#8A938D] transition hover:bg-red-50 hover:text-red-600"
                                     >
-                                      <Trash2 size={17} />
+                                      <Trash2
+                                        size={17}
+                                      />
                                     </button>
+
                                   </div>
                                 )}
+
                               </td>
+
                             </tr>
                           );
                         }
                       )}
+
                     </tbody>
+
                   </table>
+
                 </div>
+
               </div>
 
 
               {/* MOBILE */}
               <div className="space-y-3 md:hidden">
-                {filtered.map(
-                  (registro) => {
+
+                {filteredAlmacigos.map(
+                  (item) => {
+
                     const pendiente =
-                      registro.estado ===
-                      "pendiente";
+                      item.estado ===
+                      "PENDIENTE";
+
 
                     return (
                       <div
-                        key={registro.id}
+                        key={
+                          item.id
+                        }
                         className="rounded-[22px] border border-[#E4E8E5] bg-white p-4 shadow-[0_8px_24px_rgba(27,30,28,0.04)]"
                       >
+
+                        {/* CABECERA MOBILE */}
                         <div className="flex items-start justify-between gap-3">
+
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-base font-semibold text-[#242925]">
-                              {
-                                registro.proveedor_nombre
-                              }
+
+                            <p className="text-base font-semibold text-[#242925]">
+                              {item.cantidad}{" "}
+                              {item.cantidad === 1
+                                ? "almácigo"
+                                : "almácigos"}
                             </p>
 
-                            <p className="mt-1 text-xs text-[#8A938D]">
+
+                            <p className="mt-1 text-xs font-medium text-[#8A938D]">
                               {formatDate(
-                                registro.fecha
+                                item.fecha
                               )}
                             </p>
+
                           </div>
 
+
+                          {/* ACCIONES MOBILE */}
                           {pendiente && (
                             <div className="flex shrink-0 gap-1">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setEditing(
-                                    registro
-                                  )
-                                }
-                                className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#F5F7F5] text-[#657068]"
-                              >
-                                <Edit3 size={16} />
-                              </button>
 
                               <button
                                 type="button"
                                 onClick={() =>
-                                  setDeleting(
-                                    registro
+                                  setEditingAlmacigo(
+                                    item
                                   )
                                 }
-                                className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-50 text-red-500"
+                                className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#F5F7F5] text-[#657068] active:scale-95"
                               >
-                                <Trash2 size={16} />
+                                <Edit3
+                                  size={16}
+                                />
                               </button>
+
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setDeletingAlmacigo(
+                                    item
+                                  )
+                                }
+                                className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-50 text-red-500 active:scale-95"
+                              >
+                                <Trash2
+                                  size={16}
+                                />
+                              </button>
+
                             </div>
                           )}
+
                         </div>
 
+
+                        {/* DATOS */}
                         <div className="mt-4 grid grid-cols-2 gap-3">
+
                           <div className="rounded-2xl bg-[#F6F8F6] p-3">
+
                             <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#929A95]">
-                              Horas
+                              Valor unit.
                             </p>
 
                             <p className="mt-1 text-sm font-semibold text-[#444B47]">
-                              {Number(
-                                registro.cantidad_horas
-                              )} h
+                              {money(
+                                item.valor_unitario
+                              )}
                             </p>
+
                           </div>
 
+
                           <div className="rounded-2xl bg-[#F6F8F6] p-3">
+
                             <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#929A95]">
-                              Importe
+                              Total
                             </p>
 
                             <p className="mt-1 text-sm font-semibold text-[#18392B]">
                               {money(
-                                registro.importe
+                                item.importe
                               )}
                             </p>
+
                           </div>
+
                         </div>
 
-                        <div className="mt-3 grid grid-cols-2 gap-3 border-t border-[#EEF1EF] pt-3">
-                          <div>
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#929A95]">
-                              Precio / hora
-                            </p>
 
-                            <p className="mt-1 text-sm text-[#68716B]">
-                              {money(
-                                registro.precio_hora
-                              )}
-                            </p>
-                          </div>
+                        {/* OBSERVACIÓN */}
+                        {item.observacion && (
+                          <div className="mt-3">
 
-                          <div className="flex items-end justify-end">
-                            {pendiente ? (
-                              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1.5 text-[11px] font-semibold text-amber-700">
-                                <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                                Pendiente
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-700">
-                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                                Pagada
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        {registro.observacion && (
-                          <div className="mt-3 border-t border-[#EEF1EF] pt-3">
                             <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#929A95]">
                               Observación
                             </p>
 
-                            <p className="mt-1.5 text-sm leading-5 text-[#68716B]">
+                            <p className="mt-1 text-sm leading-5 text-[#68716B]">
                               {
-                                registro.observacion
+                                item.observacion
                               }
                             </p>
+
                           </div>
                         )}
+
+
+                        {/* ESTADO */}
+                        <div className="mt-3 flex items-center justify-end border-t border-[#EEF1EF] pt-3">
+
+                          {pendiente ? (
+
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1.5 text-[11px] font-semibold text-amber-700">
+
+                              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+
+                              Pendiente
+
+                            </span>
+
+                          ) : (
+
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-700">
+
+                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+
+                              Pagada
+
+                            </span>
+
+                          )}
+
+                        </div>
+
                       </div>
                     );
                   }
                 )}
+
               </div>
+
             </>
           )}
+
         </div>
       </div>
 
 
-      <TractorCreateTerceroModal
-        open={createOpen}
-        proveedores={
-          proveedores
+      {/* CREAR */}
+      <AlmacigoCreateModal
+        open={
+          createOpen
         }
         onClose={() =>
-          setCreateOpen(false)
-        }
-        onSuccess={() =>
-          refresh(
-            "Trabajo registrado correctamente."
+          setCreateOpen(
+            false
           )
+        }
+        onSuccess={
+          handleCreateSuccess
         }
       />
 
-      <TractorEditTerceroModal
+
+      {/* EDITAR */}
+      <AlmacigoEditModal
         open={
-          editing !== null
+          editingAlmacigo !==
+          null
         }
-        registro={editing}
-        proveedores={
-          proveedores
+        almacigo={
+          editingAlmacigo
         }
         onClose={() =>
-          setEditing(null)
-        }
-        onSuccess={() =>
-          refresh(
-            "Trabajo actualizado correctamente."
+          setEditingAlmacigo(
+            null
           )
+        }
+        onSuccess={
+          handleEditSuccess
         }
       />
 
-      <TractorDeleteModal
+
+      {/* ELIMINAR */}
+      <AlmacigoDeleteModal
         open={
-          deleting !== null
-        }
-        title="Eliminar trabajo"
-        description={
-          deleting
-            ? `Se eliminará el trabajo de ${deleting.proveedor_nombre}.`
-            : ""
+          deletingAlmacigo !==
+          null
         }
         loading={
           deleteLoading
         }
+        description={
+          deletingAlmacigo
+            ? `Vas a eliminar el registro del ${formatDate(
+                deletingAlmacigo.fecha
+              )}.`
+            : ""
+        }
         onCancel={() =>
-          setDeleting(null)
+          setDeletingAlmacigo(
+            null
+          )
         }
         onConfirm={
-          handleDelete
+          handleDeleteConfirm
         }
       />
+
     </>
   );
 }

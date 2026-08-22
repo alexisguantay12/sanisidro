@@ -8,6 +8,18 @@ from django.urls import path
 from .views import (
     CambiarPasswordView,
 )
+
+from .views import (
+    AlmacigoViewSet,
+    ConfiguracionAlmacigoViewSet,
+)
+
+from .views import (
+    CompradorViewSet,
+    VentaViewSet,
+    PagoVentaViewSet,
+)
+
 router = DefaultRouter()
 
 router.register(
@@ -70,6 +82,17 @@ router.register(
     basename="valor-jornal",
 )
 
+router.register(
+    r"almacigos",
+    AlmacigoViewSet,
+    basename="almacigos",
+)
+
+router.register(
+    r"almacigos/configuracion",
+    ConfiguracionAlmacigoViewSet,
+    basename="configuracion-almacigos",
+)
 
 
 urlpatterns = [
@@ -80,6 +103,25 @@ urlpatterns = [
     ),
 ]
 
-urlpatterns += router.urls
+router.register(
+    r"compradores",
+    CompradorViewSet,
+    basename="comprador",
+)
+
+router.register(
+    r"ventas",
+    VentaViewSet,
+    basename="venta",
+)
+
+router.register(
+    r"pagos-ventas",
+    PagoVentaViewSet,
+    basename="pago-venta",
+)
+
+
+ 
 
 urlpatterns = router.urls

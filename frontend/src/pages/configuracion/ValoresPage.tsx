@@ -9,6 +9,7 @@ import {
   Clock3,
   History,
   Pencil,
+  Sprout,
 } from "lucide-react";
 
 import {
@@ -21,16 +22,24 @@ import {
   getValorJornalActual,
 } from "../../features/configuracion/api";
 
+import {
+  getConfiguracionAlmacigoActual,
+} from "../../features/almacigos/api";
+
 import ValorJornalModal
   from "../../features/configuracion/ValorJornalModal";
 
 import TractorValorModal
   from "../../features/configuracion/TractorValorModal";
 
+import ValorAlmacigoModal
+  from "../../features/configuracion/ValorAlmacigoModal";
+
 import type {
   ConfiguracionTractor,
   ValorJornal,
 } from "../../features/configuracion/types";
+
 
 function money(
   value: string | number
@@ -46,6 +55,7 @@ function money(
     Number(value || 0)
   );
 }
+
 
 function date(
   value: string
@@ -63,9 +73,11 @@ function date(
   return `${d}/${m}/${y}`;
 }
 
+
 export default function ValoresPage() {
   const navigate =
     useNavigate();
+
 
   const [
     jornal,
@@ -74,10 +86,12 @@ export default function ValoresPage() {
     null
   );
 
+
   const [
     historial,
     setHistorial,
   ] = useState<ValorJornal[]>([]);
+
 
   const [
     tractor,
@@ -86,50 +100,112 @@ export default function ValoresPage() {
     null
   );
 
+
+  const [
+    valorAlmacigo,
+    setValorAlmacigo,
+  ] = useState("0");
+
+
   const [
     jornalOpen,
     setJornalOpen,
   ] = useState(false);
+
 
   const [
     tractorOpen,
     setTractorOpen,
   ] = useState(false);
 
-  async function loadData() {
-    const historialData =
-      await getValoresJornal();
 
-    setHistorial(
-      historialData
-    );
+  const [
+    almacigoModalOpen,
+    setAlmacigoModalOpen,
+  ] = useState(false);
+
+
+  async function loadData() {
+    try {
+      const historialData =
+        await getValoresJornal();
+
+      setHistorial(
+        historialData
+      );
+    } catch (error) {
+      console.error(
+        "Error cargando historial de jornales:",
+        error
+      );
+
+      setHistorial([]);
+    }
+
 
     try {
+      const jornalActual =
+        await getValorJornalActual();
+
       setJornal(
-        await getValorJornalActual()
+        jornalActual
       );
-    } catch {
+    } catch (error) {
+      console.error(
+        "Error cargando jornal actual:",
+        error
+      );
+
       setJornal(null);
     }
 
+
     try {
+      const tractorActual =
+        await getConfiguracionTractorActual();
+
       setTractor(
-        await getConfiguracionTractorActual()
+        tractorActual
       );
-    } catch {
+    } catch (error) {
+      console.error(
+        "Error cargando configuración del tractor:",
+        error
+      );
+
       setTractor(null);
     }
+
+
+    try {
+      const configuracionAlmacigo =
+        await getConfiguracionAlmacigoActual();
+
+      setValorAlmacigo(
+        configuracionAlmacigo.valor
+      );
+    } catch (error) {
+      console.error(
+        "Error cargando valor del almácigo:",
+        error
+      );
+
+      setValorAlmacigo("0");
+    }
   }
+
 
   useEffect(() => {
     void loadData();
   }, []);
+
 
   return (
     <>
       <div className="min-h-full bg-[#F6F8F6]">
         <div className="mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-7">
           <button
+            type="button"
             onClick={() =>
               navigate(
                 "/configuracion"
@@ -137,9 +213,13 @@ export default function ValoresPage() {
             }
             className="mb-5 flex items-center gap-2 text-sm font-semibold text-[#667069] hover:text-[#18392B]"
           >
-            <ArrowLeft size={17} />
+            <ArrowLeft
+              size={17}
+            />
+
             Configuración
           </button>
+
 
           <div className="mb-6">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#859089]">
@@ -157,27 +237,39 @@ export default function ValoresPage() {
             </p>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
+
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {/* VALOR JORNAL */}
             <div className="rounded-[26px] border border-[#E4E8E5] bg-white p-5 shadow-[0_8px_28px_rgba(27,30,28,0.04)] sm:p-6">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#EEF3EF] text-[#18392B]">
-                  <Banknote size={22} />
+                  <Banknote
+                    size={22}
+                  />
                 </div>
 
                 <button
+                  type="button"
                   onClick={() =>
-                    setJornalOpen(true)
+                    setJornalOpen(
+                      true
+                    )
                   }
-                  className="flex h-10 items-center gap-2 rounded-xl border border-[#DDE3DF] px-3 text-sm font-semibold text-[#59615C] hover:bg-[#F7F8F7]"
+                  className="flex h-10 items-center gap-2 rounded-xl border border-[#DDE3DF] px-3 text-sm font-semibold text-[#59615C] transition hover:bg-[#F7F8F7]"
                 >
-                  <Pencil size={15} />
+                  <Pencil
+                    size={15}
+                  />
+
                   Actualizar
                 </button>
               </div>
 
+
               <p className="mt-5 text-sm font-semibold text-[#737C76]">
                 Valor Jornal
               </p>
+
 
               <p className="mt-2 text-3xl font-semibold tracking-tight text-[#1B1E1C]">
                 {jornal
@@ -186,6 +278,7 @@ export default function ValoresPage() {
                     )
                   : "Sin configurar"}
               </p>
+
 
               {jornal && (
                 <p className="mt-2 text-xs text-[#8B948E]">
@@ -197,28 +290,38 @@ export default function ValoresPage() {
               )}
             </div>
 
+
+            {/* TRACTOR */}
             <div className="rounded-[26px] border border-[#E4E8E5] bg-white p-5 shadow-[0_8px_28px_rgba(27,30,28,0.04)] sm:p-6">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#EEF3EF] text-[#18392B]">
-                  <Clock3 size={22} />
+                  <Clock3
+                    size={22}
+                  />
                 </div>
 
                 <button
+                  type="button"
                   onClick={() =>
                     setTractorOpen(
                       true
                     )
                   }
-                  className="flex h-10 items-center gap-2 rounded-xl border border-[#DDE3DF] px-3 text-sm font-semibold text-[#59615C] hover:bg-[#F7F8F7]"
+                  className="flex h-10 items-center gap-2 rounded-xl border border-[#DDE3DF] px-3 text-sm font-semibold text-[#59615C] transition hover:bg-[#F7F8F7]"
                 >
-                  <Pencil size={15} />
+                  <Pencil
+                    size={15}
+                  />
+
                   Editar
                 </button>
               </div>
 
+
               <p className="mt-5 text-sm font-semibold text-[#737C76]">
                 Hora Tractor Sergio
               </p>
+
 
               <p className="mt-2 text-3xl font-semibold tracking-tight text-[#1B1E1C]">
                 {tractor
@@ -228,13 +331,68 @@ export default function ValoresPage() {
                   : "Sin configurar"}
               </p>
 
-              <p className="mt-2 text-xs text-[#8B948E]">
-                Valor utilizado al registrar
-                nuevas horas del tractor.
+
+              <p className="mt-2 text-xs leading-5 text-[#8B948E]">
+                Valor utilizado al
+                registrar nuevas horas
+                del tractor.
+              </p>
+            </div>
+
+
+            {/* ALMÁCIGOS */}
+            <div className="rounded-[26px] border border-[#E4E8E5] bg-white p-5 shadow-[0_8px_28px_rgba(27,30,28,0.04)] sm:p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#EEF3EF] text-[#18392B]">
+                  <Sprout
+                    size={22}
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setAlmacigoModalOpen(
+                      true
+                    )
+                  }
+                  className="flex h-10 items-center gap-2 rounded-xl border border-[#DDE3DF] px-3 text-sm font-semibold text-[#59615C] transition hover:bg-[#F7F8F7]"
+                >
+                  <Pencil
+                    size={15}
+                  />
+
+                  Editar
+                </button>
+              </div>
+
+
+              <p className="mt-5 text-sm font-semibold text-[#737C76]">
+                Valor Almácigo
+              </p>
+
+
+              <p className="mt-2 text-3xl font-semibold tracking-tight text-[#1B1E1C]">
+                {Number(
+                  valorAlmacigo
+                ) > 0
+                  ? money(
+                      valorAlmacigo
+                    )
+                  : "Sin configurar"}
+              </p>
+
+
+              <p className="mt-2 text-xs leading-5 text-[#8B948E]">
+                Valor unitario utilizado
+                al registrar nuevas
+                compras de almácigos.
               </p>
             </div>
           </div>
 
+
+          {/* HISTORIAL JORNAL */}
           <div className="mt-6 overflow-hidden rounded-[24px] border border-[#E4E8E5] bg-white shadow-[0_8px_28px_rgba(27,30,28,0.04)]">
             <div className="flex items-center gap-3 border-b border-[#E8ECE9] px-5 py-4">
               <History
@@ -254,9 +412,11 @@ export default function ValoresPage() {
               </div>
             </div>
 
+
             {historial.length === 0 ? (
               <div className="px-5 py-10 text-center text-sm text-[#8B948E]">
-                No hay valores registrados.
+                No hay valores
+                registrados.
               </div>
             ) : (
               <div className="divide-y divide-[#EEF1EF]">
@@ -281,6 +441,7 @@ export default function ValoresPage() {
                         </p>
                       </div>
 
+
                       {item.activo && (
                         <span className="rounded-full bg-[#EEF3EF] px-3 py-1 text-xs font-semibold text-[#466052]">
                           Vigente
@@ -295,6 +456,8 @@ export default function ValoresPage() {
         </div>
       </div>
 
+
+      {/* MODAL JORNAL */}
       <ValorJornalModal
         open={jornalOpen}
         onClose={() =>
@@ -303,6 +466,8 @@ export default function ValoresPage() {
         onSuccess={loadData}
       />
 
+
+      {/* MODAL TRACTOR */}
       <TractorValorModal
         open={tractorOpen}
         valorActual={
@@ -312,6 +477,21 @@ export default function ValoresPage() {
         }
         onClose={() =>
           setTractorOpen(false)
+        }
+        onSuccess={loadData}
+      />
+
+
+      {/* MODAL ALMÁCIGO */}
+      <ValorAlmacigoModal
+        open={almacigoModalOpen}
+        valorActual={
+          valorAlmacigo
+        }
+        onClose={() =>
+          setAlmacigoModalOpen(
+            false
+          )
         }
         onSuccess={loadData}
       />

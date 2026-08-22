@@ -6,6 +6,7 @@ import {
   LogOut,
   Settings2,
   Truck,
+  UserRound,
   Users,
 } from "lucide-react";
 
@@ -30,6 +31,13 @@ const opciones = [
       "Administrar proveedores utilizados en tractor y otros servicios.",
     path: "/configuracion/proveedores",
     icon: Truck,
+  },
+  {
+  title: "Compradores",
+    description:
+      "Administrar compradores utilizados en las ventas de cebolla.",
+    path: "/configuracion/compradores",
+    icon: UserRound,
   },
   {
     title: "Insumos",
@@ -105,7 +113,7 @@ export default function ConfiguracionPage() {
           </div>
 
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
 
             {opciones.map(
               (item) => {
