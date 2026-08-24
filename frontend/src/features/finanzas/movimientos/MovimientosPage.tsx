@@ -1,8 +1,8 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
-  useRef
 } from "react";
 
 import {
@@ -26,12 +26,14 @@ import type {
   ResumenFinanciero,
 } from "../types";
 
-import MovimientoCreateModal
+import MovimientoFormModal
   from "./MovimientoFormModal";
 
 import MovimientoDeleteModal
   from "./MovimientoDeleteModal";
-import FinanzasBackButton from "../FinanzasBackButton";
+
+import FinanzasBackButton
+  from "../FinanzasBackButton";
 
 
 function money(
@@ -51,13 +53,12 @@ function money(
   ).format(
     Number(value ?? 0)
   );
-} 
+}
 
 
 function formatDate(
   value: string
 ) {
-
   return new Intl.DateTimeFormat(
     "es-AR",
     {
@@ -83,6 +84,7 @@ export default function MovimientosPage() {
     MovimientoFinanciero[]
   >([]);
 
+
   const [
     resumen,
     setResumen,
@@ -90,25 +92,38 @@ export default function MovimientosPage() {
     ResumenFinanciero | null
   >(null);
 
+
   const [
     loading,
     setLoading,
   ] = useState(true);
+
 
   const [
     error,
     setError,
   ] = useState("");
 
+
   const [
     search,
     setSearch,
   ] = useState("");
 
+
   const [
     createOpen,
     setCreateOpen,
   ] = useState(false);
+
+
+  const [
+    editing,
+    setEditing,
+  ] = useState<
+    MovimientoFinanciero | null
+  >(null);
+
 
   const [
     deleting,
@@ -123,147 +138,219 @@ export default function MovimientosPage() {
     setDeleteLoading,
   ] = useState(false);
 
+
   const [
-  page,
-  setPage,
-] = useState(1);
+    page,
+    setPage,
+  ] = useState(1);
 
 
-const [
-  hasMore,
-  setHasMore,
-] = useState(true);
+  const [
+    hasMore,
+    setHasMore,
+  ] = useState(true);
 
 
-const [
-  loadingMore,
-  setLoadingMore,
-] = useState(false);
+  const [
+    loadingMore,
+    setLoadingMore,
+  ] = useState(false);
 
 
+  const loadMoreRef =
+    useRef<HTMLDivElement | null>(
+      null
+    );
 
-const loadMoreRef =
-  useRef<HTMLDivElement | null>(
-    null
-  );
 
-    async function loadData() {
+  async function loadData() {
 
     try {
 
-        setLoading(true);
-        setError("");
+      setLoading(true);
+      setError("");
 
-        const [
+
+      const [
         movimientosData,
         resumenData,
-        ] = await Promise.all([
+      ] = await Promise.all([
+
         getMovimientos({
-            page: 1,
+          page: 1,
         }),
 
         getResumenMovimientos(),
-        ]);
+
+      ]);
 
 
-        setMovimientos(
+      setMovimientos(
         movimientosData.results
-        );
-
- 
+      );
 
 
-        setHasMore(
+      setHasMore(
         Boolean(
-            movimientosData.next
+          movimientosData.next
         )
-        );
+      );
 
 
-        setPage(1);
+      setPage(1);
 
 
-        setResumen(
+      setResumen(
         resumenData
-        );
+      );
+
 
     } catch (error) {
 
-        console.error(error);
+      console.error(error);
 
-        setError(
+      setError(
         "No se pudieron cargar los movimientos."
-        );
+      );
+
 
     } finally {
 
-        setLoading(false);
+      setLoading(false);
 
     }
-    }
+  }
 
 
   useEffect(() => {
+
     loadData();
+
   }, []);
+
+
+  async function loadMore() {
+
+    if (
+      loadingMore ||
+      !hasMore ||
+      loading
+    ) {
+      return;
+    }
+
+
+    const nextPage =
+      page + 1;
+
+
+    try {
+
+      setLoadingMore(true);
+
+
+      const data =
+        await getMovimientos({
+          page: nextPage,
+        });
+
+
+      setMovimientos(
+        (current) => [
+          ...current,
+          ...data.results,
+        ]
+      );
+
+
+      setPage(
+        nextPage
+      );
+
+
+      setHasMore(
+        Boolean(
+          data.next
+        )
+      );
+
+
+    } catch (error) {
+
+      console.error(
+        "Error cargando más movimientos:",
+        error
+      );
+
+
+    } finally {
+
+      setLoadingMore(false);
+
+    }
+  }
+
+
   useEffect(() => {
 
     const element =
-        loadMoreRef.current;
+      loadMoreRef.current;
 
 
     if (!element) {
-        return;
+      return;
     }
 
 
     const observer =
-        new IntersectionObserver(
+      new IntersectionObserver(
         (entries) => {
 
-            const first =
+          const first =
             entries[0];
 
 
-            if (
-            first.isIntersecting
-            ) {
+          if (
+            first.isIntersecting &&
+            hasMore &&
+            !loading &&
+            !loadingMore
+          ) {
 
             loadMore();
 
-            }
+          }
 
         },
         {
-            root: null,
+          root: null,
 
-            // Empieza a traer los siguientes
-            // antes de llegar exactamente abajo.
-            rootMargin:
+          rootMargin:
             "300px 0px",
 
-            threshold: 0,
+          threshold: 0,
         }
-        );
+      );
 
 
     observer.observe(
-        element
+      element
     );
 
 
     return () => {
 
-        observer.disconnect();
+      observer.disconnect();
 
     };
 
-    }, [
+  }, [
     page,
     hasMore,
     loadingMore,
     loading,
-    ]);
+  ]);
+
 
   const filtered =
     useMemo(() => {
@@ -273,29 +360,38 @@ const loadMoreRef =
           .trim()
           .toLowerCase();
 
+
       if (!query) {
         return movimientos;
       }
 
+
       return movimientos.filter(
         (item) =>
+
           item.descripcion
             .toLowerCase()
-            .includes(query) ||
+            .includes(query)
+
+          ||
 
           (
             item.categoria_nombre ??
             ""
           )
             .toLowerCase()
-            .includes(query) ||
+            .includes(query)
+
+          ||
 
           (
             item.cuenta_origen_nombre ??
             ""
           )
             .toLowerCase()
-            .includes(query) ||
+            .includes(query)
+
+          ||
 
           (
             item.cuenta_destino_nombre ??
@@ -303,6 +399,7 @@ const loadMoreRef =
           )
             .toLowerCase()
             .includes(query)
+
       );
 
     }, [
@@ -310,66 +407,6 @@ const loadMoreRef =
       search,
     ]);
 
- async function loadMore() {
-
-  if (
-    loadingMore ||
-    !hasMore ||
-    loading
-  ) {
-    return;
-  }
-
-
-  const nextPage =
-    page + 1;
-
-
-  try {
-
-    setLoadingMore(true);
-
-
-    const data =
-      await getMovimientos({
-        page: nextPage,
-      });
-
-
-    setMovimientos(
-      (current) => [
-        ...current,
-        ...data.results,
-      ]
-    );
-
-
-    setPage(
-      nextPage
-    );
-
-
-    setHasMore(
-      Boolean(
-        data.next
-      )
-    );
-
- 
-
-  } catch (error) {
-
-    console.error(
-      "Error cargando más movimientos:",
-      error
-    );
-
-  } finally {
-
-    setLoadingMore(false);
-
-  }
-}
 
   async function handleDelete() {
 
@@ -377,17 +414,22 @@ const loadMoreRef =
       return;
     }
 
+
     try {
 
       setDeleteLoading(true);
+
 
       await deleteMovimiento(
         deleting.id
       );
 
+
       setDeleting(null);
 
+
       await loadData();
+
 
     } catch (error) {
 
@@ -396,6 +438,7 @@ const loadMoreRef =
       setError(
         "No se pudo eliminar el movimiento."
       );
+
 
     } finally {
 
@@ -419,7 +462,9 @@ const loadMoreRef =
           size={18}
         />
       );
+
     }
+
 
     if (
       item.tipo ===
@@ -431,7 +476,9 @@ const loadMoreRef =
           size={18}
         />
       );
+
     }
+
 
     return (
       <ArrowRightLeft
@@ -452,12 +499,14 @@ const loadMoreRef =
       return "text-emerald-700";
     }
 
+
     if (
       item.tipo ===
       "GASTO"
     ) {
       return "text-red-600";
     }
+
 
     return "text-[#49544E]";
   }
@@ -474,12 +523,14 @@ const loadMoreRef =
       return "+";
     }
 
+
     if (
       item.tipo ===
       "GASTO"
     ) {
       return "-";
     }
+
 
     return "";
   }
@@ -492,8 +543,11 @@ const loadMoreRef =
 
         <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
 
+          <FinanzasBackButton />
+
+
           {/* HEADER */}
-            <FinanzasBackButton />
+
           <div className="mb-5 flex items-end justify-between gap-3">
 
             <div>
@@ -502,9 +556,11 @@ const loadMoreRef =
                 Finanzas
               </p>
 
+
               <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[#1B1E1C] sm:text-3xl">
                 Movimientos
               </h1>
+
 
               <p className="mt-2 hidden text-sm text-[#78817B] sm:block">
                 Ingresos, gastos y transferencias.
@@ -523,11 +579,15 @@ const loadMoreRef =
               className="flex h-12 shrink-0 items-center justify-center gap-2 rounded-2xl bg-[#18392B] px-4 text-sm font-semibold text-white shadow-[0_8px_22px_rgba(24,57,43,0.16)] active:scale-[0.98] sm:px-5"
             >
 
-              <Plus size={19} />
+              <Plus
+                size={19}
+              />
+
 
               <span className="hidden sm:inline">
                 Nuevo movimiento
               </span>
+
 
               <span className="sm:hidden">
                 Nuevo
@@ -548,6 +608,7 @@ const loadMoreRef =
                 Ingresos
               </p>
 
+
               <p className="mt-2 truncate text-lg font-semibold text-emerald-700 sm:text-xl">
                 {money(
                   resumen?.ingresos
@@ -563,6 +624,7 @@ const loadMoreRef =
                 Gastos
               </p>
 
+
               <p className="mt-2 truncate text-lg font-semibold text-red-600 sm:text-xl">
                 {money(
                   resumen?.gastos
@@ -577,6 +639,7 @@ const loadMoreRef =
               <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-white/60">
                 Resultado
               </p>
+
 
               <p className="mt-2 truncate text-lg font-semibold sm:text-xl">
                 {money(
@@ -600,12 +663,13 @@ const loadMoreRef =
                 className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9AA29D]"
               />
 
+
               <input
                 type="search"
                 value={search}
-                onChange={(e) =>
+                onChange={(event) =>
                   setSearch(
-                    e.target.value
+                    event.target.value
                   )
                 }
                 placeholder="Buscar movimiento..."
@@ -618,9 +682,11 @@ const loadMoreRef =
 
 
           {error && (
+
             <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
               {error}
             </div>
+
           )}
 
 
@@ -638,13 +704,16 @@ const loadMoreRef =
                       ? item.saldo_cuenta_destino
                       : item.saldo_cuenta_origen;
 
+
                   const cuenta =
                     item.tipo ===
                     "INGRESO"
                       ? item.cuenta_destino_nombre
                       : item.cuenta_origen_nombre;
 
+
                   return (
+
                     <div
                       key={
                         item.id
@@ -654,15 +723,17 @@ const loadMoreRef =
 
                       <div className="flex items-start gap-3">
 
-                        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${
-                          item.tipo ===
-                          "INGRESO"
-                            ? "bg-emerald-50 text-emerald-700"
-                            : item.tipo ===
-                              "GASTO"
-                              ? "bg-red-50 text-red-600"
-                              : "bg-slate-100 text-slate-600"
-                        }`}>
+                        <div
+                          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${
+                            item.tipo ===
+                            "INGRESO"
+                              ? "bg-emerald-50 text-emerald-700"
+                              : item.tipo ===
+                                "GASTO"
+                                ? "bg-red-50 text-red-600"
+                                : "bg-slate-100 text-slate-600"
+                          }`}
+                        >
 
                           {renderIcon(
                             item
@@ -678,32 +749,39 @@ const loadMoreRef =
                             <div className="min-w-0">
 
                               <p className="truncate font-semibold text-[#242925]">
-                                {
-                                  item.descripcion
-                                }
+                                {item.descripcion}
                               </p>
 
+
                               <p className="mt-1 text-xs text-[#8A938D]">
+
                                 {formatDate(
                                   item.fecha
                                 )}
+
                                 {item.categoria_nombre
                                   ? ` · ${item.categoria_nombre}`
                                   : ""}
+
                               </p>
 
                             </div>
 
 
-                            <p className={`shrink-0 text-base font-semibold ${amountClass(
-                              item
-                            )}`}>
+                            <p
+                              className={`shrink-0 text-base font-semibold ${amountClass(
+                                item
+                              )}`}
+                            >
+
                               {amountPrefix(
                                 item
                               )}
+
                               {money(
                                 item.monto
                               )}
+
                             </p>
 
                           </div>
@@ -715,18 +793,24 @@ const loadMoreRef =
                             <div className="mt-3 rounded-2xl bg-[#F6F8F6] p-3">
 
                               <p className="text-xs text-[#768079]">
+
                                 {
                                   item.cuenta_origen_nombre
                                 }
+
                                 {" → "}
+
                                 {
                                   item.cuenta_destino_nombre
                                 }
+
                               </p>
+
 
                               <div className="mt-2 grid grid-cols-2 gap-2">
 
                                 <div>
+
                                   <p className="text-[10px] uppercase text-[#9AA29D]">
                                     Saldo origen
                                   </p>
@@ -736,9 +820,12 @@ const loadMoreRef =
                                       item.saldo_cuenta_origen
                                     )}
                                   </p>
+
                                 </div>
 
+
                                 <div>
+
                                   <p className="text-[10px] uppercase text-[#9AA29D]">
                                     Saldo destino
                                   </p>
@@ -748,6 +835,7 @@ const loadMoreRef =
                                       item.saldo_cuenta_destino
                                     )}
                                   </p>
+
                                 </div>
 
                               </div>
@@ -761,6 +849,7 @@ const loadMoreRef =
                               <p className="truncate text-xs font-medium text-[#6D7770]">
                                 {cuenta}
                               </p>
+
 
                               <div className="ml-3 text-right">
 
@@ -777,6 +866,7 @@ const loadMoreRef =
                               </div>
 
                             </div>
+
                           )}
 
 
@@ -784,12 +874,20 @@ const loadMoreRef =
 
                             <button
                               type="button"
+                              onClick={() =>
+                                setEditing(
+                                  item
+                                )
+                              }
                               className="flex h-9 w-9 items-center justify-center rounded-xl text-[#68716B] hover:bg-[#EEF3EF]"
                             >
+
                               <Edit3
                                 size={16}
                               />
+
                             </button>
+
 
                             <button
                               type="button"
@@ -800,9 +898,11 @@ const loadMoreRef =
                               }
                               className="flex h-9 w-9 items-center justify-center rounded-xl text-red-500 hover:bg-red-50"
                             >
+
                               <Trash2
                                 size={16}
                               />
+
                             </button>
 
                           </div>
@@ -812,7 +912,9 @@ const loadMoreRef =
                       </div>
 
                     </div>
+
                   );
+
                 }
               )}
 
@@ -822,6 +924,7 @@ const loadMoreRef =
           {/* DESKTOP */}
 
           {!loading && (
+
             <div className="hidden overflow-hidden rounded-[24px] border border-[#E4E8E5] bg-white md:block">
 
               <div className="overflow-x-auto">
@@ -877,13 +980,16 @@ const loadMoreRef =
                               ? item.cuenta_origen_nombre
                               : `${item.cuenta_origen_nombre} → ${item.cuenta_destino_nombre}`;
 
+
                         const saldo =
                           item.tipo ===
                           "INGRESO"
                             ? item.saldo_cuenta_destino
                             : item.saldo_cuenta_origen;
 
+
                         return (
+
                           <tr
                             key={
                               item.id
@@ -892,54 +998,67 @@ const loadMoreRef =
                           >
 
                             <td className="whitespace-nowrap px-5 py-4 text-sm text-[#68716B]">
+
                               {formatDate(
                                 item.fecha
                               )}
+
                             </td>
+
 
                             <td className="px-5 py-4">
 
                               <p className="font-semibold text-[#292E2B]">
-                                {
-                                  item.descripcion
-                                }
+                                {item.descripcion}
                               </p>
 
                               <p className="mt-1 text-xs text-[#929A95]">
-                                {
-                                  item.tipo_display
-                                }
+                                {item.tipo_display}
                               </p>
 
                             </td>
 
+
                             <td className="px-5 py-4 text-sm text-[#68716B]">
+
                               {
                                 item.categoria_nombre ??
                                 "—"
                               }
+
                             </td>
+
 
                             <td className="px-5 py-4 text-sm text-[#68716B]">
                               {cuenta}
                             </td>
 
-                            <td className={`whitespace-nowrap px-5 py-4 text-right text-sm font-semibold ${amountClass(
-                              item
-                            )}`}>
+
+                            <td
+                              className={`whitespace-nowrap px-5 py-4 text-right text-sm font-semibold ${amountClass(
+                                item
+                              )}`}
+                            >
+
                               {amountPrefix(
                                 item
                               )}
+
                               {money(
                                 item.monto
                               )}
+
                             </td>
 
+
                             <td className="whitespace-nowrap px-5 py-4 text-right text-sm font-semibold text-[#333936]">
+
                               {money(
                                 saldo
                               )}
+
                             </td>
+
 
                             <td className="px-5 py-4">
 
@@ -947,12 +1066,20 @@ const loadMoreRef =
 
                                 <button
                                   type="button"
+                                  onClick={() =>
+                                    setEditing(
+                                      item
+                                    )
+                                  }
                                   className="flex h-9 w-9 items-center justify-center rounded-xl text-[#68716B] hover:bg-[#EEF3EF]"
                                 >
+
                                   <Edit3
                                     size={16}
                                   />
+
                                 </button>
+
 
                                 <button
                                   type="button"
@@ -963,9 +1090,11 @@ const loadMoreRef =
                                   }
                                   className="flex h-9 w-9 items-center justify-center rounded-xl text-red-500 hover:bg-red-50"
                                 >
+
                                   <Trash2
                                     size={16}
                                   />
+
                                 </button>
 
                               </div>
@@ -973,7 +1102,9 @@ const loadMoreRef =
                             </td>
 
                           </tr>
+
                         );
+
                       }
                     )}
 
@@ -984,41 +1115,51 @@ const loadMoreRef =
               </div>
 
             </div>
+
           )}
+
+
+          {/* INFINITE SCROLL */}
+
           <div
-            ref={loadMoreRef}
+            ref={
+              loadMoreRef
+            }
             className="py-6"
-            >
+          >
 
             {loadingMore && (
 
-                <div className="flex items-center justify-center gap-3 text-sm text-[#7B847E]">
+              <div className="flex items-center justify-center gap-3 text-sm text-[#7B847E]">
 
                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#D9E0DB] border-t-[#18392B]" />
 
                 Cargando más movimientos...
 
-                </div>
+              </div>
 
             )}
 
 
             {!hasMore &&
-                movimientos.length > 0 && (
+              movimientos.length > 0 && (
 
-                <p className="text-center text-xs font-medium text-[#9AA29D]">
+              <p className="text-center text-xs font-medium text-[#9AA29D]">
                 Todos los movimientos cargados
-                </p>
+              </p>
 
             )}
 
-            </div>  
+          </div>
+
         </div>
 
       </div>
 
 
-      <MovimientoCreateModal
+      {/* CREAR */}
+
+      <MovimientoFormModal
         open={
           createOpen
         }
@@ -1039,6 +1180,34 @@ const loadMoreRef =
       />
 
 
+      {/* EDITAR */}
+
+      <MovimientoFormModal
+        open={
+          editing !== null
+        }
+        movimiento={
+          editing
+        }
+        onClose={() =>
+          setEditing(
+            null
+          )
+        }
+        onSuccess={async () => {
+
+          setEditing(
+            null
+          );
+
+          await loadData();
+
+        }}
+      />
+
+
+      {/* ELIMINAR */}
+
       <MovimientoDeleteModal
         open={
           deleting !== null
@@ -1050,7 +1219,9 @@ const loadMoreRef =
           deleteLoading
         }
         onCancel={() =>
-          setDeleting(null)
+          setDeleting(
+            null
+          )
         }
         onConfirm={
           handleDelete
