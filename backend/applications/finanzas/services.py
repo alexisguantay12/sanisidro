@@ -4,7 +4,7 @@ from applications.finanzas.models import (
     CuentaFinanciera,
     MovimientoFinanciero,
 )
-
+from django.db.models import Q
 
 def calcular_saldos_movimientos(
     movimientos_objetivo,
@@ -84,7 +84,16 @@ def calcular_saldos_movimientos(
         MovimientoFinanciero.objects
         .filter(
             is_deleted=False,
-            fecha__lte=ultimo_movimiento.fecha,
+        )
+        .filter(
+            Q(
+                fecha__lt=ultimo_movimiento.fecha
+            )
+            |
+            Q(
+                fecha=ultimo_movimiento.fecha,
+                id__lte=ultimo_movimiento.id,
+            )
         )
         .only(
             "id",

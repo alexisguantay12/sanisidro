@@ -130,21 +130,35 @@ export interface MovimientoPayload {
   observacion: string;
 }
 
+export interface ResumenGrupo {
+  nombre: string;
+  total: string;
+}
+
 
 export interface ResumenFinanciero {
   ingresos: string;
   gastos: string;
   resultado: string;
   transferencias: string;
+
+  ingresos_por_grupo: ResumenGrupo[];
+
+  gastos_por_grupo: ResumenGrupo[];
 }
 
-
-export interface CuentaMovimientosResponse {
+export interface CuentaMovimientosData {
   cuenta: CuentaFinanciera;
   movimientos: MovimientoFinanciero[];
 }
 
 
+export interface CuentaMovimientosResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: CuentaMovimientosData;
+}
 
 export interface CuentaSelector {
   id: number;

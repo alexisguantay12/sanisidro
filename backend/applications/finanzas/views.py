@@ -408,7 +408,6 @@ class CuentaFinancieraViewSet(
     # --------------------------------------------------------
     # MOVIMIENTOS DE LA CUENTA
     # --------------------------------------------------------
-
     @action(
         detail=True,
         methods=["get"],
@@ -422,7 +421,7 @@ class CuentaFinancieraViewSet(
 
         cuenta = self.get_object()
 
-        movimientos = (
+        queryset = (
             MovimientoFinanciero.objects
             .filter(
                 is_deleted=False,
@@ -448,22 +447,46 @@ class CuentaFinancieraViewSet(
             )
         )
 
+        paginator = (
+            MovimientosFinanzasPagination()
+        )
+
+        page = paginator.paginate_queryset(
+            queryset,
+            request,
+            view=self,
+        )
+
+        movimientos = list(
+            page
+        )
+
+        saldos = (
+            calcular_saldos_movimientos(
+                movimientos
+            )
+        )
+
         serializer = (
             MovimientoFinancieroSerializer(
                 movimientos,
                 many=True,
+                context={
+                    **self.get_serializer_context(),
+                    "saldos_movimientos":
+                        saldos,
+                },
             )
         )
 
-        return Response({
+        return paginator.get_paginated_response({
             "cuenta": (
                 CuentaFinancieraSerializer(
-                    cuenta
+                    cuenta,
+                    context=self.get_serializer_context(),
                 ).data
             ),
-            "movimientos": (
-                serializer.data
-            ),
+            "movimientos": serializer.data,
         })
     @action(
         detail=False,
@@ -757,17 +780,105 @@ class MovimientoFinancieroViewSet(
             - gastos
         )
 
+
+        # ========================================================
+        # INGRESOS POR GRUPO
+        # ========================================================
+
+        ingresos_por_grupo_query = (
+            queryset
+            .filter(
+                tipo=(
+                    MovimientoFinanciero
+                    .Tipo
+                    .INGRESO
+                )
+            )
+            .values(
+                "categoria__grupo__nombre"
+            )
+            .annotate(
+                total=Sum("monto")
+            )
+            .order_by(
+                "-total"
+            )
+        )
+
+        ingresos_por_grupo = [
+            {
+                "nombre": (
+                    item[
+                        "categoria__grupo__nombre"
+                    ]
+                    or "Sin grupo"
+                ),
+                "total": item["total"],
+            }
+            for item
+            in ingresos_por_grupo_query
+        ]
+
+
+        # ========================================================
+        # GASTOS POR GRUPO
+        # ========================================================
+
+        gastos_por_grupo_query = (
+            queryset
+            .filter(
+                tipo=(
+                    MovimientoFinanciero
+                    .Tipo
+                    .GASTO
+                )
+            )
+            .values(
+                "categoria__grupo__nombre"
+            )
+            .annotate(
+                total=Sum("monto")
+            )
+            .order_by(
+                "-total"
+            )
+        )
+
+        gastos_por_grupo = [
+            {
+                "nombre": (
+                    item[
+                        "categoria__grupo__nombre"
+                    ]
+                    or "Sin grupo"
+                ),
+                "total": item["total"],
+            }
+            for item
+            in gastos_por_grupo_query
+        ]
+
+
         return Response({
-            "ingresos": ingresos,
-            "gastos": gastos,
-            "resultado": resultado,
 
-            # Informativo solamente.
-            # No afecta el resultado.
-            "transferencias": (
-                transferencias
-            ),
-        })
+            "ingresos":
+                ingresos,
 
+            "gastos":
+                gastos,
+
+            "resultado":
+                resultado,
+
+            "transferencias":
+                transferencias,
+
+            "ingresos_por_grupo":
+                ingresos_por_grupo,
+
+            "gastos_por_grupo":
+                gastos_por_grupo,
+
+    })
 
 

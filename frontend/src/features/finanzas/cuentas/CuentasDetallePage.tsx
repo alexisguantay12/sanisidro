@@ -1,19 +1,18 @@
 import {
   useEffect,
-  useMemo,
+  useRef,
   useState,
 } from "react";
 
 import {
   ArrowDownLeft,
-  ArrowLeft,
   ArrowRightLeft,
   ArrowUpRight,
   Landmark,
+  Loader2,
 } from "lucide-react";
 
 import {
-  useNavigate,
   useParams,
 } from "react-router-dom";
 
@@ -26,12 +25,14 @@ import type {
   MovimientoFinanciero,
 } from "../types";
 
+import FinanzasBackButton from "../FinanzasBackButton";
 
 function money(
   value:
     | string
     | number
     | null
+    | undefined
 ) {
 
   return new Intl.NumberFormat(
@@ -42,30 +43,22 @@ function money(
       maximumFractionDigits: 2,
     }
   ).format(
-    Number(
-      value ?? 0
-    )
+    Number(value ?? 0)
   );
 }
 
 
-function date(
+function formatDate(
   value: string
 ) {
 
-  return new Intl.DateTimeFormat(
-    "es-AR",
-    {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      timeZone: "UTC",
-    }
-  ).format(
-    new Date(
-      `${value}T00:00:00Z`
-    )
-  );
+  const [
+    year,
+    month,
+    day,
+  ] = value.split("-");
+
+  return `${day}/${month}/${year}`;
 }
 
 
@@ -75,8 +68,10 @@ export default function CuentaDetallePage() {
     id,
   } = useParams();
 
-  const navigate =
-    useNavigate();
+
+  const cuentaId =
+    Number(id);
+
 
   const [
     cuenta,
@@ -86,6 +81,7 @@ export default function CuentaDetallePage() {
       CuentaFinanciera | null
     >(null);
 
+
   const [
     movimientos,
     setMovimientos,
@@ -94,6 +90,7 @@ export default function CuentaDetallePage() {
       MovimientoFinanciero[]
     >([]);
 
+
   const [
     loading,
     setLoading,
@@ -101,369 +98,710 @@ export default function CuentaDetallePage() {
     useState(true);
 
 
+  const [
+    loadingMore,
+    setLoadingMore,
+  ] =
+    useState(false);
+
+
+  const [
+    page,
+    setPage,
+  ] =
+    useState(1);
+
+
+  const [
+    hasMore,
+    setHasMore,
+  ] =
+    useState(false);
+
+
+  const [
+    totalMovimientos,
+    setTotalMovimientos,
+  ] =
+    useState(0);
+
+
+  const [
+    error,
+    setError,
+  ] =
+    useState("");
+
+
+  const loadMoreRef =
+    useRef<HTMLDivElement | null>(
+      null
+    );
+
+
+  // ========================================================
+  // CARGA INICIAL
+  // ========================================================
+
   useEffect(() => {
 
-    if (!id) {
+    if (
+      !cuentaId ||
+      Number.isNaN(cuentaId)
+    ) {
       return;
     }
 
-    load();
+    loadInitial();
 
-  }, [id]);
+  }, [
+    cuentaId,
+  ]);
 
 
-  async function load() {
-
-    if (!id) {
-      return;
-    }
+  async function loadInitial() {
 
     try {
 
       setLoading(true);
+      setError("");
+
 
       const data =
         await getCuentaMovimientos(
-          Number(id)
+          cuentaId,
+          1
         );
 
+
       setCuenta(
-        data.cuenta
+        data.results.cuenta
       );
 
+
       setMovimientos(
-        data.movimientos
+        data.results.movimientos
       );
+
+
+      setPage(1);
+
+
+      setHasMore(
+        Boolean(
+          data.next
+        )
+      );
+
+
+      setTotalMovimientos(
+        data.count
+      );
+
+
+    } catch (error) {
+
+      console.error(
+        "Error cargando detalle de cuenta:",
+        error
+      );
+
+
+      setError(
+        "No se pudo cargar la cuenta."
+      );
+
 
     } finally {
 
       setLoading(false);
 
     }
+
   }
 
 
-  const items =
-    useMemo(() => {
+  // ========================================================
+  // CARGAR SIGUIENTES 30
+  // ========================================================
 
-      if (!cuenta) {
-        return [];
-      }
+  async function loadMore() {
 
-      return movimientos.map(
-        (item) => {
+    if (
+      loading ||
+      loadingMore ||
+      !hasMore
+    ) {
+      return;
+    }
 
-          const ingreso =
-            item.cuenta_destino ===
-            cuenta.id;
 
-          const saldo =
-            ingreso
-              ? item.saldo_cuenta_destino
-              : item.saldo_cuenta_origen;
+    const nextPage =
+      page + 1;
 
-          return {
-            item,
-            ingreso,
-            saldo,
-          };
+
+    try {
+
+      setLoadingMore(true);
+
+
+      const data =
+        await getCuentaMovimientos(
+          cuentaId,
+          nextPage
+        );
+
+
+      setMovimientos(
+        (current) => [
+          ...current,
+          ...data.results.movimientos,
+        ]
+      );
+
+
+      setPage(
+        nextPage
+      );
+
+
+      setHasMore(
+        Boolean(
+          data.next
+        )
+      );
+
+
+      setTotalMovimientos(
+        data.count
+      );
+
+
+    } catch (error) {
+
+      console.error(
+        "Error cargando más movimientos:",
+        error
+      );
+
+
+    } finally {
+
+      setLoadingMore(false);
+
+    }
+
+  }
+
+
+  // ========================================================
+  // INFINITE SCROLL
+  // ========================================================
+
+  useEffect(() => {
+
+    const element =
+      loadMoreRef.current;
+
+
+    if (!element) {
+      return;
+    }
+
+
+    const observer =
+      new IntersectionObserver(
+        (entries) => {
+
+          const entry =
+            entries[0];
+
+
+          if (
+            entry.isIntersecting &&
+            hasMore &&
+            !loading &&
+            !loadingMore
+          ) {
+
+            loadMore();
+
+          }
+
+        },
+        {
+          root: null,
+
+          // Empieza a cargar antes
+          // de que el usuario llegue
+          // exactamente al final.
+          rootMargin:
+            "300px 0px",
+
+          threshold: 0,
         }
       );
 
-    }, [
-      movimientos,
-      cuenta,
-    ]);
 
+    observer.observe(
+      element
+    );
+
+
+    return () => {
+
+      observer.disconnect();
+
+    };
+
+  }, [
+    page,
+    hasMore,
+    loading,
+    loadingMore,
+    cuentaId,
+  ]);
+
+
+  // ========================================================
+  // LOADING INICIAL
+  // ========================================================
+
+  if (loading) {
+
+    return (
+
+      <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
+
+        <FinanzasBackButton />
+
+        <div className="mt-10 flex items-center justify-center gap-3 text-sm text-[#7B847E]">
+
+          <Loader2
+            size={20}
+            className="animate-spin"
+          />
+
+          Cargando cuenta...
+
+        </div>
+
+      </div>
+
+    );
+
+  }
+
+
+  // ========================================================
+  // ERROR
+  // ========================================================
 
   if (
-    loading ||
+    error ||
     !cuenta
   ) {
 
     return (
-      <div className="p-6 text-sm text-[#778079]">
-        Cargando cuenta...
+
+      <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
+
+        <FinanzasBackButton />
+
+        <div className="mt-6 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
+          {error ||
+            "No se encontró la cuenta."}
+        </div>
+
       </div>
+
     );
+
   }
 
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
 
-      <button
-        type="button"
-        onClick={() =>
-          navigate(
-            "/finanzas/cuentas"
-          )
-        }
-        className="mb-5 flex items-center gap-2 text-sm font-semibold text-[#68716B]"
-      >
-        <ArrowLeft size={18} />
-        Cuentas
-      </button>
+    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
+
+      <FinanzasBackButton />
 
 
-      <div className="rounded-[26px] bg-[#18392B] p-5 text-white sm:p-7">
+      {/* ===================================================
+          HEADER
+      =================================================== */}
 
-        <div className="flex items-center gap-4">
+      <header className="mt-4">
 
-          <div className="flex h-13 w-13 items-center justify-center rounded-2xl bg-white/10">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#89928C]">
+          Finanzas · Cuenta
+        </p>
+
+
+        <div className="mt-2 flex items-center gap-3">
+
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#EAF2ED] text-[#18392B]">
+
             <Landmark
-              size={25}
+              size={22}
             />
+
           </div>
 
-          <div>
 
-            <h1 className="text-2xl font-semibold">
+          <div className="min-w-0">
+
+            <h1 className="truncate text-2xl font-semibold sm:text-3xl">
               {cuenta.nombre}
             </h1>
 
-            <p className="mt-1 text-sm text-white/60">
-              {
-                cuenta.tipo_display
-              }
+            <p className="mt-1 text-sm text-[#89928C]">
+              {cuenta.tipo_display}
             </p>
 
           </div>
 
         </div>
 
-        <div className="mt-7">
+      </header>
 
-          <p className="text-xs font-semibold uppercase tracking-[0.1em] text-white/60">
-            Saldo actual
-          </p>
 
-          <p className="mt-2 text-3xl font-semibold">
+      {/* ===================================================
+          SALDO
+      =================================================== */}
+
+      <section className="mt-6 rounded-[24px] bg-[#18392B] p-5 text-white sm:p-6">
+
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/60">
+          Saldo actual
+        </p>
+
+
+        <p className="mt-2 break-words text-3xl font-semibold tracking-tight sm:text-4xl">
+          {money(
+            cuenta.saldo_actual
+          )}
+        </p>
+
+
+        <div className="mt-5 flex items-center justify-between border-t border-white/10 pt-4">
+
+          <span className="text-xs text-white/60">
+            Saldo inicial
+          </span>
+
+          <strong className="text-sm">
             {money(
-              cuenta.saldo_actual
+              cuenta.saldo_inicial
             )}
+          </strong>
+
+        </div>
+
+      </section>
+
+
+      {/* ===================================================
+          CABECERA HISTORIAL
+      =================================================== */}
+
+      <div className="mt-7 flex items-end justify-between gap-4">
+
+        <div>
+
+          <h2 className="text-lg font-semibold">
+            Historial
+          </h2>
+
+          <p className="mt-1 text-sm text-[#89928C]">
+            Movimientos de esta cuenta
           </p>
 
         </div>
 
-      </div>
 
+        <span className="shrink-0 rounded-full bg-[#EEF3EF] px-3 py-1.5 text-xs font-semibold text-[#59645D]">
 
-      <div className="mt-6">
+          {totalMovimientos} movimientos
 
-        <h2 className="text-lg font-semibold">
-          Historial
-        </h2>
-
-        <p className="mt-1 text-sm text-[#7A837D]">
-          Evolución del saldo movimiento por movimiento.
-        </p>
+        </span>
 
       </div>
 
 
-      <div className="mt-4 space-y-3 md:hidden">
+      {/* ===================================================
+          SIN MOVIMIENTOS
+      =================================================== */}
 
-        {items.map(
-          ({
-            item,
-            ingreso,
-            saldo,
-          }) => (
+      {movimientos.length === 0 && (
 
-            <div
-              key={item.id}
-              className="rounded-[22px] border border-[#E2E7E3] bg-white p-4"
-            >
+        <div className="mt-5 rounded-[22px] border border-[#E2E7E3] bg-white p-8 text-center">
 
-              <div className="flex gap-3">
+          <p className="text-sm font-medium text-[#69726C]">
+            Esta cuenta todavía no tiene movimientos.
+          </p>
 
-                <div
-                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${
-                    ingreso
-                      ? "bg-emerald-50 text-emerald-700"
-                      : "bg-red-50 text-red-600"
-                  }`}
-                >
-                  {item.tipo ===
-                  "TRANSFERENCIA" ? (
-                    <ArrowRightLeft
-                      size={18}
-                    />
-                  ) : ingreso ? (
-                    <ArrowDownLeft
-                      size={18}
-                    />
-                  ) : (
-                    <ArrowUpRight
-                      size={18}
-                    />
-                  )}
-                </div>
+        </div>
+
+      )}
 
 
-                <div className="min-w-0 flex-1">
+      {/* ===================================================
+          LISTADO
+      =================================================== */}
 
-                  <div className="flex justify-between gap-3">
+      <div className="mt-4 space-y-3">
 
-                    <div>
+        {movimientos.map(
+          (movimiento) => {
 
-                      <p className="font-semibold">
-                        {
-                          item.descripcion
+            const esIngreso =
+              movimiento.tipo ===
+              "INGRESO";
+
+
+            const esGasto =
+              movimiento.tipo ===
+              "GASTO";
+
+
+            const entraACuenta =
+              movimiento.cuenta_destino ===
+              cuenta.id;
+
+
+            const saleDeCuenta =
+              movimiento.cuenta_origen ===
+              cuenta.id;
+
+
+            let saldoResultante:
+              | string
+              | number
+              | null
+              | undefined;
+
+
+            if (entraACuenta) {
+
+              saldoResultante =
+                movimiento
+                  .saldo_cuenta_destino;
+
+            } else if (saleDeCuenta) {
+
+              saldoResultante =
+                movimiento
+                  .saldo_cuenta_origen;
+
+            }
+
+
+            return (
+
+              <article
+                key={
+                  movimiento.id
+                }
+                className="rounded-[22px] border border-[#E3E8E4] bg-white p-4 shadow-[0_3px_14px_rgba(20,30,24,0.035)] sm:p-5"
+              >
+
+                <div className="flex items-start gap-3">
+
+                  {/* ICONO */}
+
+                  <div
+                    className={
+                      `flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${
+                        esIngreso
+                          ? "bg-emerald-50 text-emerald-700"
+                          : esGasto
+                            ? "bg-red-50 text-red-600"
+                            : "bg-blue-50 text-blue-600"
+                      }`
+                    }
+                  >
+
+                    {esIngreso ? (
+
+                      <ArrowDownLeft
+                        size={20}
+                      />
+
+                    ) : esGasto ? (
+
+                      <ArrowUpRight
+                        size={20}
+                      />
+
+                    ) : (
+
+                      <ArrowRightLeft
+                        size={20}
+                      />
+
+                    )}
+
+                  </div>
+
+
+                  {/* INFORMACIÓN */}
+
+                  <div className="min-w-0 flex-1">
+
+                    <div className="flex items-start justify-between gap-3">
+
+                      <div className="min-w-0">
+
+                        <h3 className="truncate font-semibold text-[#202923]">
+                          {movimiento.descripcion}
+                        </h3>
+
+
+                        <p className="mt-1 text-xs text-[#89928C]">
+
+                          {formatDate(
+                            movimiento.fecha
+                          )}
+
+                          {movimiento.categoria_nombre &&
+                            ` · ${movimiento.categoria_nombre}`}
+
+                        </p>
+
+                      </div>
+
+
+                      {/* MONTO */}
+
+                      <p
+                        className={
+                          `shrink-0 text-right font-semibold ${
+                            entraACuenta
+                              ? "text-emerald-700"
+                              : saleDeCuenta
+                                ? "text-red-600"
+                                : "text-[#243129]"
+                          }`
                         }
-                      </p>
+                      >
 
-                      <p className="mt-1 text-xs text-[#8B948E]">
-                        {date(
-                          item.fecha
+                        {entraACuenta
+                          ? "+"
+                          : saleDeCuenta
+                            ? "-"
+                            : ""}
+
+                        {money(
+                          movimiento.monto
                         )}
+
                       </p>
 
                     </div>
 
 
-                    <p
-                      className={`font-semibold ${
-                        ingreso
-                          ? "text-emerald-700"
-                          : "text-red-600"
-                      }`}
-                    >
-                      {ingreso
-                        ? "+"
-                        : "-"}
-                      {money(
-                        item.monto
-                      )}
-                    </p>
+                    {/* TRANSFERENCIA */}
 
-                  </div>
+                    {movimiento.tipo ===
+                      "TRANSFERENCIA" && (
+
+                      <div className="mt-3 rounded-xl bg-[#F6F8F6] px-3 py-2 text-xs text-[#737D76]">
+
+                        {movimiento.cuenta_origen_nombre}
+
+                        <span className="mx-2">
+                          →
+                        </span>
+
+                        {movimiento.cuenta_destino_nombre}
+
+                      </div>
+
+                    )}
 
 
-                  <div className="mt-3 flex justify-between rounded-xl bg-[#F6F8F6] px-3 py-2">
+                    {/* SALDO RESULTANTE */}
 
-                    <span className="text-xs text-[#858E88]">
-                      Saldo
-                    </span>
+                    {saldoResultante != null && (
 
-                    <strong className="text-sm">
-                      {money(saldo)}
-                    </strong>
+                      <div className="mt-3 flex items-center justify-between border-t border-[#EEF1EF] pt-3">
+
+                        <span className="text-xs text-[#919A94]">
+                          Saldo después del movimiento
+                        </span>
+
+                        <strong className="text-sm text-[#354139]">
+                          {money(
+                            saldoResultante
+                          )}
+                        </strong>
+
+                      </div>
+
+                    )}
 
                   </div>
 
                 </div>
 
-              </div>
+              </article>
 
-            </div>
+            );
 
-          )
+          }
         )}
 
       </div>
 
 
-      <div className="mt-4 hidden overflow-hidden rounded-[24px] border border-[#E2E7E3] bg-white md:block">
+      {/* ===================================================
+          SENSOR INFINITE SCROLL
+      =================================================== */}
 
-        <table className="w-full">
+      <div
+        ref={
+          loadMoreRef
+        }
+        className="py-7"
+      >
 
-          <thead className="bg-[#FAFBFA]">
+        {loadingMore && (
 
-            <tr>
-              <th className={th}>
-                Fecha
-              </th>
+          <div className="flex items-center justify-center gap-3 text-sm text-[#7B847E]">
 
-              <th className={th}>
-                Movimiento
-              </th>
+            <Loader2
+              size={20}
+              className="animate-spin"
+            />
 
-              <th className={`${th} text-right`}>
-                Monto
-              </th>
+            Cargando más movimientos...
 
-              <th className={`${th} text-right`}>
-                Saldo
-              </th>
-            </tr>
+          </div>
 
-          </thead>
+        )}
 
-          <tbody>
 
-            {items.map(
-              ({
-                item,
-                ingreso,
-                saldo,
-              }) => (
+        {!hasMore &&
+          movimientos.length > 0 && (
 
-                <tr
-                  key={item.id}
-                  className="border-t border-[#EEF1EF]"
-                >
+          <div className="text-center">
 
-                  <td className={td}>
-                    {date(
-                      item.fecha
-                    )}
-                  </td>
+            <p className="text-xs font-medium text-[#9AA29D]">
+              Todos los movimientos cargados
+            </p>
 
-                  <td className={td}>
+            <p className="mt-1 text-[11px] text-[#ADB4AF]">
+              {movimientos.length} de {totalMovimientos}
+            </p>
 
-                    <p className="font-semibold text-[#292E2B]">
-                      {
-                        item.descripcion
-                      }
-                    </p>
+          </div>
 
-                    <p className="mt-1 text-xs text-[#8B948E]">
-                      {
-                        item.tipo_display
-                      }
-                    </p>
-
-                  </td>
-
-                  <td
-                    className={`${td} text-right font-semibold ${
-                      ingreso
-                        ? "text-emerald-700"
-                        : "text-red-600"
-                    }`}
-                  >
-                    {ingreso
-                      ? "+"
-                      : "-"}
-                    {money(
-                      item.monto
-                    )}
-                  </td>
-
-                  <td className={`${td} text-right font-semibold`}>
-                    {money(saldo)}
-                  </td>
-
-                </tr>
-
-              )
-            )}
-
-          </tbody>
-
-        </table>
+        )}
 
       </div>
 
     </div>
+
   );
 }
-
-
-const th =
-  "px-5 py-4 text-left text-xs font-semibold uppercase text-[#8B948E]";
-
-const td =
-  "px-5 py-4 text-sm text-[#606963]";

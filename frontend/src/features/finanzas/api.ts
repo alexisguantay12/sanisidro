@@ -225,18 +225,23 @@ export async function deleteCuenta(
   );
 }
 
-
 export async function getCuentaMovimientos(
-  id: number
+  id: number,
+  page = 1
 ) {
+
   const response =
     await api.get<CuentaMovimientosResponse>(
-      `${BASE}/cuentas/${id}/movimientos/`
+      `${BASE}/cuentas/${id}/movimientos/`,
+      {
+        params: {
+          page,
+        },
+      }
     );
 
   return response.data;
 }
-
 
 /* =========================================================
    MOVIMIENTOS

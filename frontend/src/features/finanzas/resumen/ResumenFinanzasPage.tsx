@@ -1,6 +1,5 @@
 import {
   useEffect,
-  useMemo,
   useState,
 } from "react";
 
@@ -13,12 +12,10 @@ import {
 } from "lucide-react";
 
 import {
-  getMovimientos,
   getResumenMovimientos,
 } from "../api";
 
 import type {
-  MovimientoFinanciero,
   ResumenFinanciero,
 } from "../types";
 
@@ -47,6 +44,7 @@ function getMonthRange(
   year: number,
   month: number
 ) {
+
   const lastDay =
     new Date(
       year,
@@ -109,23 +107,23 @@ export default function ResumenFinanzasPage() {
 
 
   const [
-    movimientos,
-    setMovimientos,
-  ] =
-    useState<
-      MovimientoFinanciero[]
-    >([]);
-
-
-  const [
     loading,
     setLoading,
   ] =
     useState(false);
 
 
+  const [
+    error,
+    setError,
+  ] =
+    useState("");
+
+
   useEffect(() => {
+
     load();
+
   }, [
     year,
     month,
@@ -153,48 +151,17 @@ export default function ResumenFinanzasPage() {
     try {
 
       setLoading(true);
+      setError("");
 
 
-      const [
-        resumenData,
-        movimientosData,
-      ] =
-        await Promise.all([
-
-          getResumenMovimientos(
-            params
-          ),
-
-          getMovimientos(
-            params
-          ),
-
-        ]);
+      const resumenData =
+        await getResumenMovimientos(
+          params
+        );
 
 
       setResumen(
         resumenData
-      );
-
-
-      /*
-       * getMovimientos ahora es paginado.
-       *
-       * Antes devolvía:
-       *
-       * MovimientoFinanciero[]
-       *
-       * Ahora devuelve:
-       *
-       * {
-       *   count,
-       *   next,
-       *   previous,
-       *   results
-       * }
-       */
-      setMovimientos(
-        movimientosData.results
       );
 
 
@@ -203,6 +170,11 @@ export default function ResumenFinanzasPage() {
       console.error(
         "Error cargando resumen financiero:",
         error
+      );
+
+
+      setError(
+        "No se pudo cargar el resumen financiero."
       );
 
 
@@ -215,43 +187,13 @@ export default function ResumenFinanzasPage() {
   }
 
 
-  const ingresosPorGrupo =
-    useMemo(
-      () =>
-        agrupar(
-          movimientos.filter(
-            (item) =>
-              item.tipo ===
-              "INGRESO"
-          )
-        ),
-      [
-        movimientos,
-      ]
-    );
-
-
-  const gastosPorGrupo =
-    useMemo(
-      () =>
-        agrupar(
-          movimientos.filter(
-            (item) =>
-              item.tipo ===
-              "GASTO"
-          )
-        ),
-      [
-        movimientos,
-      ]
-    );
-
-
   return (
 
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
 
-      {/* HEADER */}
+      {/* ===================================================
+          HEADER
+      =================================================== */}
 
       <header>
 
@@ -271,7 +213,9 @@ export default function ResumenFinanzasPage() {
 
 
 
-      {/* FILTRO PERIODO */}
+      {/* ===================================================
+          FILTRO PERÍODO
+      =================================================== */}
 
       <div className="mt-6 flex flex-wrap gap-3 rounded-[22px] border border-[#E2E7E3] bg-white p-4">
 
@@ -353,7 +297,23 @@ export default function ResumenFinanzasPage() {
 
 
 
-      {/* TARJETAS RESUMEN */}
+      {/* ===================================================
+          ERROR
+      =================================================== */}
+
+      {error && (
+
+        <div className="mt-5 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
+          {error}
+        </div>
+
+      )}
+
+
+
+      {/* ===================================================
+          TARJETAS RESUMEN
+      =================================================== */}
 
       <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
 
@@ -412,14 +372,17 @@ export default function ResumenFinanzasPage() {
 
 
 
-      {/* AGRUPACIONES */}
+      {/* ===================================================
+          AGRUPACIONES
+      =================================================== */}
 
       <div className="mt-6 grid gap-5 lg:grid-cols-2">
 
         <GroupBox
           title="Ingresos por grupo"
           rows={
-            ingresosPorGrupo
+            resumen?.ingresos_por_grupo ??
+            []
           }
           emptyText="Sin ingresos este mes."
         />
@@ -428,7 +391,8 @@ export default function ResumenFinanzasPage() {
         <GroupBox
           title="Gastos por grupo"
           rows={
-            gastosPorGrupo
+            resumen?.gastos_por_grupo ??
+            []
           }
           emptyText="Sin gastos este mes."
         />
@@ -437,7 +401,9 @@ export default function ResumenFinanzasPage() {
 
 
 
-      {/* LOADING */}
+      {/* ===================================================
+          LOADING
+      =================================================== */}
 
       {loading && (
 
@@ -450,62 +416,6 @@ export default function ResumenFinanzasPage() {
     </div>
 
   );
-}
-
-
-function agrupar(
-  movimientos:
-    MovimientoFinanciero[]
-) {
-
-  const map =
-    new Map<
-      string,
-      number
-    >();
-
-
-  movimientos.forEach(
-    (item) => {
-
-      const key =
-        item.grupo_nombre ??
-        "Sin grupo";
-
-
-      map.set(
-        key,
-
-        (
-          map.get(key) ??
-          0
-        ) +
-          Number(
-            item.monto
-          )
-      );
-
-    }
-  );
-
-
-  return Array.from(
-    map.entries()
-  )
-    .map(
-      ([
-        nombre,
-        total,
-      ]) => ({
-        nombre,
-        total,
-      })
-    )
-    .sort(
-      (a, b) =>
-        b.total -
-        a.total
-    );
 }
 
 
@@ -577,7 +487,7 @@ function GroupBox({
       string;
 
     total:
-      number;
+      string | number;
   }[];
 
   emptyText:
