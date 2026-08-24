@@ -75,8 +75,7 @@ import DetalleRendicionPage
 import JornalesPage from "./pages/JornalesPage";
 
 import JornalCarpidaPage from "./features/jornalCarpida/JornalCarpidaPage";
-
-import FinanzasRoute from "./features/auth/FinanzasRoute";
+ 
 
 import MovimientosPage
  from "./features/finanzas/movimientos/MovimientosPage";

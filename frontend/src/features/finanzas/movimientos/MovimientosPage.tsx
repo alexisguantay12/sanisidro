@@ -141,11 +141,6 @@ const [
 ] = useState(false);
 
 
-const [
-  totalMovimientos,
-  setTotalMovimientos,
-] = useState(0);
-
 
 const loadMoreRef =
   useRef<HTMLDivElement | null>(
@@ -175,10 +170,7 @@ const loadMoreRef =
         movimientosData.results
         );
 
-
-        setTotalMovimientos(
-        movimientosData.count
-        );
+ 
 
 
         setHasMore(
@@ -363,10 +355,7 @@ const loadMoreRef =
       )
     );
 
-
-    setTotalMovimientos(
-      data.count
-    );
+ 
 
   } catch (error) {
 
