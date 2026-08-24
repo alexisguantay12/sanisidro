@@ -70,7 +70,27 @@ import HistorialRendicionesPage
   from "./pages/administracion/HistorialRendicionesPage";
 
 import DetalleRendicionPage
-  from "./pages/administracion/DetalleRendicionPage";
+  from "./pages/administracion/DetalleRendicionPage"; 
+
+import JornalesPage from "./pages/JornalesPage";
+
+import JornalCarpidaPage from "./features/jornalCarpida/JornalCarpidaPage";
+
+import FinanzasRoute from "./features/auth/FinanzasRoute";
+
+import MovimientosPage
+ from "./features/finanzas/movimientos/MovimientosPage";
+import FinanzasPage from "./features/finanzas/FinanzasPage";
+import CuentasPage
+ from "./features/finanzas/cuentas/CuentasPage";
+import CuentaDetallePage
+ from "./features/finanzas/cuentas/CuentasDetallePage";
+import CategoriasPage
+ from "./features/finanzas/categorias/CategoriasPage";
+import GruposPage
+ from "./features/finanzas/grupos/GruposPage";
+import ResumenFinanzasPage from "./features/finanzas/resumen/ResumenFinanzasPage";
+
 
 function App() {
   return (
@@ -91,6 +111,16 @@ function App() {
           path="/tarjas"
           element={<TarjasPage />}
         />
+        <Route
+          path="/tarjas/jornales"
+          element={<JornalesPage />}
+        />
+
+        <Route
+          path="/tarjas/carpida"
+          element={<JornalCarpidaPage />}
+        />
+
         <Route
           path="/horas-extra"
           element={<HorasExtraPage />}
@@ -219,6 +249,56 @@ function App() {
           path="/administracion/rendiciones/:id"
           element={<DetalleRendicionPage />}
         />
+
+        <Route
+          path="/finanzas"
+          element={ 
+              <FinanzasPage /> 
+          }
+        />
+
+        <Route
+          path="/finanzas/movimientos"
+          element={ 
+              <MovimientosPage /> 
+          }
+        />   
+
+        <Route
+          path="/finanzas/cuentas"
+          element={ 
+              <CuentasPage /> 
+          }
+        />
+
+        <Route
+          path="/finanzas/cuentas/:id"
+          element={ 
+              <CuentaDetallePage /> 
+          }
+        />
+
+        <Route
+          path="/finanzas/categorias"
+          element={ 
+              <CategoriasPage /> 
+          }
+        />
+
+        <Route
+          path="/finanzas/grupos"
+          element={ 
+              <GruposPage /> 
+          }
+        />
+
+        <Route
+          path="/finanzas/resumen"
+          element={ 
+              <ResumenFinanzasPage /> 
+          }
+        />
+
 
       </Route>
     </Route>

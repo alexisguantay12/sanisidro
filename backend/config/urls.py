@@ -46,4 +46,10 @@ urlpatterns = [
             "applications.administracion.urls"
         ),
     ), 
+    path(
+        "api/finanzas/",
+        include(
+            "applications.finanzas.urls"
+        ),
+    ), 
 ]

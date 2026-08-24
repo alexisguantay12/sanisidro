@@ -6,9 +6,38 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.db.models import Q
 from django.utils import timezone
-from .models import Peon, Tarja
-from .serializers import TarjaSerializer,PeonSerializer
+from .models import Peon, Tarja, JornalCarpida
+from .serializers import TarjaSerializer,PeonSerializer,JornalCarpidaSerializer
 from applications.administracion.views import recalcular_horas_extra_pendientes,obtener_valor_jornal
+
+
+from rest_framework.views import APIView
+
+
+
+class MeView(APIView):
+    permission_classes = [
+        IsAuthenticated,
+    ]
+
+    def get(self, request):
+        user = request.user
+
+        return Response({
+            "id": user.id,
+            "username": user.username,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "is_superuser": user.is_superuser,
+            "groups": list(
+                user.groups.values_list(
+                    "name",
+                    flat=True,
+                )
+            ),
+        })
+
+
 
 
 class PeonViewSet(viewsets.ModelViewSet):
@@ -35,8 +64,134 @@ class PeonViewSet(viewsets.ModelViewSet):
             user=self.request.user
         )
 
+from rest_framework.exceptions import ValidationError
+class JornalCarpidaViewSet(viewsets.ModelViewSet):
 
+    serializer_class = JornalCarpidaSerializer
 
+    def get_queryset(self):
+        return (
+            JornalCarpida.objects
+            .filter(
+                is_deleted=False,
+            )
+            .order_by("-fecha", "-id")
+        )
+
+    def obtener_valor_jornal(self, fecha):
+        valor_jornal = (
+            ValorJornal.objects
+            .filter(
+                is_deleted=False,
+                activo=True,
+                vigente_desde__lte=fecha,
+            )
+            .order_by("-vigente_desde")
+            .first()
+        )
+
+        if not valor_jornal:
+            raise ValidationError(
+                {
+                    "fecha": (
+                        "No existe un valor de jornal vigente "
+                        "para la fecha seleccionada."
+                    )
+                }
+            )
+
+        return valor_jornal
+
+    def calcular_importe(
+        self,
+        valor_jornal,
+        tipo_jornada,
+    ):
+        if tipo_jornada == JornalCarpida.TipoJornada.DIA:
+            return valor_jornal.valor * Decimal("2")
+
+        if tipo_jornada == JornalCarpida.TipoJornada.MEDIO_DIA:
+            return valor_jornal.valor
+
+        raise ValidationError(
+            {
+                "tipo_jornada": "Tipo de jornada inválido."
+            }
+        )
+
+    def perform_create(self, serializer):
+        fecha = serializer.validated_data["fecha"]
+        tipo_jornada = serializer.validated_data[
+            "tipo_jornada"
+        ]
+
+        valor_jornal = self.obtener_valor_jornal(fecha)
+
+        importe = self.calcular_importe(
+            valor_jornal,
+            tipo_jornada,
+        )
+
+        serializer.save(
+            valor_jornal=valor_jornal.valor,
+            importe=importe,
+            liquidada=False,
+            user_made=self.request.user,
+            user_updated=self.request.user,
+        )
+
+    def perform_update(self, serializer):
+        instance = self.get_object()
+
+        if instance.liquidada:
+            raise ValidationError(
+                "No se puede modificar un jornal de carpida liquidado."
+            )
+
+        fecha = serializer.validated_data.get(
+            "fecha",
+            instance.fecha,
+        )
+
+        tipo_jornada = serializer.validated_data.get(
+            "tipo_jornada",
+            instance.tipo_jornada,
+        )
+
+        valor_jornal = obtener_valor_jornal(fecha)
+
+        importe = self.calcular_importe(
+            valor_jornal,
+            tipo_jornada,
+        )
+
+        serializer.save(
+            valor_jornal=valor_jornal.valor,
+            importe=importe,
+            user_updated=self.request.user,
+        )
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+
+        if instance.liquidada:
+            raise ValidationError(
+                "No se puede eliminar un jornal de carpida liquidado."
+            )
+
+        instance.is_deleted = True
+        instance.user_deleted = request.user
+
+        instance.save(
+            update_fields=[
+                "is_deleted",
+                "user_deleted",
+            ]
+        )
+
+        return Response(
+            status=status.HTTP_204_NO_CONTENT
+        )
 
 class TarjaViewSet(
     viewsets.ModelViewSet

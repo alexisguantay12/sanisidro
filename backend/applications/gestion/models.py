@@ -269,6 +269,73 @@ class ValorJornal(
         )
 
 
+class JornalCarpida(BaseAbstractWithUser):
+
+    class TipoJornada(models.TextChoices):
+        DIA = "DIA", "Día"
+        MEDIO_DIA = "MEDIO_DIA", "Medio día" 
+
+    fecha = models.DateField(
+        verbose_name="Fecha",
+    )
+
+    tipo_jornada = models.CharField(
+        max_length=20,
+        choices=TipoJornada.choices,
+        default=TipoJornada.DIA,
+        verbose_name="Tipo de jornada",
+    )
+
+    observacion = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        verbose_name="Observación",
+    )
+
+    valor_jornal = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        verbose_name="Valor del jornal",
+    )
+
+    importe = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        verbose_name="Importe",
+    )
+
+    liquidada = models.BooleanField(
+        default=False,
+        verbose_name="Liquidada",
+    )
+
+    class Meta:
+        ordering = ["-fecha", "-id"]
+        verbose_name = "Jornal de carpida"
+        verbose_name_plural = "Jornales de carpida"
+
+    def __str__(self):
+        return f"{self.peon} - {self.fecha} - {self.get_tipo_jornada_display()}"
+
+    def calcular_importe(self):
+        """
+        Día completo de carpida:
+            2 jornales comunes.
+
+        Medio día de carpida:
+            1 jornal común completo.
+        """
+
+        if self.tipo_jornada == self.TipoJornada.DIA:
+            return self.valor_jornal * Decimal("2")
+
+        return self.valor_jornal
+
+
+
+
+
 
 class HoraExtra(BaseAbstractWithUser):
 

@@ -1,820 +1,126 @@
 import {
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
-
-import {
-  ChevronLeft,
   ChevronRight,
-  Save,
-  UserRound,
+  ClipboardList,
+  Sprout,
 } from "lucide-react";
 
-import {
-  getTarjasMes,
-  saveTarjasMes,
-} from "../features/tarjas/api";
-
-import TarjaCalendar
-  from "../features/tarjas/TarjaCalendar";
-
-import DayModal
-  from "../features/tarjas/DayModal";
-
-import {
-  getPeones,
-} from "../features/peones/api";
-
-import type {
-  Peon,
-} from "../features/peones/types";
-
-import type { TarjaLocal } from "../features/tarjas/types";
-
-
-const monthFormatter =
-  new Intl.DateTimeFormat(
-    "es-AR",
-    {
-      month: "long",
-      year: "numeric",
-    }
-  );
+import { useNavigate } from "react-router-dom";
 
 
 export default function TarjasPage() {
 
-  const today =
-    new Date();
-
-
-  const [
-    year,
-    setYear,
-  ] = useState(
-    today.getFullYear()
-  );
-
-
-  const [
-    month,
-    setMonth,
-  ] = useState(
-    today.getMonth()
-  );
-
-
-  const [
-    peones,
-    setPeones,
-  ] = useState<Peon[]>([]);
-
-
-  const [
-    peonId,
-    setPeonId,
-  ] = useState<
-    number | null
-  >(null);
-
-
-  const [
-    registros,
-    setRegistros,
-  ] = useState<
-    Record<
-      string,
-      TarjaLocal
-    >
-  >({});
-
-
-  const [
-    selectedDate,
-    setSelectedDate,
-  ] = useState<
-    string | null
-  >(null);
-
-
-  const [
-    loading,
-    setLoading,
-  ] = useState(false);
-
-
-  const [
-    saving,
-    setSaving,
-  ] = useState(false);
-
-
-  const [
-    message,
-    setMessage,
-  ] = useState("");
-
-
-  useEffect(() => {
-    getPeones().then(
-      setPeones
-    );
-  }, []);
-
-
-  useEffect(() => {
-
-    if (!peonId) {
-      setRegistros({});
-      return;
-    }
-
-    void loadMonth();
-
-  }, [
-    peonId,
-    year,
-    month,
-  ]);
-
-
-  async function loadMonth() {
-
-    if (!peonId) {
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      const data =
-        await getTarjasMes(
-          peonId,
-          year,
-          month + 1
-        );
-
-
-      const map:
-        Record<
-          string,
-          TarjaLocal
-        > = {};
-
-
-      data.forEach(
-        (tarja) => {
-
-          map[tarja.fecha] = {
-            fecha:
-              tarja.fecha,
-
-            fraccion:
-              tarja.fraccion,
-
-            tarea:
-              tarja.tarea,
-
-            destino:
-              tarja.destino ??
-              "san_isidro",
-
-            destinatario:
-              tarja.destinatario ??
-              null,
-
-            destinatario_nombre:
-              tarja
-                .destinatario_nombre ??
-              null,
-
-            observacion:
-              tarja.observacion,
-
-            liquidada:
-              tarja.liquidada ,
-
-            modified: false,
-          };
-        }
-      );
-
-
-      setRegistros(
-        map
-      );
-
-    } finally {
-      setLoading(false);
-    }
-  }
-
-
-  const modifiedRecords =
-    useMemo(
-      () =>
-        Object.values(
-          registros
-        ).filter(
-          (item) =>
-            item.modified
-            &&
-            !item.liquidada
-        ),
-      [registros]
-    );
-
-
-  const cantidadDias =
-    Object.values(
-      registros
-    ).filter(
-      (item) =>
-        item.fraccion
-    ).length;
-
-
-  const diasCompletos =
-    Object.values(
-      registros
-    ).filter(
-      (item) =>
-        item.fraccion ===
-        "1.0"
-    ).length;
-
-
-  const mediosDias =
-    Object.values(
-      registros
-    ).filter(
-      (item) =>
-        item.fraccion ===
-        "0.5"
-    ).length;
-
-
-  const diasExternos =
-    Object.values(
-      registros
-    ).filter(
-      (item) =>
-        item.fraccion !== null &&
-        item.destino ===
-          "externo"
-    ).length;
-
-
-  const diasLiquidados =
-    Object.values(
-      registros
-    ).filter(
-      (item) =>
-        item.liquidada
-    ).length;
-
-
-  function showMessage(
-    text: string
-  ) {
-    setMessage(text);
-
-    window.setTimeout(
-      () =>
-        setMessage(""),
-      3000
-    );
-  }
-
-
-  function handleDayClick(
-    fecha: string
-  ) {
-
-    const registro =
-      registros[fecha];
-
-
-    if (
-      registro?.liquidada
-    ) {
-      showMessage(
-        "Este día ya fue liquidado y no puede modificarse."
-      );
-
-      return;
-    }
-
-
-    setSelectedDate(
-      fecha
-    );
-  }
-
-
-  function handleDaySave(
-    registro: TarjaLocal
-  ) {
-
-    const actual =
-      registros[
-        registro.fecha
-      ];
-
-
-    if (
-      actual?.liquidada
-    ) {
-      showMessage(
-        "Este día ya fue liquidado y no puede modificarse."
-      );
-
-      return;
-    }
-
-
-    setRegistros(
-      (current) => ({
-        ...current,
-
-        [registro.fecha]:
-          registro,
-      })
-    );
-  }
-
-
-  function previousMonth() {
-
-    if (month === 0) {
-      setMonth(11);
-
-      setYear(
-        (value) =>
-          value - 1
-      );
-
-    } else {
-      setMonth(
-        (value) =>
-          value - 1
-      );
-    }
-  }
-
-
-  function nextMonth() {
-
-    if (month === 11) {
-      setMonth(0);
-
-      setYear(
-        (value) =>
-          value + 1
-      );
-
-    } else {
-      setMonth(
-        (value) =>
-          value + 1
-      );
-    }
-  }
-
-
-  async function handleSave() {
-
-    if (
-      !peonId ||
-      modifiedRecords.length === 0
-    ) {
-      return;
-    }
-
-    try {
-      setSaving(true);
-
-
-      await saveTarjasMes({
-        peon: peonId,
-
-        registros:
-          modifiedRecords,
-      });
-
-
-      await loadMonth();
-
-
-      showMessage(
-        "Tarjas guardadas correctamente."
-      );
-
-    } finally {
-      setSaving(false);
-    }
-  }
-
+  const navigate = useNavigate();
 
   return (
-    <>
+    <div className="mx-auto w-full max-w-3xl">
 
-      {message && (
-        <div className="fixed left-1/2 top-5 z-[70] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-xl bg-[#18392B] px-5 py-3 text-center text-sm font-semibold text-white shadow-xl">
-          {message}
-        </div>
-      )}
+      <header className="mb-7">
 
+        <p className="mb-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#7A837D]">
+          Personal
+        </p>
 
-      <div className="min-h-full bg-[#F6F8F6]">
+        <h1 className="text-3xl font-semibold tracking-tight text-[#1B1E1C]">
+          Tarjas
+        </h1>
 
-        <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
+        <p className="mt-2 max-w-lg text-sm leading-6 text-[#6B746E]">
+          Administrá los jornales de los peones
+          y los trabajos realizados en carpida.
+        </p>
 
-          {/* HEADER */}
-
-          <div className="mb-6">
-
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#859089]">
-              Personal
-            </p>
-
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[#1B1E1C] sm:text-3xl">
-              Tarjas
-            </h1>
-
-            <p className="mt-2 max-w-2xl text-sm text-[#78817B]">
-              Registrá los días
-              trabajados de cada peón.
-            </p>
-
-          </div>
+      </header>
 
 
-          {/* PEÓN */}
+      <div className="space-y-4">
 
-          <section className="mb-4 rounded-[24px] border border-[#E4E8E5] bg-white p-4 shadow-[0_8px_28px_rgba(27,30,28,0.04)] sm:p-5">
+        {/* JORNALES */}
+        <button
+          type="button"
+          onClick={() =>
+            navigate("/tarjas/jornales")
+          }
+          className="group w-full rounded-[24px] border border-[#E2E7E3] bg-white p-5 text-left shadow-[0_3px_16px_rgba(20,30,24,0.04)] transition hover:-translate-y-0.5 hover:border-[#CAD5CD] hover:shadow-[0_10px_28px_rgba(20,30,24,0.08)] sm:p-6"
+        >
+          <div className="flex items-center gap-4">
 
-            <div className="flex items-start gap-3">
-
-              <div className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#EEF3EF] text-[#537060] sm:flex">
-                <UserRound
-                  size={20}
-                />
-              </div>
-
-
-              <div className="min-w-0 flex-1">
-
-                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.08em] text-[#8B948E]">
-                  Peón
-                </label>
-
-                <select
-                  value={
-                    peonId ??
-                    ""
-                  }
-                  onChange={(e) =>
-                    setPeonId(
-                      e.target.value
-                        ? Number(
-                            e.target
-                              .value
-                          )
-                        : null
-                    )
-                  }
-                  className="h-12 w-full rounded-2xl border border-[#DDE3DF] bg-[#FAFBFA] px-4 text-sm font-medium text-[#333936] outline-none focus:border-[#9FB4A6] focus:bg-white focus:ring-4 focus:ring-[#18392B]/5"
-                >
-                  <option value="">
-                    Seleccionar trabajador...
-                  </option>
-
-                  {peones.map(
-                    (peon) => (
-                      <option
-                        key={
-                          peon.id
-                        }
-                        value={
-                          peon.id
-                        }
-                      >
-                        {
-                          peon.nombre
-                        }
-                      </option>
-                    )
-                  )}
-                </select>
-
-              </div>
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#EAF2ED] text-[#18392B]">
+              <ClipboardList size={27} />
             </div>
 
-          </section>
+            <div className="min-w-0 flex-1">
 
+              <h2 className="text-lg font-semibold text-[#1B1E1C]">
+                Jornales
+              </h2>
 
-          {!peonId ? (
-
-            <div className="rounded-[24px] border border-[#E4E8E5] bg-white px-6 py-14 text-center shadow-[0_8px_28px_rgba(27,30,28,0.04)]">
-
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#EEF3EF] text-[#537060]">
-                <UserRound
-                  size={22}
-                />
-              </div>
-
-              <h3 className="mt-4 text-base font-semibold text-[#272C29]">
-                Seleccioná un peón
-              </h3>
-
-              <p className="mt-1 text-sm text-[#808983]">
-                Elegí un trabajador
-                para consultar y cargar
-                sus tarjas mensuales.
+              <p className="mt-1 text-sm leading-5 text-[#737C76]">
+                Registro diario de jornadas realizadas
+                por los peones.
               </p>
 
             </div>
 
-          ) : (
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[#8A938D] transition group-hover:bg-[#F3F6F4] group-hover:text-[#18392B]">
+              <ChevronRight size={21} />
+            </div>
 
-            <>
+          </div>
 
-              {/* MES */}
+          <div className="mt-5 border-t border-[#EEF1EF] pt-4">
 
-              <section className="mb-4 rounded-[24px] border border-[#E4E8E5] bg-white p-3 shadow-[0_8px_28px_rgba(27,30,28,0.04)]">
+            <p className="text-xs font-medium text-[#88918B]">
+              Selección de peones y registro de jornadas
+            </p>
 
-                <div className="flex items-center justify-between gap-3">
+          </div>
+        </button>
 
-                  <button
-                    type="button"
-                    onClick={
-                      previousMonth
-                    }
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#DDE3DF] bg-white text-[#59615C] transition hover:bg-[#F7F8F7]"
-                  >
-                    <ChevronLeft
-                      size={20}
-                    />
-                  </button>
 
+        {/* CARPIDA */}
+        <button
+          type="button"
+          onClick={() =>
+            navigate("/tarjas/carpida")
+          }
+          className="group w-full rounded-[24px] border border-[#E2E7E3] bg-white p-5 text-left shadow-[0_3px_16px_rgba(20,30,24,0.04)] transition hover:-translate-y-0.5 hover:border-[#CAD5CD] hover:shadow-[0_10px_28px_rgba(20,30,24,0.08)] sm:p-6"
+        >
+          <div className="flex items-center gap-4">
 
-                  <div className="min-w-0 text-center">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#F2EEE4] text-[#6F5A2C]">
+              <Sprout size={27} />
+            </div>
 
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#929A95]">
-                      Período
-                    </p>
+            <div className="min-w-0 flex-1">
 
-                    <h2 className="mt-1 truncate capitalize text-base font-semibold text-[#252A27] sm:text-lg">
-                      {monthFormatter.format(
-                        new Date(
-                          year,
-                          month,
-                          1
-                        )
-                      )}
-                    </h2>
+              <h2 className="text-lg font-semibold text-[#1B1E1C]">
+                Jornales de carpida
+              </h2>
 
-                  </div>
+              <p className="mt-1 text-sm leading-5 text-[#737C76]">
+                Registro de días y medios días
+                correspondientes a trabajos de carpida.
+              </p>
 
+            </div>
 
-                  <button
-                    type="button"
-                    onClick={
-                      nextMonth
-                    }
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#DDE3DF] bg-white text-[#59615C] transition hover:bg-[#F7F8F7]"
-                  >
-                    <ChevronRight
-                      size={20}
-                    />
-                  </button>
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[#8A938D] transition group-hover:bg-[#F3F6F4] group-hover:text-[#18392B]">
+              <ChevronRight size={21} />
+            </div>
 
-                </div>
+          </div>
 
-              </section>
+          <div className="mt-5 border-t border-[#EEF1EF] pt-4">
 
+            <p className="text-xs font-medium text-[#88918B]">
+              Día completo equivale a dos jornales
+            </p>
 
-              {/* RESUMEN */}
+          </div>
+        </button>
 
-              <section className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
-
-                <div className="rounded-[22px] border border-[#E4E8E5] bg-white p-3 shadow-[0_8px_24px_rgba(27,30,28,0.035)] sm:p-4">
-
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#8B948E] sm:text-xs">
-                    Cargados
-                  </p>
-
-                  <p className="mt-2 text-xl font-semibold text-[#18392B] sm:text-2xl">
-                    {cantidadDias}
-                  </p>
-
-                </div>
-
-
-                <div className="rounded-[22px] border border-[#E4E8E5] bg-white p-3 shadow-[0_8px_24px_rgba(27,30,28,0.035)] sm:p-4">
-
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#8B948E] sm:text-xs">
-                    Completos
-                  </p>
-
-                  <p className="mt-2 text-xl font-semibold text-[#18392B] sm:text-2xl">
-                    {diasCompletos}
-                  </p>
-
-                </div>
-
-
-                <div className="rounded-[22px] border border-[#E4E8E5] bg-white p-3 shadow-[0_8px_24px_rgba(27,30,28,0.035)] sm:p-4">
-
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#8B948E] sm:text-xs">
-                    Medios
-                  </p>
-
-                  <p className="mt-2 text-xl font-semibold text-[#18392B] sm:text-2xl">
-                    {mediosDias}
-                  </p>
-
-                </div>
-
-
-                <div className="rounded-[22px] border border-[#E4E8E5] bg-white p-3 shadow-[0_8px_24px_rgba(27,30,28,0.035)] sm:p-4">
-
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#8B948E] sm:text-xs">
-                    Externos
-                  </p>
-
-                  <p className="mt-2 text-xl font-semibold text-sky-700 sm:text-2xl">
-                    {diasExternos}
-                  </p>
-
-                </div>
-
-
-                <div className="col-span-2 rounded-[22px] border border-blue-100 bg-blue-50 p-3 shadow-[0_8px_24px_rgba(27,30,28,0.035)] sm:col-span-1 sm:p-4">
-
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-blue-500 sm:text-xs">
-                    Liquidados
-                  </p>
-
-                  <p className="mt-2 text-xl font-semibold text-blue-700 sm:text-2xl">
-                    {diasLiquidados}
-                  </p>
-
-                </div>
-
-              </section>
-
-
-              {/* CALENDARIO */}
-
-              {loading ? (
-
-                <div className="rounded-[24px] border border-[#E4E8E5] bg-white px-6 py-16 text-center shadow-[0_8px_28px_rgba(27,30,28,0.04)]">
-
-                  <div className="mx-auto h-8 w-8 animate-spin rounded-full border-[3px] border-[#E2E7E3] border-t-[#18392B]" />
-
-                  <p className="mt-4 text-sm text-[#78817B]">
-                    Cargando tarjas...
-                  </p>
-
-                </div>
-
-              ) : (
-
-                <TarjaCalendar
-                  year={year}
-
-                  month={month}
-
-                  registros={
-                    registros
-                  }
-
-                  onDayClick={
-                    handleDayClick
-                  }
-                />
-
-              )}
-
-
-              {/* LEYENDA */}
-
-              <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-3 rounded-[22px] border border-[#E4E8E5] bg-white px-4 py-3 shadow-[0_8px_24px_rgba(27,30,28,0.035)]">
-
-                <div className="flex items-center gap-2 text-xs font-medium text-[#56605A]">
-                  <span className="h-3 w-3 rounded bg-[#18392B]" />
-                  Completo
-                </div>
-
-
-                <div className="flex items-center gap-2 text-xs font-medium text-[#56605A]">
-                  <span className="h-3 w-3 rounded border border-amber-300 bg-amber-50" />
-                  Medio día
-                </div>
-
-
-                <div className="flex items-center gap-2 text-xs font-medium text-[#56605A]">
-                  <span
-                    className="
-                      h-0
-                      w-0
-                      border-l-[9px]
-                      border-l-transparent
-                      border-t-[9px]
-                      border-t-rose-400
-                    "
-                  />
-
-                  Trabajo externo
-                </div>
-
-                <div className="flex items-center gap-2 text-xs font-medium text-[#56605A]">
-                  <span className="h-3 w-3 rounded bg-blue-500" />
-                  Liquidado
-                </div>
-
-              </div>
-
-
-              {/* GUARDAR */}
-
-              {modifiedRecords.length >
-                0 && (
-
-                <div className="sticky bottom-20 z-30 mt-4">
-
-                  <button
-                    type="button"
-                    onClick={
-                      handleSave
-                    }
-                    disabled={
-                      saving
-                    }
-                    className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#18392B] font-semibold text-white shadow-[0_12px_30px_rgba(24,57,43,0.25)] transition hover:bg-[#204A38] disabled:opacity-60"
-                  >
-                    <Save
-                      size={20}
-                    />
-
-                    {saving
-                      ? "Guardando..."
-                      : `Guardar cambios (${modifiedRecords.length})`
-                    }
-
-                  </button>
-
-                </div>
-
-              )}
-
-            </>
-
-          )}
-
-        </div>
       </div>
 
-
-      <DayModal
-        open={
-          selectedDate !== null
-        }
-
-        fecha={
-          selectedDate
-        }
-
-        registro={
-          selectedDate
-            ? registros[
-                selectedDate
-              ]
-            : undefined
-        }
-
-        peones={
-          peones
-        }
-
-        peonId={
-          peonId
-        }
-
-        onClose={() =>
-          setSelectedDate(
-            null
-          )
-        }
-
-        onSave={
-          handleDaySave
-        }
-      />
-
-    </>
+    </div>
   );
 }

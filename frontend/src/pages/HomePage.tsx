@@ -12,6 +12,10 @@ import {
   Link,
 } from "react-router-dom";
 
+import {
+  useAuth,
+} from "../features/auth/AuthContext";
+
 
 const modules = [
   {
@@ -37,7 +41,8 @@ const modules = [
   },
   {
     title: "Almácigos",
-    description: "Compras y consumo",
+    description:
+      "Compras y consumo",
     icon: Sprout,
     to: "/almacigos",
   },
@@ -61,6 +66,15 @@ const modules = [
       "Pagos y rendiciones",
     icon: WalletCards,
     to: "/administracion",
+    adminOnly: true,
+  },
+  {
+    title: "Finanzas",
+    description:
+      "Finanzas personales",
+    icon: WalletCards,
+    to: "/finanzas",
+    finanzasOnly: true,
   },
   {
     title: "Resumen",
@@ -73,10 +87,36 @@ const modules = [
 
 
 export default function HomePage() {
+
+  const {
+    esAdministracion,
+    loadingUser,
+  } = useAuth();
+
+
+  if (loadingUser) {
+    return null;
+  }
+
+
+  const visibleModules =
+    modules.filter(
+      (module) => {
+
+        if (!module.adminOnly) {
+          return true;
+        }
+
+        return esAdministracion;
+      }
+    );
+
+
   return (
     <div className="space-y-7">
 
       <section>
+
         <p className="text-sm text-slate-500">
           Gestión de campaña
         </p>
@@ -84,43 +124,43 @@ export default function HomePage() {
         <h2 className="mt-1 text-2xl font-semibold">
           ¿Qué querés cargar?
         </h2>
+
       </section>
 
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-3">
 
-        {modules.map(
+        {visibleModules.map(
           (module) => {
+
             const Icon =
               module.icon;
 
             return (
               <Link
-                key={
-                  module.title
-                }
-                to={
-                  module.to
-                }
+                key={module.title}
+                to={module.to}
                 className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
               >
+
                 <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100">
+
                   <Icon
                     size={23}
                   />
+
                 </div>
 
+
                 <h3 className="font-semibold">
-                  {
-                    module.title
-                  }
+                  {module.title}
                 </h3>
 
+
                 <p className="mt-1 text-xs text-slate-500">
-                  {
-                    module.description
-                  }
+                  {module.description}
                 </p>
+
               </Link>
             );
           }

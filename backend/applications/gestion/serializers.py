@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Peon, Tarja, HoraExtra, ValorJornal
+from .models import Peon, Tarja, HoraExtra, ValorJornal,JornalCarpida
 from django.db.models import Q
 
 class PeonSerializer(serializers.ModelSerializer):
@@ -25,6 +25,59 @@ class PeonSerializer(serializers.ModelSerializer):
             "user_made",
             "user_updated",
         ]
+
+class JornalCarpidaSerializer(serializers.ModelSerializer):
+
+    tipo_jornada_display = serializers.CharField(
+        source="get_tipo_jornada_display",
+        read_only=True,
+    )
+
+    estado = serializers.SerializerMethodField()
+
+    class Meta:
+        model = JornalCarpida
+
+        fields = [
+            "id",
+            "fecha",
+            "tipo_jornada",
+            "tipo_jornada_display",
+            "observacion",
+            "valor_jornal",
+            "importe",
+            "liquidada",
+            "estado",
+        ]
+
+        read_only_fields = [
+            "valor_jornal",
+            "importe",
+            "liquidada",
+            "estado",
+        ]
+
+    def get_estado(self, obj):
+        return (
+            "LIQUIDADA"
+            if obj.liquidada
+            else "PENDIENTE"
+        )
+
+    def validate(self, attrs):
+        instance = getattr(
+            self,
+            "instance",
+            None,
+        )
+
+        if instance and instance.liquidada:
+            raise serializers.ValidationError(
+                "No se puede modificar un jornal de carpida liquidado."
+            )
+
+        return attrs
+
 
 
 class TarjaSerializer(

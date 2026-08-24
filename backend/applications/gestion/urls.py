@@ -1,41 +1,50 @@
+from django.urls import path
 from rest_framework.routers import DefaultRouter
 
-from .views import PeonViewSet, TarjaViewSet,HoraExtraViewSet,ProveedorViewSet,ConfiguracionTractorViewSet
-from .views import TractorSergioViewSet,TractorTerceroViewSet,ConsumoInsumoViewSet,InsumoViewSet, ValorJornalViewSet
-
-from django.urls import path
-
 from .views import (
-    CambiarPasswordView,
-)
-
-from .views import (
+    PeonViewSet,
+    TarjaViewSet,
+    HoraExtraViewSet,
+    ProveedorViewSet,
+    ConfiguracionTractorViewSet,
+    TractorSergioViewSet,
+    TractorTerceroViewSet,
+    ConsumoInsumoViewSet,
+    InsumoViewSet,
+    ValorJornalViewSet,
+    JornalCarpidaViewSet,
     AlmacigoViewSet,
     ConfiguracionAlmacigoViewSet,
-)
-
-from .views import (
     CompradorViewSet,
     VentaViewSet,
     PagoVentaViewSet,
+    CambiarPasswordView,
+    MeView,
 )
+
 
 router = DefaultRouter()
 
 router.register(
     r"peones",
     PeonViewSet,
-    basename="peon"
+    basename="peon",
 )
 
 router.register(
-    "tarjas",
+    r"tarjas",
     TarjaViewSet,
     basename="tarja",
 )
 
 router.register(
-    "horas-extra",
+    r"jornales-carpida",
+    JornalCarpidaViewSet,
+    basename="jornal-carpida",
+)
+
+router.register(
+    r"horas-extra",
     HoraExtraViewSet,
     basename="hora-extra",
 )
@@ -94,15 +103,6 @@ router.register(
     basename="configuracion-almacigos",
 )
 
-
-urlpatterns = [
-    path(
-        "cambiar-password/",
-        CambiarPasswordView.as_view(),
-        name="cambiar-password",
-    ),
-]
-
 router.register(
     r"compradores",
     CompradorViewSet,
@@ -122,6 +122,18 @@ router.register(
 )
 
 
- 
+urlpatterns = [
+    path(
+        "me/",
+        MeView.as_view(),
+        name="me",
+    ),
 
-urlpatterns = router.urls
+    path(
+        "cambiar-password/",
+        CambiarPasswordView.as_view(),
+        name="cambiar-password",
+    ),
+]
+
+urlpatterns += router.urls
