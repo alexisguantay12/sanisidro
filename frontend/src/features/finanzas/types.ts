@@ -60,12 +60,18 @@ export interface CategoriaPayload {
   activo: boolean;
 }
 
+export type MonedaCuenta =
+  | "ARS"
+  | "USD";
 
 export interface CuentaFinanciera {
   id: number;
   nombre: string;
   tipo: TipoCuenta;
   tipo_display: string;
+  
+  moneda: MonedaCuenta;
+  moneda_display: string;
 
   saldo_inicial: string;
   saldo_actual: string;
@@ -81,6 +87,7 @@ export interface CuentaPayload {
   saldo_inicial: string | number;
   descripcion: string;
   activa: boolean;
+  moneda: MonedaCuenta;
 }
 
 

@@ -19,7 +19,9 @@ from .views import (
     VentaViewSet,
     PagoVentaViewSet,
     CambiarPasswordView,
+    ConfiguracionPaleadaViewSet,
     MeView,
+    ResumenOperativoViewSet
 )
 
 
@@ -54,7 +56,11 @@ router.register(
     ProveedorViewSet,
     basename="proveedores",
 )
-
+router.register(
+    r"paleada/configuracion",
+    ConfiguracionPaleadaViewSet,
+    basename="configuracion-paleada",
+)
 router.register(
     r"tractor/configuracion",
     ConfiguracionTractorViewSet,
@@ -77,6 +83,12 @@ router.register(
     r"insumos",
     InsumoViewSet,
     basename="insumo",
+)
+
+router.register(
+    r"resumen",
+    ResumenOperativoViewSet,
+    basename="resumen-operativo",
 )
 
 router.register(

@@ -43,6 +43,14 @@ class LiquidacionPersonal(BaseAbstractWithUser):
     fecha_pago = models.DateField(
         verbose_name="fecha de pago",
     )
+    cuenta_financiera = models.ForeignKey(
+        "finanzas.CuentaFinanciera",
+        on_delete=models.PROTECT,
+        related_name="liquidaciones_personal",
+        null=True,
+        blank=True,
+        verbose_name="cuenta financiera",
+    )
 
     total_tarjas = models.DecimalField(
         max_digits=14,
@@ -62,6 +70,17 @@ class LiquidacionPersonal(BaseAbstractWithUser):
             MinValueValidator(Decimal("0.00")),
         ],
         verbose_name="total horas extra",
+    )
+    total_descuentos = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        validators=[
+            MinValueValidator(
+                Decimal("0.00")
+            ),
+        ],
+        verbose_name="total descuentos",
     )
 
     total = models.DecimalField(
@@ -229,6 +248,115 @@ class DetalleLiquidacionTarja(BaseAbstractWithUser):
             f"${self.importe}"
         )
 
+# ============================================================
+# DETALLE DESCUENTO POR TARJA EXTERNA
+# ============================================================
+
+
+class DetalleLiquidacionTarjaExterna(
+    BaseAbstractWithUser
+):
+    """
+    Representa un jornal que se descuenta de la liquidación
+    porque otro peón trabajó para el peón liquidado.
+
+    Ejemplo:
+        Juan trabajó para Pedro.
+
+        - Juan cobra normalmente su tarja.
+        - A Pedro se le descuenta este jornal.
+    """
+
+    liquidacion = models.ForeignKey(
+        LiquidacionPersonal,
+        on_delete=models.PROTECT,
+        related_name="detalles_tarjas_externas",
+        verbose_name="liquidación",
+    )
+
+    tarja = models.ForeignKey(
+        "gestion.Tarja",
+        on_delete=models.PROTECT,
+        related_name="detalles_descuento_liquidacion",
+        verbose_name="tarja externa",
+    )
+
+    peon_origen = models.ForeignKey(
+        "gestion.Peon",
+        on_delete=models.PROTECT,
+        related_name="descuentos_generados",
+        verbose_name="peón que trabajó",
+    )
+
+    fecha = models.DateField(
+        verbose_name="fecha",
+    )
+
+    fraccion = models.DecimalField(
+        max_digits=3,
+        decimal_places=2,
+        verbose_name="fracción de jornal",
+    )
+
+    valor_jornal_aplicado = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=[
+            MinValueValidator(
+                Decimal("0.01")
+            ),
+        ],
+        verbose_name="valor del jornal aplicado",
+    )
+
+    importe = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        validators=[
+            MinValueValidator(
+                Decimal("0.00")
+            ),
+        ],
+        verbose_name="importe descontado",
+    )
+
+    class Meta:
+        ordering = [
+            "fecha",
+            "id",
+        ]
+
+        verbose_name = (
+            "descuento por tarja externa"
+        )
+
+        verbose_name_plural = (
+            "descuentos por tarjas externas"
+        )
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "tarja",
+                ],
+                condition=Q(
+                    is_deleted=False,
+                ),
+                name=(
+                    "unique_tarja_externa_"
+                    "descontada_activa"
+                ),
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.peon_origen} - "
+            f"{self.fecha} - "
+            f"-${self.importe}"
+        )
+
+
 
 # ============================================================
 # DETALLE HORA EXTRA
@@ -365,7 +493,14 @@ class LiquidacionTractor(BaseAbstractWithUser):
         blank=True,
         verbose_name="proveedor",
     )
-
+    cuenta_financiera = models.ForeignKey(
+        "finanzas.CuentaFinanciera",
+        on_delete=models.PROTECT,
+        related_name="liquidaciones_tractor",
+        null=True,
+        blank=True,
+        verbose_name="cuenta financiera",
+    )
     fecha_desde = models.DateField(
         verbose_name="fecha desde",
     )
@@ -706,6 +841,14 @@ class LiquidacionAlmacigo(BaseAbstractWithUser):
     fecha_pago = models.DateField(
         verbose_name="fecha de pago",
     )
+    cuenta_financiera = models.ForeignKey(
+        "finanzas.CuentaFinanciera",
+        on_delete=models.PROTECT,
+        related_name="liquidaciones_almacigos",
+        null=True,
+        blank=True,
+        verbose_name="cuenta financiera",
+    )
 
     cantidad_total = models.PositiveIntegerField(
         default=0,
@@ -908,6 +1051,16 @@ class RendicionVenta(BaseAbstractWithUser):
         verbose_name="estado",
     )
 
+    cuenta_financiera = models.ForeignKey(
+        "finanzas.CuentaFinanciera",
+        on_delete=models.PROTECT,
+        related_name="rendiciones_ventas",
+        null=True,
+        blank=True,
+        verbose_name="cuenta financiera",
+    )
+
+
     fecha_anulacion = models.DateTimeField(
         null=True,
         blank=True,
@@ -1062,3 +1215,5 @@ class DetalleRendicionVenta(BaseAbstractWithUser):
             f"Pago #{self.pago_venta_id} - "
             f"${self.importe}"
         )
+
+

@@ -10,9 +10,11 @@ import {
   Loader2,
   Search,
   Tractor,
+  WalletCards,
 } from "lucide-react";
 
 import {
+  getCuentasFinancieras,
   getProveedores,
   getTractorPendiente,
   liquidarTractor,
@@ -27,10 +29,11 @@ import PageHeader
 import SummaryCard
   from "../../features/administracion/components/SummaryCard";
 
-import AdministracionTabs from "../../features/administracion/components/AdministracionTabs"; 
-  
+import AdministracionTabs
+  from "../../features/administracion/components/AdministracionTabs";
 
 import type {
+  CuentaFinancieraSimple,
   ProveedorSimple,
   TipoTractor,
   TractorPendienteResponse,
@@ -45,26 +48,42 @@ import {
 
 
 export default function PagoTractorPage() {
+
   const [
     tipo,
     setTipo,
-  ] =
-    useState<TipoTractor>(
-      "SERGIO",
-    );
+  ] = useState<TipoTractor>(
+    "SERGIO",
+  );
+
 
   const [
     proveedores,
     setProveedores,
-  ] =
-    useState<ProveedorSimple[]>(
-      [],
-    );
+  ] = useState<ProveedorSimple[]>(
+    [],
+  );
+
+
+  const [
+    cuentas,
+    setCuentas,
+  ] = useState<
+    CuentaFinancieraSimple[]
+  >([]);
+
 
   const [
     proveedor,
     setProveedor,
   ] = useState("");
+
+
+  const [
+    cuentaFinanciera,
+    setCuentaFinanciera,
+  ] = useState("");
+
 
   const [
     fechaDesde,
@@ -73,38 +92,57 @@ export default function PagoTractorPage() {
     firstDayOfMonth(),
   );
 
+
   const [
     fechaHasta,
     setFechaHasta,
-  ] = useState(today());
+  ] = useState(
+    today(),
+  );
+
 
   const [
     fechaPago,
     setFechaPago,
-  ] = useState(today());
+  ] = useState(
+    today(),
+  );
+
 
   const [
     data,
     setData,
   ] =
-    useState<TractorPendienteResponse | null>(
+    useState<
+      TractorPendienteResponse | null
+    >(
       null,
     );
+
 
   const [
     selected,
     setSelected,
   ] = useState<number[]>([]);
 
+
   const [
     observacion,
     setObservacion,
   ] = useState("");
 
+
   const [
     loading,
     setLoading,
   ] = useState(false);
+
+
+  const [
+    loadingCuentas,
+    setLoadingCuentas,
+  ] = useState(false);
+
 
   const [
     error,
@@ -112,19 +150,87 @@ export default function PagoTractorPage() {
   ] = useState("");
 
 
+  // ============================================================
+  // CARGAR PROVEEDORES
+  // ============================================================
+
   useEffect(() => {
+
     getProveedores()
-      .then(setProveedores)
-      .catch(() => {});
+      .then(
+        setProveedores,
+      )
+      .catch(
+        () => {},
+      );
+
   }, []);
 
 
+  // ============================================================
+  // CARGAR CUENTAS FINANCIERAS
+  // ============================================================
+
+  useEffect(() => {
+
+    async function loadCuentas() {
+
+      try {
+
+        setLoadingCuentas(
+          true,
+        );
+
+        const result =
+          await getCuentasFinancieras();
+
+        setCuentas(
+          result,
+        );
+
+        if (
+          result.length === 1
+        ) {
+          setCuentaFinanciera(
+            String(
+              result[0].id,
+            ),
+          );
+        }
+
+      } catch {
+
+        setError(
+          "No se pudieron cargar las cuentas financieras.",
+        );
+
+      } finally {
+
+        setLoadingCuentas(
+          false,
+        );
+
+      }
+
+    }
+
+    loadCuentas();
+
+  }, []);
+
+
+  // ============================================================
+  // BUSCAR TRABAJOS
+  // ============================================================
+
   async function buscar() {
+
     if (
       tipo === "TERCERO"
       &&
       !proveedor
     ) {
+
       setError(
         "Seleccioná un proveedor.",
       );
@@ -132,9 +238,17 @@ export default function PagoTractorPage() {
       return;
     }
 
+
     try {
-      setLoading(true);
-      setError("");
+
+      setLoading(
+        true,
+      );
+
+      setError(
+        "",
+      );
+
 
       const result =
         await getTractorPendiente(
@@ -142,33 +256,59 @@ export default function PagoTractorPage() {
           fechaDesde,
           fechaHasta,
           proveedor
-            ? Number(proveedor)
+            ? Number(
+                proveedor,
+              )
             : undefined,
         );
 
-      setData(result);
+
+      setData(
+        result,
+      );
+
 
       setSelected(
         result.trabajos.map(
-          (item) => item.id,
+          (item) =>
+            item.id,
         ),
       );
+
     } catch {
-      setData(null);
+
+      setData(
+        null,
+      );
 
       setError(
         "No se pudieron consultar los trabajos.",
       );
+
     } finally {
-      setLoading(false);
+
+      setLoading(
+        false,
+      );
+
     }
+
   }
 
 
-  function toggle(id: number) {
+  // ============================================================
+  // SELECCIONAR / DESELECCIONAR TRABAJO
+  // ============================================================
+
+  function toggle(
+    id: number,
+  ) {
+
     setSelected(
       (current) =>
-        current.includes(id)
+        current.includes(
+          id,
+        )
           ? current.filter(
               (item) =>
                 item !== id,
@@ -178,49 +318,121 @@ export default function PagoTractorPage() {
               id,
             ],
     );
+
   }
 
 
+  // ============================================================
+  // TOTAL SELECCIONADO
+  // ============================================================
+
   const totalSeleccionado =
-    useMemo(() => {
-      if (!data) {
-        return 0;
-      }
+    useMemo(
+      () => {
 
-      return data.trabajos
-        .filter((item) =>
-          selected.includes(
-            item.id,
-          ),
-        )
-        .reduce(
-          (acc, item) =>
-            acc +
-            Number(item.importe),
-          0,
-        );
-    }, [
-      data,
-      selected,
-    ]);
+        if (!data) {
+          return 0;
+        }
 
+
+        return data.trabajos
+          .filter(
+            (item) =>
+              selected.includes(
+                item.id,
+              ),
+          )
+          .reduce(
+            (
+              acc,
+              item,
+            ) =>
+              acc
+              +
+              Number(
+                item.importe,
+              ),
+            0,
+          );
+
+      },
+      [
+        data,
+        selected,
+      ],
+    );
+
+
+  // ============================================================
+  // LIQUIDAR
+  // ============================================================
 
   async function liquidar() {
+
     if (!data) {
       return;
     }
 
+
+    if (
+      selected.length === 0
+    ) {
+
+      setError(
+        "Seleccioná al menos un trabajo.",
+      );
+
+      return;
+    }
+
+
+    if (
+      !cuentaFinanciera
+    ) {
+
+      setError(
+        "Seleccioná la cuenta desde donde se realiza el pago.",
+      );
+
+      return;
+    }
+
+
+    if (
+      tipo === "TERCERO"
+      &&
+      !proveedor
+    ) {
+
+      setError(
+        "Seleccioná un proveedor.",
+      );
+
+      return;
+    }
+
+
     try {
-      setLoading(true);
-      setError("");
+
+      setLoading(
+        true,
+      );
+
+      setError(
+        "",
+      );
+
 
       await liquidarTractor({
+
         tipo,
 
         ...(tipo === "TERCERO"
           ? {
               proveedor:
-                Number(proveedor),
+                Number(
+                  proveedor,
+                ),
             }
           : {}),
 
@@ -233,26 +445,45 @@ export default function PagoTractorPage() {
         fecha_pago:
           fechaPago,
 
+        cuenta_financiera:
+          Number(
+            cuentaFinanciera,
+          ),
+
         trabajos:
           selected,
 
         observacion,
+
       });
+
 
       await buscar();
 
-      setObservacion("");
+
+      setObservacion(
+        "",
+      );
+
     } catch {
+
       setError(
         "No se pudo registrar el pago.",
       );
+
     } finally {
-      setLoading(false);
+
+      setLoading(
+        false,
+      );
+
     }
+
   }
 
 
   return (
+
     <main
       className="
         min-h-screen
@@ -263,12 +494,14 @@ export default function PagoTractorPage() {
         lg:px-8
       "
     >
+
       <div
         className="
           mx-auto
           max-w-6xl
         "
       >
+
         <PageHeader
           title="Pago de tractor"
           description="
@@ -278,10 +511,18 @@ export default function PagoTractorPage() {
           "
           icon={Tractor}
         />
+
+
         <AdministracionTabs
           pendientesTo="/administracion/tractor"
           historialTo="/administracion/tractor/historial"
         />
+
+
+        {/* ====================================================
+            FILTROS
+        ==================================================== */}
+
         <section
           className="
             rounded-3xl
@@ -293,6 +534,7 @@ export default function PagoTractorPage() {
             sm:p-6
           "
         >
+
           <div
             className="
               grid
@@ -303,6 +545,7 @@ export default function PagoTractorPage() {
               p-1
             "
           >
+
             {[
               {
                 value: "SERGIO",
@@ -314,15 +557,38 @@ export default function PagoTractorPage() {
               },
             ].map(
               (item) => (
+
                 <button
-                  key={item.value}
+                  key={
+                    item.value
+                  }
                   type="button"
                   onClick={() => {
+
                     setTipo(
                       item.value as TipoTractor,
                     );
 
-                    setData(null);
+                    setData(
+                      null,
+                    );
+
+                    setSelected(
+                      [],
+                    );
+
+                    setError(
+                      "",
+                    );
+
+                    if (
+                      item.value === "SERGIO"
+                    ) {
+                      setProveedor(
+                        "",
+                      );
+                    }
+
                   }}
                   className={`
                     rounded-xl
@@ -332,17 +598,24 @@ export default function PagoTractorPage() {
                     font-semibold
                     transition
                     ${
-                      tipo === item.value
+                      tipo
+                        ===
+                        item.value
                         ? "bg-white text-slate-900 shadow-sm"
                         : "text-slate-500"
                     }
                   `}
                 >
-                  {item.label}
+                  {
+                    item.label
+                  }
                 </button>
+
               ),
             )}
+
           </div>
+
 
           <div
             className="
@@ -353,8 +626,11 @@ export default function PagoTractorPage() {
               md:grid-cols-3
             "
           >
+
             {tipo === "TERCERO" && (
+
               <label>
+
                 <span
                   className="
                     mb-2
@@ -367,12 +643,23 @@ export default function PagoTractorPage() {
                   Proveedor
                 </span>
 
+
                 <select
-                  value={proveedor}
-                  onChange={(e) =>
-                    setProveedor(
-                      e.target.value,
-                    )
+                  value={
+                    proveedor
+                  }
+                  onChange={
+                    (e) => {
+
+                      setProveedor(
+                        e.target.value,
+                      );
+
+                      setData(
+                        null,
+                      );
+
+                    }
                   }
                   className="
                     w-full
@@ -382,27 +669,46 @@ export default function PagoTractorPage() {
                     bg-white
                     px-3
                     py-3
+                    outline-none
+                    focus:border-emerald-500
                   "
                 >
-                  <option value="">
+
+                  <option
+                    value=""
+                  >
                     Seleccionar
                   </option>
 
+
                   {proveedores.map(
                     (item) => (
+
                       <option
-                        key={item.id}
-                        value={item.id}
+                        key={
+                          item.id
+                        }
+                        value={
+                          item.id
+                        }
                       >
-                        {item.nombre}
+                        {
+                          item.nombre
+                        }
                       </option>
+
                     ),
                   )}
+
                 </select>
+
               </label>
+
             )}
 
+
             <label>
+
               <span
                 className="
                   mb-2
@@ -415,13 +721,17 @@ export default function PagoTractorPage() {
                 Desde
               </span>
 
+
               <input
                 type="date"
-                value={fechaDesde}
-                onChange={(e) =>
-                  setFechaDesde(
-                    e.target.value,
-                  )
+                value={
+                  fechaDesde
+                }
+                onChange={
+                  (e) =>
+                    setFechaDesde(
+                      e.target.value,
+                    )
                 }
                 className="
                   w-full
@@ -430,11 +740,16 @@ export default function PagoTractorPage() {
                   border-slate-300
                   px-3
                   py-3
+                  outline-none
+                  focus:border-emerald-500
                 "
               />
+
             </label>
 
+
             <label>
+
               <span
                 className="
                   mb-2
@@ -447,13 +762,17 @@ export default function PagoTractorPage() {
                 Hasta
               </span>
 
+
               <input
                 type="date"
-                value={fechaHasta}
-                onChange={(e) =>
-                  setFechaHasta(
-                    e.target.value,
-                  )
+                value={
+                  fechaHasta
+                }
+                onChange={
+                  (e) =>
+                    setFechaHasta(
+                      e.target.value,
+                    )
                 }
                 className="
                   w-full
@@ -462,14 +781,24 @@ export default function PagoTractorPage() {
                   border-slate-300
                   px-3
                   py-3
+                  outline-none
+                  focus:border-emerald-500
                 "
               />
+
             </label>
+
           </div>
+
 
           <button
             type="button"
-            onClick={buscar}
+            onClick={
+              buscar
+            }
+            disabled={
+              loading
+            }
             className="
               mt-4
               flex
@@ -484,20 +813,48 @@ export default function PagoTractorPage() {
               text-sm
               font-semibold
               text-white
+              transition
+              hover:bg-slate-800
+              disabled:opacity-50
               sm:w-auto
             "
           >
-            <Search size={18} />
+
+            {loading
+              ? (
+                <Loader2
+                  size={18}
+                  className="
+                    animate-spin
+                  "
+                />
+              )
+              : (
+                <Search
+                  size={18}
+                />
+              )}
+
 
             Consultar trabajos
+
           </button>
+
         </section>
 
+
+        {/* ====================================================
+            ERROR
+        ==================================================== */}
+
         {error && (
+
           <div
             className="
               mt-4
               rounded-xl
+              border
+              border-red-200
               bg-red-50
               px-4
               py-3
@@ -507,10 +864,18 @@ export default function PagoTractorPage() {
           >
             {error}
           </div>
+
         )}
 
+
         {data && (
+
           <>
+
+            {/* =================================================
+                RESUMEN
+            ================================================= */}
+
             <div
               className="
                 mt-5
@@ -520,25 +885,30 @@ export default function PagoTractorPage() {
                 lg:grid-cols-3
               "
             >
+
               <SummaryCard
                 title="Trabajos"
                 value={
                   String(
-                    data.resumen
+                    data
+                      .resumen
                       .cantidad_trabajos,
                   )
                 }
                 icon={Tractor}
               />
 
+
               <SummaryCard
                 title="Horas"
                 value={
-                  data.resumen
+                  data
+                    .resumen
                     .total_horas
                 }
                 icon={Clock3}
               />
+
 
               <SummaryCard
                 title="Seleccionado"
@@ -549,7 +919,13 @@ export default function PagoTractorPage() {
                 }
                 icon={Check}
               />
+
             </div>
+
+
+            {/* =================================================
+                TRABAJOS
+            ================================================= */}
 
             <section
               className="
@@ -563,13 +939,17 @@ export default function PagoTractorPage() {
                 sm:p-6
               "
             >
+
               {data.trabajos.length === 0
                 ? (
+
                   <EmptyState
                     title="No hay trabajos pendientes"
                   />
+
                 )
                 : (
+
                   <div
                     className="
                       grid
@@ -578,34 +958,43 @@ export default function PagoTractorPage() {
                       lg:grid-cols-2
                     "
                   >
+
                     {data.trabajos.map(
                       (item) => {
+
                         const active =
                           selected.includes(
                             item.id,
                           );
 
+
                         return (
+
                           <button
-                            key={item.id}
+                            key={
+                              item.id
+                            }
                             type="button"
-                            onClick={() =>
-                              toggle(
-                                item.id,
-                              )
+                            onClick={
+                              () =>
+                                toggle(
+                                  item.id,
+                                )
                             }
                             className={`
                               rounded-2xl
                               border
                               p-4
                               text-left
+                              transition
                               ${
                                 active
                                   ? "border-emerald-300 bg-emerald-50"
-                                  : "border-slate-200"
+                                  : "border-slate-200 bg-white hover:bg-slate-50"
                               }
                             `}
                           >
+
                             <div
                               className="
                                 flex
@@ -614,7 +1003,9 @@ export default function PagoTractorPage() {
                                 gap-4
                               "
                             >
+
                               <div>
+
                                 <p
                                   className="
                                     font-semibold
@@ -625,6 +1016,7 @@ export default function PagoTractorPage() {
                                     item.cantidad_horas
                                   } horas
                                 </p>
+
 
                                 <p
                                   className="
@@ -638,7 +1030,9 @@ export default function PagoTractorPage() {
                                   )}
                                 </p>
 
+
                                 {item.observacion && (
+
                                   <p
                                     className="
                                       mt-2
@@ -650,50 +1044,106 @@ export default function PagoTractorPage() {
                                       item.observacion
                                     }
                                   </p>
+
                                 )}
+
                               </div>
+
 
                               <div
                                 className="
-                                  text-right
+                                  flex
+                                  items-start
+                                  gap-3
                                 "
                               >
-                                <p
-                                  className="
-                                    font-bold
-                                    text-slate-900
-                                  "
-                                >
-                                  {money(
-                                    item.importe,
-                                  )}
-                                </p>
 
-                                <p
+                                <div
                                   className="
-                                    mt-1
-                                    text-xs
-                                    text-slate-500
+                                    text-right
                                   "
                                 >
-                                  {money(
-                                    item.valor_hora,
-                                  )} / h
-                                </p>
+
+                                  <p
+                                    className="
+                                      font-bold
+                                      text-slate-900
+                                    "
+                                  >
+                                    {money(
+                                      item.importe,
+                                    )}
+                                  </p>
+
+
+                                  <p
+                                    className="
+                                      mt-1
+                                      text-xs
+                                      text-slate-500
+                                    "
+                                  >
+                                    {money(
+                                      item.valor_hora,
+                                    )} / h
+                                  </p>
+
+                                </div>
+
+
+                                <div
+                                  className={`
+                                    flex
+                                    h-6
+                                    w-6
+                                    shrink-0
+                                    items-center
+                                    justify-center
+                                    rounded-lg
+                                    border
+                                    ${
+                                      active
+                                        ? "border-emerald-600 bg-emerald-600 text-white"
+                                        : "border-slate-300"
+                                    }
+                                  `}
+                                >
+
+                                  {active && (
+                                    <Check
+                                      size={15}
+                                    />
+                                  )}
+
+                                </div>
+
                               </div>
+
                             </div>
+
                           </button>
+
                         );
+
                       },
                     )}
+
                   </div>
+
                 )}
+
             </section>
+
+
+            {/* =================================================
+                PAGO
+            ================================================= */}
 
             <section
               className="
                 sticky
                 bottom-3
+                z-20
                 mt-5
                 rounded-3xl
                 border
@@ -702,50 +1152,202 @@ export default function PagoTractorPage() {
                 p-4
                 shadow-xl
                 backdrop-blur
+                sm:p-5
               "
             >
+
               <div
                 className="
                   grid
                   grid-cols-1
                   gap-3
-                  md:grid-cols-2
+                  md:grid-cols-3
                 "
               >
-                <input
-                  type="date"
-                  value={fechaPago}
-                  onChange={(e) =>
-                    setFechaPago(
-                      e.target.value,
-                    )
-                  }
-                  className="
-                    rounded-xl
-                    border
-                    border-slate-300
-                    px-3
-                    py-3
-                  "
-                />
 
-                <input
-                  value={observacion}
-                  onChange={(e) =>
-                    setObservacion(
-                      e.target.value,
-                    )
-                  }
-                  placeholder="Observación opcional"
-                  className="
-                    rounded-xl
-                    border
-                    border-slate-300
-                    px-3
-                    py-3
-                  "
-                />
+                {/* FECHA */}
+
+                <label>
+
+                  <span
+                    className="
+                      mb-2
+                      block
+                      text-sm
+                      font-medium
+                      text-slate-700
+                    "
+                  >
+                    Fecha de pago
+                  </span>
+
+
+                  <input
+                    type="date"
+                    value={
+                      fechaPago
+                    }
+                    onChange={
+                      (e) =>
+                        setFechaPago(
+                          e.target.value,
+                        )
+                    }
+                    disabled={
+                      loading
+                    }
+                    className="
+                      w-full
+                      rounded-xl
+                      border
+                      border-slate-300
+                      bg-white
+                      px-3
+                      py-3
+                      outline-none
+                      focus:border-emerald-500
+                      disabled:bg-slate-100
+                    "
+                  />
+
+                </label>
+
+
+                {/* CUENTA */}
+
+                <label>
+
+                  <span
+                    className="
+                      mb-2
+                      flex
+                      items-center
+                      gap-2
+                      text-sm
+                      font-medium
+                      text-slate-700
+                    "
+                  >
+                    <WalletCards
+                      size={16}
+                    />
+
+                    Cuenta de pago
+                  </span>
+
+
+                  <select
+                    value={
+                      cuentaFinanciera
+                    }
+                    onChange={
+                      (e) =>
+                        setCuentaFinanciera(
+                          e.target.value,
+                        )
+                    }
+                    disabled={
+                      loading
+                      ||
+                      loadingCuentas
+                    }
+                    className="
+                      w-full
+                      rounded-xl
+                      border
+                      border-slate-300
+                      bg-white
+                      px-3
+                      py-3
+                      outline-none
+                      focus:border-emerald-500
+                      disabled:bg-slate-100
+                      disabled:text-slate-500
+                    "
+                  >
+
+                    <option
+                      value=""
+                    >
+                      {loadingCuentas
+                        ? "Cargando cuentas..."
+                        : "Seleccionar cuenta"}
+                    </option>
+
+
+                    {cuentas.map(
+                      (item) => (
+
+                        <option
+                          key={
+                            item.id
+                          }
+                          value={
+                            item.id
+                          }
+                        >
+                          {
+                            item.nombre
+                          }
+                        </option>
+
+                      ),
+                    )}
+
+                  </select>
+
+                </label>
+
+
+                {/* OBSERVACION */}
+
+                <label>
+
+                  <span
+                    className="
+                      mb-2
+                      block
+                      text-sm
+                      font-medium
+                      text-slate-700
+                    "
+                  >
+                    Observación
+                  </span>
+
+
+                  <input
+                    value={
+                      observacion
+                    }
+                    onChange={
+                      (e) =>
+                        setObservacion(
+                          e.target.value,
+                        )
+                    }
+                    disabled={
+                      loading
+                    }
+                    placeholder="Observación opcional"
+                    className="
+                      w-full
+                      rounded-xl
+                      border
+                      border-slate-300
+                      bg-white
+                      px-3
+                      py-3
+                      outline-none
+                      focus:border-emerald-500
+                      disabled:bg-slate-100
+                    "
+                  />
+
+                </label>
+
               </div>
+
 
               <div
                 className="
@@ -758,28 +1360,55 @@ export default function PagoTractorPage() {
                   sm:justify-between
                 "
               >
-                <p
-                  className="
-                    text-2xl
-                    font-bold
-                    text-slate-900
-                  "
-                >
-                  {money(
-                    totalSeleccionado,
-                  )}
-                </p>
+
+                <div>
+
+                  <p
+                    className="
+                      text-xs
+                      font-medium
+                      text-slate-500
+                    "
+                  >
+                    Total a pagar
+                  </p>
+
+
+                  <p
+                    className="
+                      mt-1
+                      text-2xl
+                      font-bold
+                      text-slate-900
+                    "
+                  >
+                    {money(
+                      totalSeleccionado,
+                    )}
+                  </p>
+
+                </div>
+
 
                 <button
                   type="button"
-                  onClick={liquidar}
+                  onClick={
+                    liquidar
+                  }
                   disabled={
                     loading
                     ||
+                    loadingCuentas
+                    ||
                     selected.length === 0
+                    ||
+                    !cuentaFinanciera
+                    ||
+                    totalSeleccionado <= 0
                   }
                   className="
                     inline-flex
+                    min-h-12
                     items-center
                     justify-center
                     gap-2
@@ -789,23 +1418,41 @@ export default function PagoTractorPage() {
                     py-3
                     font-semibold
                     text-white
+                    transition
+                    hover:bg-emerald-700
+                    disabled:cursor-not-allowed
                     disabled:opacity-50
                   "
                 >
+
                   {loading && (
+
                     <Loader2
                       size={18}
-                      className="animate-spin"
+                      className="
+                        animate-spin
+                      "
                     />
+
                   )}
 
+
                   Confirmar pago
+
                 </button>
+
               </div>
+
             </section>
+
           </>
+
         )}
+
       </div>
+
     </main>
+
   );
+
 }

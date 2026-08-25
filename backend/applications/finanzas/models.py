@@ -181,11 +181,30 @@ class CuentaFinanciera(
             "OTRO",
             "Otro",
         )
-
+    class Moneda(models.TextChoices):
+            ARS = (
+                "ARS",
+                "Pesos argentinos",
+            )
+    
+            USD = (
+                "USD",
+                "Dólares estadounidenses",
+        )
+    moneda = models.CharField(
+        max_length=3,
+        choices=Moneda.choices,
+        default=Moneda.ARS,
+        db_index=True,
+        verbose_name="Moneda",
+    )
+    
     nombre = models.CharField(
         max_length=100,
         verbose_name="Nombre",
     )
+        
+
 
     tipo = models.CharField(
         max_length=20,
@@ -332,6 +351,18 @@ class MovimientoFinanciero(
         verbose_name="Observación",
     )
 
+    origen_modulo = models.CharField(
+        max_length=50,
+        blank=True,
+        default="",
+    )
+
+    origen_id = models.IntegerField(
+        null=True,
+        blank=True,
+    )
+
+
     class Meta:
         ordering = [
             "-fecha",
@@ -345,7 +376,20 @@ class MovimientoFinanciero(
         verbose_name_plural = (
             "Movimientos financieros"
         )
-
+        models.UniqueConstraint(
+            fields=[
+                "origen_modulo",
+                "origen_id",
+            ],
+            condition=Q(
+                is_deleted=False,
+                origen_id__isnull=False,
+            )
+            & ~Q(
+                origen_modulo="",
+            ),
+            name="unique_movimiento_financiero_origen",
+        ),
         indexes = [
             models.Index(
                 fields=[

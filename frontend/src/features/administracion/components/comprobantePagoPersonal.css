@@ -1,0 +1,1169 @@
+.si-comprobante {
+  --si-green: #145a3a;
+  --si-green-dark: #0d432b;
+  --si-green-soft: #edf6f1;
+
+  --si-sand: #f3dfc0;
+  --si-sand-dark: #774715;
+
+  --si-red: #a52020;
+  --si-red-soft: #fbecec;
+
+  --si-border: #dfe6e1;
+  --si-text: #17201b;
+  --si-muted: #68736c;
+
+  width: 100%;
+  max-width: 980px;
+  margin: 0 auto;
+
+  background: #ffffff;
+
+  color: var(--si-text);
+
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+
+/* ==========================================================
+   ENCABEZADO
+========================================================== */
+
+.si-header {
+  display: grid;
+
+  grid-template-columns:
+    minmax(190px, 1fr)
+    2fr
+    minmax(160px, 1fr);
+
+  align-items: center;
+
+  gap: 24px;
+
+  padding:
+    18px
+    8px
+    22px;
+
+  border-bottom:
+    1px solid
+    var(--si-border);
+}
+
+
+.si-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+
+.si-logo svg {
+  width: 82px;
+  height: 58px;
+}
+
+
+.si-logo-name {
+  color:
+    var(--si-green);
+
+  font-family:
+    Georgia,
+    "Times New Roman",
+    serif;
+
+  font-size: 24px;
+
+  font-weight: 700;
+
+  letter-spacing:
+    0.08em;
+}
+
+
+.si-header-center {
+  text-align: center;
+}
+
+
+.si-header-center h1 {
+  margin: 0;
+
+  color:
+    var(--si-green-dark);
+
+  font-size: 28px;
+  line-height: 1.1;
+
+  font-weight: 800;
+
+  letter-spacing:
+    0.01em;
+}
+
+
+.si-header-center p {
+  margin:
+    8px
+    0
+    0;
+
+  color:
+    var(--si-muted);
+
+  font-size: 14px;
+}
+
+
+.si-header-right {
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: flex-end;
+
+  gap: 12px;
+}
+
+
+.si-status {
+  display: inline-flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  min-width: 88px;
+
+  padding:
+    6px
+    12px;
+
+  border-radius:
+    999px;
+
+  font-size:
+    11px;
+
+  font-weight:
+    800;
+
+  letter-spacing:
+    0.04em;
+}
+
+
+.si-status-activa {
+  border:
+    1px solid
+    #9ac7ad;
+
+  background:
+    #f0f8f3;
+
+  color:
+    var(--si-green);
+}
+
+
+.si-status-anulada {
+  border:
+    1px solid
+    #e8aaaa;
+
+  background:
+    #fff3f3;
+
+  color:
+    var(--si-red);
+}
+
+
+.si-payment-date {
+  text-align: right;
+}
+
+
+.si-payment-date span {
+  display: block;
+
+  color:
+    var(--si-muted);
+
+  font-size:
+    11px;
+}
+
+
+.si-payment-date strong {
+  display: block;
+
+  margin-top: 2px;
+
+  font-size:
+    14px;
+}
+
+
+/* ==========================================================
+   DATOS COLABORADOR
+========================================================== */
+
+.si-person {
+  display: grid;
+
+  grid-template-columns:
+    1.4fr
+    1fr
+    1fr;
+
+  align-items: center;
+
+  gap: 24px;
+
+  margin-top: 20px;
+
+  padding:
+    16px
+    18px;
+
+  border:
+    1px solid
+    var(--si-border);
+
+  border-radius:
+    12px;
+
+  background:
+    #fbfcfb;
+}
+
+
+.si-person-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+
+.si-avatar {
+  display: flex;
+
+  width: 42px;
+  height: 42px;
+
+  flex: 0 0 42px;
+
+  align-items: center;
+  justify-content: center;
+
+  border-radius:
+    50%;
+
+  background:
+    var(--si-green);
+
+  color:
+    white;
+
+  font-size:
+    18px;
+
+  font-weight:
+    800;
+}
+
+
+.si-label {
+  display: block;
+
+  margin-bottom:
+    3px;
+
+  color:
+    var(--si-muted);
+
+  font-size:
+    11px;
+}
+
+
+.si-person strong {
+  display: block;
+
+  font-size:
+    14px;
+}
+
+
+/* ==========================================================
+   SECCIONES
+========================================================== */
+
+.si-section {
+  margin-top:
+    22px;
+
+  border:
+    1px solid
+    var(--si-border);
+
+  border-radius:
+    10px;
+
+  overflow: hidden;
+}
+
+
+.si-section-title {
+  padding:
+    10px
+    14px;
+
+  font-size:
+    14px;
+
+  font-weight:
+    800;
+
+  letter-spacing:
+    0.01em;
+}
+
+
+.si-green {
+  background:
+    var(--si-green);
+
+  color:
+    #ffffff;
+}
+
+
+.si-sand {
+  background:
+    var(--si-sand);
+
+  color:
+    var(--si-sand-dark);
+}
+
+
+.si-red {
+  background:
+    #f1caca;
+
+  color:
+    var(--si-red);
+}
+
+
+.si-section-note {
+  margin:
+    0;
+
+  padding:
+    10px
+    14px;
+
+  background:
+    #fffafa;
+
+  color:
+    var(--si-muted);
+
+  font-size:
+    11px;
+
+  border-bottom:
+    1px solid
+    #f2d6d6;
+}
+
+
+/* ==========================================================
+   TABLAS
+========================================================== */
+
+.si-table {
+  width:
+    100%;
+
+  border-collapse:
+    collapse;
+
+  table-layout:
+    fixed;
+
+  font-size:
+    11px;
+}
+
+
+.si-table thead {
+  background:
+    #f4f7f5;
+}
+
+
+.si-table th {
+  padding:
+    9px
+    12px;
+
+  border-bottom:
+    1px solid
+    var(--si-border);
+
+  color:
+    #34423a;
+
+  text-align:
+    left;
+
+  font-size:
+    9px;
+
+  font-weight:
+    800;
+
+  text-transform:
+    uppercase;
+
+  letter-spacing:
+    0.03em;
+}
+
+
+.si-table td {
+  padding:
+    8px
+    12px;
+
+  border-bottom:
+    1px solid
+    #edf0ee;
+
+  color:
+    #263029;
+
+  vertical-align:
+    middle;
+}
+
+
+.si-table tbody tr:last-child td {
+  border-bottom:
+    0;
+}
+
+
+.si-table .right {
+  text-align:
+    right;
+}
+
+
+.si-table .strong {
+  font-weight:
+    700;
+}
+
+
+.si-negative {
+  color:
+    var(--si-red)
+    !important;
+
+  font-weight:
+    800;
+}
+
+
+/* ==========================================================
+   RESUMEN JORNALES
+========================================================== */
+
+.si-jornal-summary {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      3,
+      minmax(
+        0,
+        1fr
+      )
+    );
+
+  margin:
+    12px;
+
+  border:
+    1px solid
+    #cbded2;
+
+  border-radius:
+    9px;
+
+  overflow: hidden;
+
+  background:
+    var(--si-green-soft);
+}
+
+
+.si-jornal-summary > div {
+  display: flex;
+
+  min-height:
+    58px;
+
+  flex-direction:
+    column;
+
+  align-items:
+    center;
+
+  justify-content:
+    center;
+
+  padding:
+    8px
+    12px;
+
+  border-right:
+    1px solid
+    #cbded2;
+
+  text-align:
+    center;
+}
+
+
+.si-jornal-summary > div:last-child {
+  border-right:
+    0;
+}
+
+
+.si-jornal-summary span {
+  color:
+    #53665a;
+
+  font-size:
+    9px;
+
+  font-weight:
+    800;
+
+  text-transform:
+    uppercase;
+}
+
+
+.si-jornal-summary strong {
+  margin-top:
+    3px;
+
+  color:
+    var(--si-green-dark);
+
+  font-size:
+    18px;
+}
+
+
+.si-jornal-summary
+.si-summary-highlight {
+  background:
+    var(--si-green);
+
+  color:
+    white;
+}
+
+
+.si-jornal-summary
+.si-summary-highlight
+span,
+.si-jornal-summary
+.si-summary-highlight
+strong {
+  color:
+    white;
+}
+
+
+.si-multi-values small {
+  display:
+    block;
+
+  margin-top:
+    2px;
+
+  font-size:
+    9px;
+
+  font-weight:
+    700;
+}
+
+
+.si-jornal-breakdown {
+  margin:
+    -4px
+    12px
+    12px;
+
+  padding:
+    8px
+    12px;
+
+  border-radius:
+    7px;
+
+  background:
+    #f8faf9;
+
+  font-size:
+    10px;
+}
+
+
+.si-jornal-breakdown div {
+  display:
+    flex;
+
+  justify-content:
+    space-between;
+
+  gap:
+    20px;
+
+  padding:
+    3px
+    0;
+}
+
+
+/* ==========================================================
+   HORAS
+========================================================== */
+
+.si-section-footer {
+  display:
+    flex;
+
+  align-items:
+    center;
+
+  justify-content:
+    flex-end;
+
+  gap:
+    28px;
+
+  padding:
+    10px
+    14px;
+
+  border-top:
+    1px solid
+    #eadac3;
+
+  background:
+    #fffaf3;
+
+  color:
+    var(--si-sand-dark);
+
+  font-size:
+    11px;
+}
+
+
+.si-section-footer strong:last-child {
+  font-size:
+    16px;
+}
+
+
+/* ==========================================================
+   DESCUENTOS
+========================================================== */
+
+.si-discount-total {
+  display:
+    flex;
+
+  align-items:
+    center;
+
+  justify-content:
+    flex-end;
+
+  gap:
+    32px;
+
+  padding:
+    10px
+    14px;
+
+  border-top:
+    1px solid
+    #efd0d0;
+
+  background:
+    var(--si-red-soft);
+
+  color:
+    var(--si-red);
+
+  font-size:
+    11px;
+
+  font-weight:
+    800;
+
+  text-transform:
+    uppercase;
+}
+
+
+.si-discount-total strong {
+  font-size:
+    16px;
+}
+
+
+/* ==========================================================
+   OBSERVACION
+========================================================== */
+
+.si-observation {
+  margin-top:
+    16px;
+
+  padding:
+    12px
+    14px;
+
+  border:
+    1px solid
+    var(--si-border);
+
+  border-radius:
+    8px;
+
+  background:
+    #fafbfa;
+}
+
+
+.si-observation span {
+  color:
+    var(--si-muted);
+
+  font-size:
+    10px;
+
+  font-weight:
+    700;
+
+  text-transform:
+    uppercase;
+}
+
+
+.si-observation p {
+  margin:
+    4px
+    0
+    0;
+
+  font-size:
+    11px;
+
+  line-height:
+    1.5;
+}
+
+
+/* ==========================================================
+   TOTAL FINAL
+========================================================== */
+
+.si-total-final {
+  display:
+    flex;
+
+  align-items:
+    center;
+
+  justify-content:
+    space-between;
+
+  gap:
+    30px;
+
+  margin-top:
+    22px;
+
+  padding:
+    15px
+    20px;
+
+  border-radius:
+    10px;
+
+  background:
+    linear-gradient(
+      135deg,
+      var(--si-green-dark),
+      var(--si-green)
+    );
+
+  color:
+    white;
+}
+
+
+.si-total-final div {
+  display:
+    flex;
+
+  flex-direction:
+    column;
+}
+
+
+.si-total-final span {
+  font-size:
+    15px;
+
+  font-weight:
+    800;
+}
+
+
+.si-total-final small {
+  margin-top:
+    3px;
+
+  color:
+    #d9e9df;
+
+  font-size:
+    9px;
+}
+
+
+.si-total-final > strong {
+  white-space:
+    nowrap;
+
+  font-size:
+    27px;
+
+  letter-spacing:
+    0.01em;
+}
+
+
+/* ==========================================================
+   FOOTER
+========================================================== */
+
+.si-footer {
+  display:
+    flex;
+
+  justify-content:
+    space-between;
+
+  gap:
+    20px;
+
+  margin-top:
+    20px;
+
+  padding:
+    12px
+    2px
+    0;
+
+  border-top:
+    1px solid
+    var(--si-border);
+
+  color:
+    var(--si-muted);
+
+  font-size:
+    9px;
+}
+
+
+/* ==========================================================
+   IMPRESION
+========================================================== */
+
+@page {
+  size:
+    A4 portrait;
+
+  margin:
+    12mm
+    12mm
+    14mm;
+}
+
+
+@media print {
+
+  html,
+  body {
+    margin:
+      0
+      !important;
+
+    padding:
+      0
+      !important;
+
+    background:
+      white
+      !important;
+
+    -webkit-print-color-adjust:
+      exact
+      !important;
+
+    print-color-adjust:
+      exact
+      !important;
+  }
+
+
+  body * {
+    visibility:
+      hidden
+      !important;
+  }
+
+
+  #comprobante-pago-personal,
+  #comprobante-pago-personal * {
+    visibility:
+      visible
+      !important;
+  }
+
+
+  #comprobante-pago-personal {
+    position:
+      absolute;
+
+    top:
+      0;
+
+    left:
+      0;
+
+    width:
+      100%;
+
+    max-width:
+      none;
+
+    margin:
+      0;
+
+    padding:
+      0;
+
+    box-shadow:
+      none;
+
+    background:
+      white;
+  }
+
+
+  /*
+   * Repite las columnas de una tabla cuando
+   * la lista continúa en otra página.
+   */
+  .si-table thead {
+    display:
+      table-header-group;
+  }
+
+
+  /*
+   * Nunca partir una fila entre dos hojas.
+   */
+  .si-table tr {
+    break-inside:
+      avoid;
+
+    page-break-inside:
+      avoid;
+  }
+
+
+  /*
+   * Los bloques pequeños deberían ir completos
+   * a la próxima página si no tienen espacio.
+   */
+  .si-small-section,
+  .si-jornal-summary,
+  .si-jornal-breakdown,
+  .si-observation,
+  .si-total-final,
+  .si-footer {
+    break-inside:
+      avoid;
+
+    page-break-inside:
+      avoid;
+  }
+
+
+  /*
+   * NO ponemos break-inside: avoid sobre
+   * toda la sección de jornales.
+   *
+   * Esto permite que 40, 50 o 60 tarjas
+   * continúen naturalmente en varias páginas.
+   */
+  .si-section {
+    overflow:
+      visible;
+  }
+
+
+  .si-comprobante {
+    font-size:
+      10pt;
+  }
+
+
+  .si-header {
+    padding-top:
+      0;
+  }
+
+
+  .si-table {
+    font-size:
+      9.5px;
+  }
+
+
+  .si-table td {
+    padding:
+      6px
+      9px;
+  }
+
+
+  .si-table th {
+    padding:
+      7px
+      9px;
+  }
+
+
+  /*
+   * Evitamos que el navegador agregue
+   * elementos interactivos.
+   */
+  button,
+  nav,
+  aside {
+    display:
+      none
+      !important;
+  }
+
+}
+
+
+/* ==========================================================
+   MOBILE / PREVISUALIZACION
+========================================================== */
+
+@media screen and (max-width: 700px) {
+
+  .si-comprobante {
+    overflow-x:
+      auto;
+  }
+
+
+  .si-header {
+    grid-template-columns:
+      1fr;
+
+    text-align:
+      center;
+  }
+
+
+  .si-logo {
+    justify-content:
+      center;
+  }
+
+
+  .si-header-right {
+    align-items:
+      center;
+  }
+
+
+  .si-payment-date {
+    text-align:
+      center;
+  }
+
+
+  .si-person {
+    grid-template-columns:
+      1fr;
+  }
+
+
+  .si-jornal-summary {
+    grid-template-columns:
+      1fr;
+  }
+
+
+  .si-jornal-summary > div {
+    border-right:
+      0;
+
+    border-bottom:
+      1px solid
+      #cbded2;
+  }
+
+
+  .si-jornal-summary > div:last-child {
+    border-bottom:
+      0;
+  }
+
+}

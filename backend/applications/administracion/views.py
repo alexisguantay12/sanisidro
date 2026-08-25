@@ -9,8 +9,14 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.viewsets import ReadOnlyModelViewSet
 from rest_framework.permissions import IsAuthenticated
-from .permissions import EsAdministracion
+from .permissions import EsAdministracion 
 
+from applications.finanzas.movimientos_automaticos import (
+    crear_movimiento_liquidacion_personal,
+    crear_movimiento_liquidacion_tractor,
+    crear_movimiento_liquidacion_almacigo,
+    crear_movimiento_rendicion_venta
+)
 
 from applications.gestion.models import (
     Almacigo,
@@ -22,6 +28,7 @@ from applications.gestion.models import (
     TractorSergio,
     TractorTercero,
     ValorJornal,
+    ConfiguracionPaleada,
 )
 
 from applications.administracion.models import (
@@ -29,6 +36,7 @@ from applications.administracion.models import (
     DetalleLiquidacionHoraExtra,
     DetalleLiquidacionTarja,
     DetalleLiquidacionTractor,
+    DetalleLiquidacionTarjaExterna,
     DetalleRendicionVenta,
     LiquidacionAlmacigo,
     LiquidacionPersonal,
@@ -174,7 +182,49 @@ def obtener_valor_jornal(fecha):
 # ============================================================
 # LIQUIDACION PERSONAL
 # ============================================================
+def obtener_valor_tarja(tarja):
+    """
+    Devuelve el valor unitario que corresponde
+    usar para una tarja.
 
+    - Paleada:
+      usa la configuración actual de paleada.
+
+    - Resto de tareas:
+      usa el valor histórico del jornal
+      correspondiente a la fecha de la tarja.
+    """
+
+    if (
+        tarja.tarea
+        == Tarja.Tarea.PALEADA
+    ):
+        configuracion = (
+            ConfiguracionPaleada.objects
+            .filter(
+                is_deleted=False,
+            )
+            .order_by("-id")
+            .first()
+        )
+
+        if not configuracion:
+            raise ValidationError({
+                "paleada": (
+                    "No está configurado "
+                    "el valor de la paleada."
+                )
+            })
+
+        return configuracion.valor
+
+    valor_jornal = (
+        obtener_valor_jornal(
+            tarja.fecha
+        )
+    )
+
+    return valor_jornal.valor
 
 class LiquidacionPersonalViewSet(
     ReadOnlyModelViewSet
@@ -194,6 +244,7 @@ class LiquidacionPersonalViewSet(
         )
         .select_related(
             "peon",
+            "cuenta_financiera",
         )
         .prefetch_related(
             "detalles_tarjas",
@@ -264,8 +315,10 @@ class LiquidacionPersonalViewSet(
         total_tarjas = Decimal("0.00")
 
         for tarja in tarjas:
-            valor_jornal = obtener_valor_jornal(
-                tarja.fecha
+            valor_unitario = (
+                obtener_valor_tarja(
+                    tarja
+                )
             )
 
             fraccion = Decimal(
@@ -274,7 +327,7 @@ class LiquidacionPersonalViewSet(
 
             importe = decimal_dos(
                 fraccion
-                * valor_jornal.valor
+                * valor_unitario
             )
 
             total_tarjas += importe
@@ -298,9 +351,105 @@ class LiquidacionPersonalViewSet(
                         tarja.observacion
                     ),
                     "valor_jornal": (
-                        valor_jornal.valor
+                        valor_unitario
                     ),
                     "importe": importe,
+                }
+            )
+
+        # ----------------------------------------------------
+        # TARJAS EXTERNAS A DESCONTAR
+        # ----------------------------------------------------
+
+        tarjas_externas = (
+            Tarja.objects
+            .filter(
+                is_deleted=False,
+                destino=Tarja.Destino.EXTERNO,
+                destinatario=peon,
+                fecha__range=(
+                    fecha_desde,
+                    fecha_hasta,
+                ),
+            )
+            .exclude(
+                detalles_descuento_liquidacion__is_deleted=False,
+            )
+            .select_related(
+                "peon",
+                "destinatario",
+            )
+            .order_by(
+                "fecha",
+                "id",
+            )
+        )
+
+        tarjas_externas_data = []
+
+        total_descuentos = Decimal(
+            "0.00"
+        )
+
+        for tarja in tarjas_externas:
+
+            valor_unitario = (
+                obtener_valor_tarja(
+                    tarja
+                )
+            )
+
+            fraccion = Decimal(
+                str(
+                    tarja.fraccion
+                )
+            )
+
+            importe = decimal_dos(
+                fraccion
+                * valor_unitario
+            )
+
+            total_descuentos += (
+                importe
+            )
+
+            tarjas_externas_data.append(
+                {
+                    "id": tarja.id,
+
+                    "fecha": (
+                        tarja.fecha
+                    ),
+
+                    "peon": (
+                        tarja.peon_id
+                    ),
+
+                    "peon_nombre": (
+                        tarja.peon.nombre
+                    ),
+
+                    "fraccion": (
+                        tarja.fraccion
+                    ),
+
+                    "fraccion_display": (
+                        tarja
+                        .get_fraccion_display()
+                    ),
+
+                    "valor_jornal": (
+                        valor_unitario
+                    ),
+
+                    "importe": (
+                        importe
+                    ),
+
+                    "observacion": (
+                        tarja.observacion
+                    ),
                 }
             )
 
@@ -360,6 +509,7 @@ class LiquidacionPersonalViewSet(
         total = (
             total_tarjas
             + total_horas_extra
+            -total_descuentos
         )
 
         return Response(
@@ -372,6 +522,9 @@ class LiquidacionPersonalViewSet(
                 "fecha_hasta": fecha_hasta,
                 "tarjas": tarjas_data,
                 "horas_extra": horas_data,
+                "tarjas_externas": (
+                    tarjas_externas_data
+                ),
                 "resumen": {
                     "cantidad_tarjas": len(
                         tarjas_data
@@ -392,6 +545,15 @@ class LiquidacionPersonalViewSet(
                     "total": decimal_dos(
                         total
                     ),
+                    "cantidad_tarjas_externas": (
+                        len(
+                            tarjas_externas_data
+                        )
+                    ),
+
+                    "total_descuentos": (
+                        total_descuentos
+                    ),
                 },
             }
         )
@@ -401,11 +563,12 @@ class LiquidacionPersonalViewSet(
     # --------------------------------------------------------
 
     @action(
-        detail=False,
-        methods=["post"],
-        url_path="liquidar",
+    detail=False,
+    methods=["post"],
+    url_path="liquidar",
     )
     def liquidar(self, request):
+
         serializer = (
             LiquidarPersonalRequestSerializer(
                 data=request.data
@@ -420,6 +583,10 @@ class LiquidacionPersonalViewSet(
 
         usuario = request.user
 
+        cuenta_financiera = data[
+            "cuenta_financiera"
+        ]
+
         peon = get_object_or_404(
             Peon.objects.filter(
                 is_deleted=False,
@@ -427,17 +594,27 @@ class LiquidacionPersonalViewSet(
             pk=data["peon"],
         )
 
-        fecha_desde = data["fecha_desde"]
-        fecha_hasta = data["fecha_hasta"]
+        fecha_desde = data[
+            "fecha_desde"
+        ]
 
-        tarjas_ids = data["tarjas"]
-        horas_ids = data["horas_extra"]
+        fecha_hasta = data[
+            "fecha_hasta"
+        ]
+
+        tarjas_ids = data[
+            "tarjas"
+        ]
+
+        horas_ids = data[
+            "horas_extra"
+        ]
 
         with transaction.atomic():
 
-            # =================================================
-            # TARJAS
-            # =================================================
+            # =====================================================
+            # TARJAS NORMALES
+            # =====================================================
 
             tarjas = list(
                 Tarja.objects
@@ -452,8 +629,9 @@ class LiquidacionPersonalViewSet(
                 )
             )
 
-            if len(tarjas) != len(
-                tarjas_ids
+            if (
+                len(tarjas)
+                != len(tarjas_ids)
             ):
                 raise ValidationError(
                     {
@@ -464,9 +642,9 @@ class LiquidacionPersonalViewSet(
                     }
                 )
 
-            # =================================================
+            # =====================================================
             # HORAS EXTRA
-            # =================================================
+            # =====================================================
 
             horas = list(
                 HoraExtra.objects
@@ -481,8 +659,9 @@ class LiquidacionPersonalViewSet(
                 )
             )
 
-            if len(horas) != len(
-                horas_ids
+            if (
+                len(horas)
+                != len(horas_ids)
             ):
                 raise ValidationError(
                     {
@@ -493,17 +672,55 @@ class LiquidacionPersonalViewSet(
                     }
                 )
 
-            # =================================================
-            # VALIDAR TARJAS
-            # =================================================
+            # =====================================================
+            # TARJAS EXTERNAS A DESCONTAR
+            # =====================================================
 
-            total_tarjas = Decimal("0.00")
+            tarjas_externas = list(
+                Tarja.objects
+                .select_for_update()
+                .filter(
+                    is_deleted=False,
+                    destino=(
+                        Tarja
+                        .Destino
+                        .EXTERNO
+                    ),
+                    destinatario=peon,
+                    fecha__range=(
+                        fecha_desde,
+                        fecha_hasta,
+                    ),
+                )
+                .exclude(
+                    detalles_descuento_liquidacion__is_deleted=False,
+                )
+                .select_related(
+                    "peon",
+                    "destinatario",
+                )
+                .order_by(
+                    "fecha",
+                    "id",
+                )
+            )
+
+            # =====================================================
+            # VALIDAR TARJAS NORMALES
+            # =====================================================
+
+            total_tarjas = Decimal(
+                "0.00"
+            )
 
             datos_tarjas = []
 
             for tarja in tarjas:
 
-                if tarja.peon_id != peon.id:
+                if (
+                    tarja.peon_id
+                    != peon.id
+                ):
                     raise ValidationError(
                         {
                             "tarjas": (
@@ -548,43 +765,61 @@ class LiquidacionPersonalViewSet(
                         }
                     )
 
-                valor_jornal = (
-                    obtener_valor_jornal(
-                        tarja.fecha
+                valor_unitario = (
+                    obtener_valor_tarja(
+                        tarja
                     )
                 )
 
                 fraccion = Decimal(
-                    str(tarja.fraccion)
+                    str(
+                        tarja.fraccion
+                    )
                 )
 
                 importe = decimal_dos(
-                    valor_jornal.valor
+                    valor_unitario
                     * fraccion
                 )
 
-                total_tarjas += importe
+                total_tarjas += (
+                    importe
+                )
 
                 datos_tarjas.append(
                     {
-                        "tarja": tarja,
-                        "valor_jornal": (
-                            valor_jornal.valor
+                        "tarja": (
+                            tarja
                         ),
-                        "fraccion": fraccion,
-                        "importe": importe,
+
+                        "valor_jornal": (
+                            valor_unitario
+                        ),
+
+                        "fraccion": (
+                            fraccion
+                        ),
+
+                        "importe": (
+                            importe
+                        ),
                     }
                 )
 
-            # =================================================
+            # =====================================================
             # VALIDAR HORAS EXTRA
-            # =================================================
+            # =====================================================
 
-            total_horas = Decimal("0.00")
+            total_horas = Decimal(
+                "0.00"
+            )
 
             for hora in horas:
 
-                if hora.peon_id != peon.id:
+                if (
+                    hora.peon_id
+                    != peon.id
+                ):
                     raise ValidationError(
                         {
                             "horas_extra": (
@@ -612,7 +847,9 @@ class LiquidacionPersonalViewSet(
 
                 if (
                     hora.estado
-                    != HoraExtra.Estado.PENDIENTE
+                    != HoraExtra
+                    .Estado
+                    .PENDIENTE
                 ):
                     raise ValidationError(
                         {
@@ -645,105 +882,369 @@ class LiquidacionPersonalViewSet(
                         }
                     )
 
-                total_horas += hora.total
+                total_horas += (
+                    hora.total
+                )
 
-            total_tarjas = decimal_dos(
-                total_tarjas
+            # =====================================================
+            # CALCULAR TARJAS EXTERNAS / DESCUENTOS
+            # =====================================================
+
+            total_descuentos = Decimal(
+                "0.00"
             )
 
-            total_horas = decimal_dos(
-                total_horas
+            datos_descuentos = []
+
+            for tarja in tarjas_externas:
+
+                valor_unitario = (
+                    obtener_valor_tarja(
+                        tarja
+                    )
+                )
+
+                fraccion = Decimal(
+                    str(
+                        tarja.fraccion
+                    )
+                )
+
+                importe = decimal_dos(
+                    valor_unitario
+                    * fraccion
+                )
+
+                total_descuentos += (
+                    importe
+                )
+
+                datos_descuentos.append(
+                    {
+                        "tarja": (
+                            tarja
+                        ),
+
+                        "peon_origen": (
+                            tarja.peon
+                        ),
+
+                        "fraccion": (
+                            fraccion
+                        ),
+
+                        "valor_jornal": (
+                            valor_unitario
+                        ),
+
+                        "importe": (
+                            importe
+                        ),
+                    }
+                )
+
+            # =====================================================
+            # TOTALES
+            # =====================================================
+
+            total_tarjas = (
+                decimal_dos(
+                    total_tarjas
+                )
+            )
+
+            total_horas = (
+                decimal_dos(
+                    total_horas
+                )
+            )
+
+            total_descuentos = (
+                decimal_dos(
+                    total_descuentos
+                )
             )
 
             total = decimal_dos(
                 total_tarjas
                 + total_horas
+                - total_descuentos
             )
 
-            # =================================================
+            # =====================================================
+            # POR AHORA NO PERMITIMOS TOTAL NEGATIVO
+            # =====================================================
+
+            if (
+                total
+                < Decimal("0.00")
+            ):
+                raise ValidationError(
+                    {
+                        "total": (
+                            "Los jornales a descontar "
+                            "superan el total a pagar. "
+                            "No se puede generar una "
+                            "liquidación negativa."
+                        )
+                    }
+                )
+
+            # =====================================================
             # CREAR CABECERA
-            # =================================================
+            # =====================================================
 
             liquidacion = (
-                LiquidacionPersonal.objects.create(
-                    peon=peon,
-                    fecha_desde=fecha_desde,
-                    fecha_hasta=fecha_hasta,
-                    fecha_pago=data[
-                        "fecha_pago"
-                    ],
-                    total_tarjas=total_tarjas,
+                LiquidacionPersonal
+                .objects
+                .create(
+                    peon=(
+                        peon
+                    ),
+
+                    fecha_desde=(
+                        fecha_desde
+                    ),
+
+                    fecha_hasta=(
+                        fecha_hasta
+                    ),
+
+                    fecha_pago=(
+                        data[
+                            "fecha_pago"
+                        ]
+                    ),
+
+                    cuenta_financiera=(
+                        cuenta_financiera
+                    ),
+
+                    total_tarjas=(
+                        total_tarjas
+                    ),
+
                     total_horas_extra=(
                         total_horas
                     ),
-                    total=total,
-                    observacion=data[
-                        "observacion"
-                    ],
-                    user_made=usuario,
+
+                    total_descuentos=(
+                        total_descuentos
+                    ),
+
+                    total=(
+                        total
+                    ),
+
+                    observacion=(
+                        data[
+                            "observacion"
+                        ]
+                    ),
+
+                    user_made=(
+                        usuario
+                    ),
                 )
             )
 
-            # =================================================
-            # CREAR DETALLES TARJAS
-            # =================================================
+            # =====================================================
+            # CREAR DETALLES TARJAS NORMALES
+            # =====================================================
 
             for item in datos_tarjas:
-                tarja = item["tarja"]
 
-                DetalleLiquidacionTarja.objects.create(
-                    liquidacion=liquidacion,
-                    tarja=tarja,
-                    fecha=tarja.fecha,
-                    fraccion=item[
-                        "fraccion"
-                    ],
-                    valor_jornal_aplicado=(
-                        item[
-                            "valor_jornal"
-                        ]
-                    ),
-                    importe=item[
-                        "importe"
-                    ],
-                    tarea=tarja.tarea,
-                    observacion=(
-                        tarja.observacion
-                    ),
-                    user_made=usuario,
+                tarja = item[
+                    "tarja"
+                ]
+
+                (
+                    DetalleLiquidacionTarja
+                    .objects
+                    .create(
+                        liquidacion=(
+                            liquidacion
+                        ),
+
+                        tarja=(
+                            tarja
+                        ),
+
+                        fecha=(
+                            tarja.fecha
+                        ),
+
+                        fraccion=(
+                            item[
+                                "fraccion"
+                            ]
+                        ),
+
+                        valor_jornal_aplicado=(
+                            item[
+                                "valor_jornal"
+                            ]
+                        ),
+
+                        importe=(
+                            item[
+                                "importe"
+                            ]
+                        ),
+
+                        tarea=(
+                            tarja.tarea
+                        ),
+
+                        observacion=(
+                            tarja.observacion
+                        ),
+
+                        user_made=(
+                            usuario
+                        ),
+                    )
                 )
 
-            # =================================================
+            # =====================================================
+            # CREAR DETALLES DE DESCUENTOS
+            # =====================================================
+
+            for item in datos_descuentos:
+
+                tarja = item[
+                    "tarja"
+                ]
+
+                (
+                    DetalleLiquidacionTarjaExterna
+                    .objects
+                    .create(
+                        liquidacion=(
+                            liquidacion
+                        ),
+
+                        tarja=(
+                            tarja
+                        ),
+
+                        peon_origen=(
+                            item[
+                                "peon_origen"
+                            ]
+                        ),
+
+                        fecha=(
+                            tarja.fecha
+                        ),
+
+                        fraccion=(
+                            item[
+                                "fraccion"
+                            ]
+                        ),
+
+                        valor_jornal_aplicado=(
+                            item[
+                                "valor_jornal"
+                            ]
+                        ),
+
+                        importe=(
+                            item[
+                                "importe"
+                            ]
+                        ),
+
+                        user_made=(
+                            usuario
+                        ),
+                    )
+                )
+
+            # =====================================================
             # CREAR DETALLES HORAS EXTRA
-            # =================================================
+            # =====================================================
 
             for hora in horas:
 
-                DetalleLiquidacionHoraExtra.objects.create(
-                    liquidacion=liquidacion,
-                    hora_extra=hora,
-                    fecha=hora.fecha,
-                    cantidad_horas=(
-                        hora.cantidad_horas
-                    ),
-                    motivo=hora.motivo,
-                    valor_jornal_aplicado=(
-                        hora.valor_jornal_aplicado
-                    ),
-                    valor_hora=(
-                        hora.valor_hora
-                    ),
-                    importe=hora.total,
-                    user_made=usuario,
+                (
+                    DetalleLiquidacionHoraExtra
+                    .objects
+                    .create(
+                        liquidacion=(
+                            liquidacion
+                        ),
+
+                        hora_extra=(
+                            hora
+                        ),
+
+                        fecha=(
+                            hora.fecha
+                        ),
+
+                        cantidad_horas=(
+                            hora
+                            .cantidad_horas
+                        ),
+
+                        motivo=(
+                            hora.motivo
+                        ),
+
+                        valor_jornal_aplicado=(
+                            hora
+                            .valor_jornal_aplicado
+                        ),
+
+                        valor_hora=(
+                            hora.valor_hora
+                        ),
+
+                        importe=(
+                            hora.total
+                        ),
+
+                        user_made=(
+                            usuario
+                        ),
+                    )
                 )
 
                 hora.estado = (
-                    HoraExtra.Estado.LIQUIDADA
+                    HoraExtra
+                    .Estado
+                    .LIQUIDADA
                 )
 
-                hora.user_updated = usuario
+                hora.user_updated = (
+                    usuario
+                )
 
                 hora.save()
+
+            # =====================================================
+            # MOVIMIENTO FINANCIERO
+            # =====================================================
+
+            crear_movimiento_liquidacion_personal(
+                liquidacion=(
+                    liquidacion
+                ),
+
+                cuenta=(
+                    cuenta_financiera
+                ),
+
+                usuario=(
+                    usuario
+                ),
+            )
+
+        # =========================================================
+        # RESPUESTA
+        # =========================================================
 
         resultado = (
             LiquidacionPersonalSerializer(
@@ -753,7 +1254,10 @@ class LiquidacionPersonalViewSet(
 
         return Response(
             resultado.data,
-            status=status.HTTP_201_CREATED,
+            status=(
+                status
+                .HTTP_201_CREATED
+            ),
         )
 
 
@@ -765,6 +1269,11 @@ class LiquidacionPersonalViewSet(
 class LiquidacionTractorViewSet(
     ReadOnlyModelViewSet
 ):
+    permission_classes = [
+        IsAuthenticated,
+        EsAdministracion,
+    ]
+
     serializer_class = (
         LiquidacionTractorSerializer
     )
@@ -776,6 +1285,7 @@ class LiquidacionTractorViewSet(
         )
         .select_related(
             "proveedor",
+            "cuenta_financiera",
         )
         .prefetch_related(
             "detalles",
@@ -810,8 +1320,14 @@ class LiquidacionTractorViewSet(
         data = serializer.validated_data
 
         tipo = data["tipo"]
-        fecha_desde = data["fecha_desde"]
-        fecha_hasta = data["fecha_hasta"]
+
+        fecha_desde = data[
+            "fecha_desde"
+        ]
+
+        fecha_hasta = data[
+            "fecha_hasta"
+        ]
 
         trabajos_data = []
 
@@ -819,6 +1335,10 @@ class LiquidacionTractorViewSet(
         total = Decimal("0.00")
 
         proveedor = None
+
+        # ====================================================
+        # SERGIO
+        # ====================================================
 
         if (
             tipo
@@ -858,21 +1378,32 @@ class LiquidacionTractorViewSet(
                 trabajos_data.append(
                     {
                         "id": trabajo.id,
-                        "fecha": trabajo.fecha,
+
+                        "fecha": (
+                            trabajo.fecha
+                        ),
+
                         "cantidad_horas": (
                             trabajo.cantidad_horas
                         ),
+
                         "valor_hora": (
                             trabajo.valor_hora
                         ),
+
                         "importe": (
                             trabajo.importe
                         ),
+
                         "observacion": (
                             trabajo.observacion
                         ),
                     }
                 )
+
+        # ====================================================
+        # TERCEROS
+        # ====================================================
 
         else:
 
@@ -900,6 +1431,9 @@ class LiquidacionTractorViewSet(
                 .exclude(
                     detalles_liquidacion__is_deleted=False,
                 )
+                .select_related(
+                    "proveedor",
+                )
                 .order_by(
                     "fecha",
                     "id",
@@ -917,16 +1451,23 @@ class LiquidacionTractorViewSet(
                 trabajos_data.append(
                     {
                         "id": trabajo.id,
-                        "fecha": trabajo.fecha,
+
+                        "fecha": (
+                            trabajo.fecha
+                        ),
+
                         "cantidad_horas": (
                             trabajo.cantidad_horas
                         ),
+
                         "valor_hora": (
                             trabajo.precio_hora
                         ),
+
                         "importe": (
                             trabajo.importe
                         ),
+
                         "observacion": (
                             trabajo.observacion
                         ),
@@ -936,28 +1477,47 @@ class LiquidacionTractorViewSet(
         return Response(
             {
                 "tipo": tipo,
+
                 "proveedor": (
                     {
                         "id": proveedor.id,
-                        "nombre": proveedor.nombre,
+                        "nombre": (
+                            proveedor.nombre
+                        ),
                     }
                     if proveedor
                     else None
                 ),
-                "fecha_desde": fecha_desde,
-                "fecha_hasta": fecha_hasta,
-                "trabajos": trabajos_data,
+
+                "fecha_desde": (
+                    fecha_desde
+                ),
+
+                "fecha_hasta": (
+                    fecha_hasta
+                ),
+
+                "trabajos": (
+                    trabajos_data
+                ),
+
                 "resumen": {
-                    "cantidad_trabajos": len(
-                        trabajos_data
+                    "cantidad_trabajos": (
+                        len(
+                            trabajos_data
+                        )
                     ),
+
                     "total_horas": (
                         decimal_dos(
                             total_horas
                         )
                     ),
-                    "total": decimal_dos(
-                        total
+
+                    "total": (
+                        decimal_dos(
+                            total
+                        )
                     ),
                 },
             }
@@ -987,16 +1547,30 @@ class LiquidacionTractorViewSet(
         data = serializer.validated_data
 
         tipo = data["tipo"]
+
         ids = data["trabajos"]
 
-        fecha_desde = data["fecha_desde"]
-        fecha_hasta = data["fecha_hasta"]
+        cuenta_financiera = data[
+            "cuenta_financiera"
+        ]
+
+        fecha_desde = data[
+            "fecha_desde"
+        ]
+
+        fecha_hasta = data[
+            "fecha_hasta"
+        ]
 
         usuario = request.user
 
         proveedor = None
 
         with transaction.atomic():
+
+            # =================================================
+            # OBTENER TRABAJOS
+            # =================================================
 
             if (
                 tipo
@@ -1043,7 +1617,14 @@ class LiquidacionTractorViewSet(
                     )
                 )
 
-            if len(trabajos) != len(ids):
+            # =================================================
+            # VALIDAR EXISTENCIA
+            # =================================================
+
+            if (
+                len(trabajos)
+                != len(ids)
+            ):
                 raise ValidationError(
                     {
                         "trabajos": (
@@ -1053,10 +1634,23 @@ class LiquidacionTractorViewSet(
                     }
                 )
 
-            total_horas = Decimal("0.00")
-            total = Decimal("0.00")
+            total_horas = Decimal(
+                "0.00"
+            )
+
+            total = Decimal(
+                "0.00"
+            )
+
+            # =================================================
+            # VALIDACIONES
+            # =================================================
 
             for trabajo in trabajos:
+
+                # ---------------------------------------------
+                # PERIODO
+                # ---------------------------------------------
 
                 if not (
                     fecha_desde
@@ -1067,11 +1661,15 @@ class LiquidacionTractorViewSet(
                         {
                             "trabajos": (
                                 f"El trabajo "
-                                f"#{trabajo.id} está "
-                                "fuera del período."
+                                f"#{trabajo.id} "
+                                "está fuera del período."
                             )
                         }
                     )
+
+                # ---------------------------------------------
+                # ESTADO
+                # ---------------------------------------------
 
                 if (
                     trabajo.estado
@@ -1081,11 +1679,15 @@ class LiquidacionTractorViewSet(
                         {
                             "trabajos": (
                                 f"El trabajo "
-                                f"#{trabajo.id} ya "
-                                "no está pendiente."
+                                f"#{trabajo.id} "
+                                "ya no está pendiente."
                             )
                         }
                     )
+
+                # ---------------------------------------------
+                # PROVEEDOR
+                # ---------------------------------------------
 
                 if (
                     tipo
@@ -1105,6 +1707,10 @@ class LiquidacionTractorViewSet(
                         }
                     )
 
+                # ---------------------------------------------
+                # YA LIQUIDADO
+                # ---------------------------------------------
+
                 filtro = {
                     "is_deleted": False,
                 }
@@ -1117,17 +1723,22 @@ class LiquidacionTractorViewSet(
                     filtro[
                         "tractor_sergio"
                     ] = trabajo
+
                 else:
                     filtro[
                         "tractor_tercero"
                     ] = trabajo
 
-                if (
+                ya_liquidado = (
                     DetalleLiquidacionTractor
                     .objects
-                    .filter(**filtro)
+                    .filter(
+                        **filtro
+                    )
                     .exists()
-                ):
+                )
+
+                if ya_liquidado:
                     raise ValidationError(
                         {
                             "trabajos": (
@@ -1138,35 +1749,74 @@ class LiquidacionTractorViewSet(
                         }
                     )
 
+                # ---------------------------------------------
+                # TOTALES
+                # ---------------------------------------------
+
                 total_horas += (
                     trabajo.cantidad_horas
                 )
 
-                total += trabajo.importe
+                total += (
+                    trabajo.importe
+                )
 
-            total_horas = decimal_dos(
-                total_horas
+            total_horas = (
+                decimal_dos(
+                    total_horas
+                )
             )
 
-            total = decimal_dos(total)
+            total = (
+                decimal_dos(
+                    total
+                )
+            )
+
+            # =================================================
+            # CREAR LIQUIDACION
+            # =================================================
 
             liquidacion = (
-                LiquidacionTractor.objects.create(
+                LiquidacionTractor.objects
+                .create(
                     tipo=tipo,
+
                     proveedor=proveedor,
-                    fecha_desde=fecha_desde,
-                    fecha_hasta=fecha_hasta,
+
+                    fecha_desde=(
+                        fecha_desde
+                    ),
+
+                    fecha_hasta=(
+                        fecha_hasta
+                    ),
+
                     fecha_pago=data[
                         "fecha_pago"
                     ],
-                    total_horas=total_horas,
+
+                    cuenta_financiera=(
+                        cuenta_financiera
+                    ),
+
+                    total_horas=(
+                        total_horas
+                    ),
+
                     total=total,
+
                     observacion=data[
                         "observacion"
                     ],
+
                     user_made=usuario,
                 )
             )
+
+            # =================================================
+            # CREAR DETALLES
+            # =================================================
 
             for trabajo in trabajos:
 
@@ -1179,7 +1829,10 @@ class LiquidacionTractorViewSet(
                         trabajo.valor_hora
                     )
 
-                    tractor_sergio = trabajo
+                    tractor_sergio = (
+                        trabajo
+                    )
+
                     tractor_tercero = None
 
                 else:
@@ -1188,40 +1841,88 @@ class LiquidacionTractorViewSet(
                     )
 
                     tractor_sergio = None
-                    tractor_tercero = trabajo
 
-                DetalleLiquidacionTractor.objects.create(
-                    liquidacion=liquidacion,
-                    tractor_sergio=(
-                        tractor_sergio
-                    ),
-                    tractor_tercero=(
-                        tractor_tercero
-                    ),
-                    fecha=trabajo.fecha,
-                    cantidad_horas=(
-                        trabajo.cantidad_horas
-                    ),
-                    valor_hora=valor_hora,
-                    importe=trabajo.importe,
-                    observacion=(
-                        trabajo.observacion
-                    ),
-                    user_made=usuario,
+                    tractor_tercero = (
+                        trabajo
+                    )
+
+                (
+                    DetalleLiquidacionTractor
+                    .objects
+                    .create(
+                        liquidacion=(
+                            liquidacion
+                        ),
+
+                        tractor_sergio=(
+                            tractor_sergio
+                        ),
+
+                        tractor_tercero=(
+                            tractor_tercero
+                        ),
+
+                        fecha=(
+                            trabajo.fecha
+                        ),
+
+                        cantidad_horas=(
+                            trabajo
+                            .cantidad_horas
+                        ),
+
+                        valor_hora=(
+                            valor_hora
+                        ),
+
+                        importe=(
+                            trabajo.importe
+                        ),
+
+                        observacion=(
+                            trabajo.observacion
+                        ),
+
+                        user_made=usuario,
+                    )
                 )
+
+                # =============================================
+                # MARCAR TRABAJO COMO PAGADO
+                # =============================================
 
                 trabajo.estado = (
                     trabajo.ESTADO_PAGADA
                 )
 
-                trabajo.user_updated = usuario
+                trabajo.user_updated = (
+                    usuario
+                )
 
                 trabajo.save()
 
-        return Response(
+            # =================================================
+            # MOVIMIENTO FINANCIERO
+            # =================================================
+
+            crear_movimiento_liquidacion_tractor(
+                liquidacion=liquidacion,
+                cuenta=cuenta_financiera,
+                usuario=usuario,
+            )
+
+        # =====================================================
+        # RESPUESTA
+        # =====================================================
+
+        resultado = (
             LiquidacionTractorSerializer(
                 liquidacion
-            ).data,
+            )
+        )
+
+        return Response(
+            resultado.data,
             status=status.HTTP_201_CREATED,
         )
 
@@ -1234,6 +1935,11 @@ class LiquidacionTractorViewSet(
 class LiquidacionAlmacigoViewSet(
     ReadOnlyModelViewSet
 ):
+    permission_classes = [
+        IsAuthenticated,
+        EsAdministracion,
+    ]
+
     serializer_class = (
         LiquidacionAlmacigoSerializer
     )
@@ -1242,6 +1948,9 @@ class LiquidacionAlmacigoViewSet(
         LiquidacionAlmacigo.objects
         .filter(
             is_deleted=False,
+        )
+        .select_related(
+            "cuenta_financiera",
         )
         .prefetch_related(
             "detalles",
@@ -1280,7 +1989,8 @@ class LiquidacionAlmacigoViewSet(
             .filter(
                 is_deleted=False,
                 estado=(
-                    Almacigo.ESTADO_PENDIENTE
+                    Almacigo
+                    .ESTADO_PENDIENTE
                 ),
                 fecha__range=(
                     data["fecha_desde"],
@@ -1299,7 +2009,10 @@ class LiquidacionAlmacigoViewSet(
         items = []
 
         cantidad_total = 0
-        total = Decimal("0.00")
+
+        total = Decimal(
+            "0.00"
+        )
 
         for almacigo in almacigos:
 
@@ -1307,45 +2020,71 @@ class LiquidacionAlmacigoViewSet(
                 almacigo.cantidad
             )
 
-            total += almacigo.importe
+            total += (
+                almacigo.importe
+            )
 
             items.append(
                 {
-                    "id": almacigo.id,
-                    "fecha": almacigo.fecha,
+                    "id": (
+                        almacigo.id
+                    ),
+
+                    "fecha": (
+                        almacigo.fecha
+                    ),
+
                     "cantidad": (
                         almacigo.cantidad
                     ),
+
                     "valor_unitario": (
-                        almacigo.valor_unitario
+                        almacigo
+                        .valor_unitario
                     ),
+
                     "importe": (
                         almacigo.importe
                     ),
+
                     "observacion": (
-                        almacigo.observacion
+                        almacigo
+                        .observacion
                     ),
                 }
             )
 
         return Response(
             {
-                "fecha_desde": data[
-                    "fecha_desde"
-                ],
-                "fecha_hasta": data[
-                    "fecha_hasta"
-                ],
+                "fecha_desde": (
+                    data[
+                        "fecha_desde"
+                    ]
+                ),
+
+                "fecha_hasta": (
+                    data[
+                        "fecha_hasta"
+                    ]
+                ),
+
                 "almacigos": items,
+
                 "resumen": {
-                    "cantidad_registros": len(
-                        items
+                    "cantidad_registros": (
+                        len(
+                            items
+                        )
                     ),
+
                     "cantidad_total": (
                         cantidad_total
                     ),
-                    "total": decimal_dos(
-                        total
+
+                    "total": (
+                        decimal_dos(
+                            total
+                        )
                     ),
                 },
             }
@@ -1374,11 +2113,23 @@ class LiquidacionAlmacigoViewSet(
 
         data = serializer.validated_data
 
-        ids = data["almacigos"]
+        ids = data[
+            "almacigos"
+        ]
 
-        usuario = request.user
+        cuenta_financiera = data[
+            "cuenta_financiera"
+        ]
+
+        usuario = (
+            request.user
+        )
 
         with transaction.atomic():
+
+            # =================================================
+            # OBTENER ALMACIGOS
+            # =================================================
 
             almacigos = list(
                 Almacigo.objects
@@ -1393,7 +2144,14 @@ class LiquidacionAlmacigoViewSet(
                 )
             )
 
-            if len(almacigos) != len(ids):
+            # =================================================
+            # VALIDAR EXISTENCIA
+            # =================================================
+
+            if (
+                len(almacigos)
+                != len(ids)
+            ):
                 raise ValidationError(
                     {
                         "almacigos": (
@@ -1404,40 +2162,65 @@ class LiquidacionAlmacigoViewSet(
                 )
 
             cantidad_total = 0
-            total = Decimal("0.00")
+
+            total = Decimal(
+                "0.00"
+            )
+
+            # =================================================
+            # VALIDACIONES
+            # =================================================
 
             for almacigo in almacigos:
 
+                # ---------------------------------------------
+                # PERIODO
+                # ---------------------------------------------
+
                 if not (
-                    data["fecha_desde"]
+                    data[
+                        "fecha_desde"
+                    ]
                     <= almacigo.fecha
-                    <= data["fecha_hasta"]
+                    <= data[
+                        "fecha_hasta"
+                    ]
                 ):
                     raise ValidationError(
                         {
                             "almacigos": (
                                 f"El almácigo "
-                                f"#{almacigo.id} está "
-                                "fuera del período."
+                                f"#{almacigo.id} "
+                                "está fuera del período."
                             )
                         }
                     )
+
+                # ---------------------------------------------
+                # ESTADO
+                # ---------------------------------------------
 
                 if (
                     almacigo.estado
-                    != Almacigo.ESTADO_PENDIENTE
+                    !=
+                    Almacigo
+                    .ESTADO_PENDIENTE
                 ):
                     raise ValidationError(
                         {
                             "almacigos": (
                                 f"El almácigo "
-                                f"#{almacigo.id} ya "
-                                "no está pendiente."
+                                f"#{almacigo.id} "
+                                "ya no está pendiente."
                             )
                         }
                     )
 
-                if (
+                # ---------------------------------------------
+                # YA LIQUIDADO
+                # ---------------------------------------------
+
+                ya_liquidado = (
                     DetalleLiquidacionAlmacigo
                     .objects
                     .filter(
@@ -1445,84 +2228,169 @@ class LiquidacionAlmacigoViewSet(
                         is_deleted=False,
                     )
                     .exists()
-                ):
+                )
+
+                if ya_liquidado:
                     raise ValidationError(
                         {
                             "almacigos": (
                                 f"El almácigo "
-                                f"#{almacigo.id} ya "
-                                "fue liquidado."
+                                f"#{almacigo.id} "
+                                "ya fue liquidado."
                             )
                         }
                     )
+
+                # ---------------------------------------------
+                # TOTALES
+                # ---------------------------------------------
 
                 cantidad_total += (
                     almacigo.cantidad
                 )
 
-                total += almacigo.importe
+                total += (
+                    almacigo.importe
+                )
 
-            total = decimal_dos(total)
-
-            liquidacion = (
-                LiquidacionAlmacigo.objects.create(
-                    fecha_desde=data[
-                        "fecha_desde"
-                    ],
-                    fecha_hasta=data[
-                        "fecha_hasta"
-                    ],
-                    fecha_pago=data[
-                        "fecha_pago"
-                    ],
-                    cantidad_total=(
-                        cantidad_total
-                    ),
-                    total=total,
-                    observacion=data[
-                        "observacion"
-                    ],
-                    user_made=usuario,
+            total = (
+                decimal_dos(
+                    total
                 )
             )
 
+            # =================================================
+            # CREAR LIQUIDACION
+            # =================================================
+
+            liquidacion = (
+                LiquidacionAlmacigo.objects
+                .create(
+                    fecha_desde=(
+                        data[
+                            "fecha_desde"
+                        ]
+                    ),
+
+                    fecha_hasta=(
+                        data[
+                            "fecha_hasta"
+                        ]
+                    ),
+
+                    fecha_pago=(
+                        data[
+                            "fecha_pago"
+                        ]
+                    ),
+
+                    cuenta_financiera=(
+                        cuenta_financiera
+                    ),
+
+                    cantidad_total=(
+                        cantidad_total
+                    ),
+
+                    total=total,
+
+                    observacion=(
+                        data[
+                            "observacion"
+                        ]
+                    ),
+
+                    user_made=(
+                        usuario
+                    ),
+                )
+            )
+
+            # =================================================
+            # CREAR DETALLES
+            # =================================================
+
             for almacigo in almacigos:
 
-                DetalleLiquidacionAlmacigo.objects.create(
-                    liquidacion=liquidacion,
-                    almacigo=almacigo,
-                    fecha=almacigo.fecha,
-                    cantidad=(
-                        almacigo.cantidad
-                    ),
-                    valor_unitario=(
-                        almacigo.valor_unitario
-                    ),
-                    importe=(
-                        almacigo.importe
-                    ),
-                    observacion=(
-                        almacigo.observacion
-                    ),
-                    user_made=usuario,
+                (
+                    DetalleLiquidacionAlmacigo
+                    .objects
+                    .create(
+                        liquidacion=(
+                            liquidacion
+                        ),
+
+                        almacigo=(
+                            almacigo
+                        ),
+
+                        fecha=(
+                            almacigo.fecha
+                        ),
+
+                        cantidad=(
+                            almacigo.cantidad
+                        ),
+
+                        valor_unitario=(
+                            almacigo
+                            .valor_unitario
+                        ),
+
+                        importe=(
+                            almacigo.importe
+                        ),
+
+                        observacion=(
+                            almacigo
+                            .observacion
+                        ),
+
+                        user_made=(
+                            usuario
+                        ),
+                    )
                 )
+
+                # =============================================
+                # MARCAR ALMACIGO COMO PAGADO
+                # =============================================
 
                 almacigo.estado = (
-                    Almacigo.ESTADO_PAGADA
+                    Almacigo
+                    .ESTADO_PAGADA
                 )
 
-                almacigo.user_updated = usuario
+                almacigo.user_updated = (
+                    usuario
+                )
 
                 almacigo.save()
 
-        return Response(
+            # =================================================
+            # MOVIMIENTO FINANCIERO
+            # =================================================
+
+            crear_movimiento_liquidacion_almacigo(
+                liquidacion=liquidacion,
+                cuenta=cuenta_financiera,
+                usuario=usuario,
+            )
+
+        # =====================================================
+        # RESPUESTA
+        # =====================================================
+
+        resultado = (
             LiquidacionAlmacigoSerializer(
                 liquidacion
-            ).data,
-            status=status.HTTP_201_CREATED,
+            )
         )
 
-
+        return Response(
+            resultado.data,
+            status=status.HTTP_201_CREATED,
+        )
 # ============================================================
 # RENDICIONES DE VENTA
 # ============================================================
@@ -1535,12 +2403,18 @@ class RendicionVentaViewSet(
         IsAuthenticated,
         EsAdministracion,
     ]
-    serializer_class = RendicionVentaSerializer
+
+    serializer_class = (
+        RendicionVentaSerializer
+    )
 
     queryset = (
         RendicionVenta.objects
         .filter(
             is_deleted=False,
+        )
+        .select_related(
+            "cuenta_financiera",
         )
         .prefetch_related(
             "detalles",
@@ -1563,7 +2437,10 @@ class RendicionVentaViewSet(
         methods=["get"],
         url_path="pendientes",
     )
-    def pendientes(self, request):
+    def pendientes(
+        self,
+        request,
+    ):
 
         serializer = (
             RendicionPendientesQuerySerializer(
@@ -1575,7 +2452,10 @@ class RendicionVentaViewSet(
             raise_exception=True
         )
 
-        data = serializer.validated_data
+        data = (
+            serializer
+            .validated_data
+        )
 
         pagos = (
             PagoVenta.objects
@@ -1595,43 +2475,69 @@ class RendicionVentaViewSet(
             )
         )
 
-        fecha_desde = data.get(
-            "fecha_desde"
+        fecha_desde = (
+            data.get(
+                "fecha_desde"
+            )
         )
 
-        fecha_hasta = data.get(
-            "fecha_hasta"
+        fecha_hasta = (
+            data.get(
+                "fecha_hasta"
+            )
         )
 
         if fecha_desde:
-            pagos = pagos.filter(
-                fecha__gte=fecha_desde
+            pagos = (
+                pagos.filter(
+                    fecha__gte=(
+                        fecha_desde
+                    )
+                )
             )
 
         if fecha_hasta:
-            pagos = pagos.filter(
-                fecha__lte=fecha_hasta
+            pagos = (
+                pagos.filter(
+                    fecha__lte=(
+                        fecha_hasta
+                    )
+                )
             )
 
         items = []
 
-        total = Decimal("0.00")
+        total = Decimal(
+            "0.00"
+        )
 
         for pago in pagos:
 
-            total += pago.importe
+            total += (
+                pago.importe
+            )
 
             items.append(
                 {
-                    "id": pago.id,
-                    "fecha": pago.fecha,
-                    "venta": pago.venta_id,
+                    "id": (
+                        pago.id
+                    ),
+
+                    "fecha": (
+                        pago.fecha
+                    ),
+
+                    "venta": (
+                        pago.venta_id
+                    ),
+
                     "comprador": {
                         "id": (
                             pago
                             .venta
                             .comprador_id
                         ),
+
                         "nombre": (
                             pago
                             .venta
@@ -1639,32 +2545,50 @@ class RendicionVentaViewSet(
                             .nombre
                         ),
                     },
+
                     "cantidad_bolsas": (
-                        pago.cantidad_bolsas
+                        pago
+                        .cantidad_bolsas
                     ),
+
                     "precio_unitario": (
                         pago
                         .venta
                         .precio_unitario
                     ),
+
                     "importe": (
                         pago.importe
                     ),
+
                     "observacion": (
-                        pago.observacion
+                        pago
+                        .observacion
                     ),
                 }
             )
 
         return Response(
             {
-                "fecha_desde": fecha_desde,
-                "fecha_hasta": fecha_hasta,
-                "pagos": items,
+                "fecha_desde": (
+                    fecha_desde
+                ),
+
+                "fecha_hasta": (
+                    fecha_hasta
+                ),
+
+                "pagos": (
+                    items
+                ),
+
                 "resumen": {
-                    "cantidad_pagos": len(
-                        items
+                    "cantidad_pagos": (
+                        len(
+                            items
+                        )
                     ),
+
                     "total_pendiente_rendir": (
                         decimal_dos(
                             total
@@ -1683,7 +2607,10 @@ class RendicionVentaViewSet(
         methods=["post"],
         url_path="rendir",
     )
-    def rendir(self, request):
+    def rendir(
+        self,
+        request,
+    ):
 
         serializer = (
             CrearRendicionRequestSerializer(
@@ -1695,13 +2622,32 @@ class RendicionVentaViewSet(
             raise_exception=True
         )
 
-        data = serializer.validated_data
+        data = (
+            serializer
+            .validated_data
+        )
 
-        ids = data["pagos"]
+        ids = (
+            data[
+                "pagos"
+            ]
+        )
 
-        usuario = request.user
+        cuenta_financiera = (
+            data[
+                "cuenta_financiera"
+            ]
+        )
+
+        usuario = (
+            request.user
+        )
 
         with transaction.atomic():
+
+            # =================================================
+            # OBTENER PAGOS
+            # =================================================
 
             pagos = list(
                 PagoVenta.objects
@@ -1720,7 +2666,14 @@ class RendicionVentaViewSet(
                 )
             )
 
-            if len(pagos) != len(ids):
+            # =================================================
+            # VALIDAR EXISTENCIA
+            # =================================================
+
+            if (
+                len(pagos)
+                != len(ids)
+            ):
                 raise ValidationError(
                     {
                         "pagos": (
@@ -1730,7 +2683,13 @@ class RendicionVentaViewSet(
                     }
                 )
 
-            total = Decimal("0.00")
+            total = Decimal(
+                "0.00"
+            )
+
+            # =================================================
+            # VALIDACIONES
+            # =================================================
 
             for pago in pagos:
 
@@ -1749,53 +2708,137 @@ class RendicionVentaViewSet(
                         {
                             "pagos": (
                                 f"El pago "
-                                f"#{pago.id} ya "
-                                "fue rendido."
+                                f"#{pago.id} "
+                                "ya fue rendido."
                             )
                         }
                     )
 
-                total += pago.importe
+                total += (
+                    pago.importe
+                )
 
-            total = decimal_dos(total)
-
-            rendicion = (
-                RendicionVenta.objects.create(
-                    fecha=data["fecha"],
-                    total=total,
-                    observacion=data[
-                        "observacion"
-                    ],
-                    user_made=usuario,
+            total = (
+                decimal_dos(
+                    total
                 )
             )
 
+            # =================================================
+            # CREAR RENDICION
+            # =================================================
+
+            rendicion = (
+                RendicionVenta.objects
+                .create(
+                    fecha=(
+                        data[
+                            "fecha"
+                        ]
+                    ),
+
+                    cuenta_financiera=(
+                        cuenta_financiera
+                    ),
+
+                    total=(
+                        total
+                    ),
+
+                    observacion=(
+                        data[
+                            "observacion"
+                        ]
+                    ),
+
+                    user_made=(
+                        usuario
+                    ),
+                )
+            )
+
+            # =================================================
+            # CREAR DETALLES
+            # =================================================
+
             for pago in pagos:
 
-                venta = pago.venta
-
-                DetalleRendicionVenta.objects.create(
-                    rendicion=rendicion,
-                    pago_venta=pago,
-                    venta=venta,
-                    comprador=(
-                        venta.comprador
-                    ),
-                    fecha_pago=(
-                        pago.fecha
-                    ),
-                    cantidad_bolsas=(
-                        pago.cantidad_bolsas
-                    ),
-                    importe=(
-                        pago.importe
-                    ),
-                    user_made=usuario,
+                venta = (
+                    pago.venta
                 )
 
-        return Response(
+                (
+                    DetalleRendicionVenta
+                    .objects
+                    .create(
+                        rendicion=(
+                            rendicion
+                        ),
+
+                        pago_venta=(
+                            pago
+                        ),
+
+                        venta=(
+                            venta
+                        ),
+
+                        comprador=(
+                            venta
+                            .comprador
+                        ),
+
+                        fecha_pago=(
+                            pago.fecha
+                        ),
+
+                        cantidad_bolsas=(
+                            pago
+                            .cantidad_bolsas
+                        ),
+
+                        importe=(
+                            pago.importe
+                        ),
+
+                        user_made=(
+                            usuario
+                        ),
+                    )
+                )
+
+            # =================================================
+            # MOVIMIENTO FINANCIERO
+            # =================================================
+
+            crear_movimiento_rendicion_venta(
+                rendicion=(
+                    rendicion
+                ),
+
+                cuenta=(
+                    cuenta_financiera
+                ),
+
+                usuario=(
+                    usuario
+                ),
+            )
+
+        # =====================================================
+        # RESPUESTA
+        # =====================================================
+
+        resultado = (
             RendicionVentaSerializer(
                 rendicion
-            ).data,
-            status=status.HTTP_201_CREATED,
+            )
+        )
+
+        return Response(
+            resultado.data,
+            status=(
+                status
+                .HTTP_201_CREATED
+            ),
         )

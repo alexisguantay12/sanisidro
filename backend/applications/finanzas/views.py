@@ -7,6 +7,8 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
+from rest_framework.exceptions import ValidationError
+
 
 from applications.finanzas.models import (
     CategoriaFinanciera,
@@ -712,6 +714,25 @@ class MovimientoFinancieroViewSet(
 
         return Response(
             serializer.data
+        )
+
+
+    def perform_destroy(self, instance):
+        if instance.origen_modulo:
+            raise ValidationError({
+                "movimiento": (
+                    "Este movimiento fue generado automáticamente "
+                    "desde otro módulo y no puede eliminarse."
+                )
+            })
+
+        instance.is_deleted = True
+        instance.user_deleted = self.request.user
+        instance.save(
+            update_fields=[
+                "is_deleted",
+                "user_deleted",
+            ]
         )
 
     # --------------------------------------------------------

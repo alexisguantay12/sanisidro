@@ -45,6 +45,13 @@ export interface TarjaPendiente {
 }
 
 
+export interface CuentaFinancieraSimple {
+  id: number;
+  nombre: string;
+}
+
+
+
 export interface HoraExtraPendiente {
   id: number;
 
@@ -71,11 +78,12 @@ export interface PersonalPendienteResponse {
   tarjas: TarjaPendiente[];
 
   horas_extra: HoraExtraPendiente[];
-
+  tarjas_externas: TarjaExternaPendiente[];
   resumen: {
     cantidad_tarjas: number;
     cantidad_horas_extra: number;
-
+    cantidad_tarjas_externas: number;
+    total_descuentos: string;
     total_tarjas: string;
     total_horas_extra: string;
 
@@ -92,16 +100,38 @@ export interface LiquidarPersonalPayload {
 
   fecha_pago: string;
 
+  cuenta_financiera: number;
+
   tarjas: number[];
+
   horas_extra: number[];
 
   observacion: string;
 }
 
-
 // ============================================================
 // PERSONAL - LIQUIDACIONES
 // ============================================================
+
+
+export interface DetalleLiquidacionTarjaExterna {
+  id: number;
+
+  tarja: number;
+
+  peon_origen: number;
+  peon_origen_nombre: string;
+
+  fecha: string;
+
+  fraccion: string;
+
+  valor_jornal_aplicado: string;
+
+  importe: string;
+}
+
+
 
 export interface DetalleTarjaLiquidada {
   id: number;
@@ -142,7 +172,6 @@ export interface DetalleHoraExtraLiquidada {
   importe: string;
 }
 
-
 export interface LiquidacionPersonal {
   id: number;
 
@@ -151,20 +180,21 @@ export interface LiquidacionPersonal {
 
   fecha_desde: string;
   fecha_hasta: string;
-
   fecha_pago: string;
+
+  cuenta_financiera: number | null;
+  cuenta_financiera_nombre: string | null;
 
   total_tarjas: string;
   total_horas_extra: string;
-
   total: string;
+  total_descuentos:string;
 
   observacion: string;
 
   estado: EstadoLiquidacion;
 
   fecha_anulacion: string | null;
-
   motivo_anulacion: string;
 
   detalles_tarjas:
@@ -172,8 +202,11 @@ export interface LiquidacionPersonal {
 
   detalles_horas_extra:
     DetalleHoraExtraLiquidada[];
-}
 
+  
+  detalles_tarjas_externas:
+    DetalleLiquidacionTarjaExterna[];
+}  
 
 // ============================================================
 // TRACTOR - PENDIENTES
@@ -225,7 +258,7 @@ export interface LiquidarTractorPayload {
   fecha_pago: string;
 
   trabajos: number[];
-
+  cuenta_financiera: number;
   observacion: string;
 }
 
@@ -263,6 +296,9 @@ export interface LiquidacionTractor {
 
   fecha_desde: string;
   fecha_hasta: string;
+
+  cuenta_financiera: number | null;
+  cuenta_financiera_nombre: string | null;
 
   fecha_pago: string;
 
@@ -325,7 +361,7 @@ export interface LiquidarAlmacigosPayload {
   fecha_pago: string;
 
   almacigos: number[];
-
+  cuenta_financiera: number;
   observacion: string;
 }
 
@@ -368,6 +404,8 @@ export interface LiquidacionAlmacigo {
   estado: EstadoLiquidacion;
 
   fecha_anulacion: string | null;
+  cuenta_financiera: number | null;
+  cuenta_financiera_nombre: string | null;
 
   motivo_anulacion: string;
 
@@ -419,6 +457,8 @@ export interface RendicionesPendientesResponse {
 export interface CrearRendicionPayload {
   fecha: string;
 
+  cuenta_financiera: number;
+
   pagos: number[];
 
   observacion: string;
@@ -446,11 +486,13 @@ export interface DetalleRendicion {
   importe: string;
 }
 
-
 export interface RendicionVenta {
   id: number;
 
   fecha: string;
+
+  cuenta_financiera: number | null;
+  cuenta_financiera_nombre: string | null;
 
   total: string;
 
@@ -466,7 +508,23 @@ export interface RendicionVenta {
     DetalleRendicion[];
 }
 
+export interface TarjaExternaPendiente {
+  id: number;
 
+  fecha: string;
+
+  peon: number;
+  peon_nombre: string;
+
+  fraccion: string;
+  fraccion_display: string;
+
+  valor_jornal: string;
+
+  importe: string;
+
+  observacion: string;
+}
 // ============================================================
 // ANULACIONES
 // ============================================================

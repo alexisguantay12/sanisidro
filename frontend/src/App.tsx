@@ -90,6 +90,9 @@ import GruposPage
  from "./features/finanzas/grupos/GruposPage";
 import ResumenFinanzasPage from "./features/finanzas/resumen/ResumenFinanzasPage";
 
+import ResumenPage from "./pages/ResumenPage";
+
+
 
 function App() {
   return (
@@ -165,6 +168,7 @@ function App() {
           path="/configuracion/valores"
           element={<ValoresPage />}
         />
+        
         <Route
           path="/configuracion/cambiar-password"
           element={
@@ -295,6 +299,12 @@ function App() {
           path="/finanzas/resumen"
           element={ 
               <ResumenFinanzasPage /> 
+          }
+        />
+        <Route
+          path="/resumen"
+          element={
+            <ResumenPage />
           }
         />
 

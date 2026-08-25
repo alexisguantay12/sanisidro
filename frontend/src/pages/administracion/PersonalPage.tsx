@@ -10,11 +10,13 @@ import {
   Check,
   Clock3,
   Loader2,
+  MinusCircle,
   Search,
   UserRound,
 } from "lucide-react";
 
 import {
+  getCuentasFinancieras,
   getPeones,
   getPersonalPendiente,
   liquidarPersonal,
@@ -29,10 +31,11 @@ import PageHeader
 import SummaryCard
   from "../../features/administracion/components/SummaryCard";
 
-import AdministracionTabs from "../../features/administracion/components/AdministracionTabs";
-
+import AdministracionTabs
+  from "../../features/administracion/components/AdministracionTabs";
 
 import type {
+  CuentaFinancieraSimple,
   PeonSimple,
   PersonalPendienteResponse,
 } from "../../features/administracion/types";
@@ -52,8 +55,18 @@ export default function PersonalPage() {
   ] = useState<PeonSimple[]>([]);
 
   const [
+    cuentas,
+    setCuentas,
+  ] = useState<CuentaFinancieraSimple[]>([]);
+
+  const [
     peon,
     setPeon,
+  ] = useState("");
+
+  const [
+    cuentaFinanciera,
+    setCuentaFinanciera,
   ] = useState("");
 
   const [
@@ -106,6 +119,11 @@ export default function PersonalPage() {
   ] = useState(false);
 
   const [
+    loadingCuentas,
+    setLoadingCuentas,
+  ] = useState(false);
+
+  const [
     paying,
     setPaying,
   ] = useState(false);
@@ -131,6 +149,34 @@ export default function PersonalPage() {
     }
 
     load();
+  }, []);
+
+
+  useEffect(() => {
+    async function loadCuentas() {
+      try {
+        setLoadingCuentas(true);
+
+        const result =
+          await getCuentasFinancieras();
+
+        setCuentas(result);
+
+        if (result.length === 1) {
+          setCuentaFinanciera(
+            String(result[0].id),
+          );
+        }
+      } catch {
+        setError(
+          "No se pudieron cargar las cuentas financieras.",
+        );
+      } finally {
+        setLoadingCuentas(false);
+      }
+    }
+
+    loadCuentas();
   }, []);
 
 
@@ -249,7 +295,24 @@ export default function PersonalPage() {
             0,
           );
 
-      return tarjas + horas;
+      const descuentos =
+        (
+          data.tarjas_externas
+          ?? []
+        ).reduce(
+          (acc, item) =>
+            acc +
+            Number(item.importe),
+          0,
+        );
+
+      return (
+        tarjas
+        +
+        horas
+        -
+        descuentos
+      );
     }, [
       data,
       tarjasSeleccionadas,
@@ -274,6 +337,24 @@ export default function PersonalPage() {
       return;
     }
 
+    if (!cuentaFinanciera) {
+      setError(
+        "Seleccioná la cuenta desde donde se realiza el pago.",
+      );
+
+      return;
+    }
+
+    if (
+      totalSeleccionado <= 0
+    ) {
+      setError(
+        "El total a pagar debe ser mayor a cero.",
+      );
+
+      return;
+    }
+
     try {
       setPaying(true);
       setError("");
@@ -289,6 +370,11 @@ export default function PersonalPage() {
 
         fecha_pago:
           fechaPago,
+
+        cuenta_financiera:
+          Number(
+            cuentaFinanciera,
+          ),
 
         tarjas:
           tarjasSeleccionadas,
@@ -332,15 +418,16 @@ export default function PersonalPage() {
         <PageHeader
           title="Pagos al personal"
           description="
-            Revisá tarjas y horas extra
-            pendientes antes de realizar
-            una liquidación.
+            Revisá tarjas, horas extra
+            y jornales a descontar antes
+            de realizar una liquidación.
           "
           icon={Banknote}
         />
+
         <AdministracionTabs
-        pendientesTo="/administracion/personal"
-        historialTo="/administracion/personal/historial"
+          pendientesTo="/administracion/personal"
+          historialTo="/administracion/personal/historial"
         />
 
         <section
@@ -548,7 +635,7 @@ export default function PersonalPage() {
                 grid
                 grid-cols-2
                 gap-3
-                lg:grid-cols-4
+                lg:grid-cols-5
               "
             >
               <SummaryCard
@@ -571,6 +658,17 @@ export default function PersonalPage() {
                   )
                 }
                 icon={Clock3}
+              />
+
+              <SummaryCard
+                title="Descuentos"
+                value={
+                  `-${money(
+                    data.resumen
+                      .total_descuentos,
+                  )}`
+                }
+                icon={MinusCircle}
               />
 
               <SummaryCard
@@ -922,6 +1020,235 @@ export default function PersonalPage() {
               </div>
             </section>
 
+            {(
+              data.tarjas_externas
+              ?? []
+            ).length > 0 && (
+              <section
+                className="
+                  mt-5
+                  rounded-3xl
+                  border
+                  border-red-200
+                  bg-white
+                  p-4
+                  shadow-sm
+                  sm:p-5
+                "
+              >
+                <div
+                  className="
+                    flex
+                    items-start
+                    gap-3
+                  "
+                >
+                  <div
+                    className="
+                      flex
+                      h-10
+                      w-10
+                      shrink-0
+                      items-center
+                      justify-center
+                      rounded-xl
+                      bg-red-100
+                      text-red-700
+                    "
+                  >
+                    <MinusCircle
+                      size={20}
+                    />
+                  </div>
+
+                  <div>
+                    <h2
+                      className="
+                        text-lg
+                        font-bold
+                        text-slate-900
+                      "
+                    >
+                      Jornales a descontar
+                    </h2>
+
+                    <p
+                      className="
+                        mt-1
+                        text-sm
+                        text-slate-500
+                      "
+                    >
+                      Jornales trabajados por
+                      otros peones para{" "}
+                      {data.peon.nombre}.
+                      Se descuentan
+                      automáticamente.
+                    </p>
+                  </div>
+                </div>
+
+                <div
+                  className="
+                    mt-4
+                    grid
+                    grid-cols-1
+                    gap-3
+                    lg:grid-cols-2
+                  "
+                >
+                  {data.tarjas_externas.map(
+                    (item) => (
+                      <div
+                        key={item.id}
+                        className="
+                          rounded-2xl
+                          border
+                          border-red-200
+                          bg-red-50
+                          p-4
+                        "
+                      >
+                        <div
+                          className="
+                            flex
+                            items-start
+                            justify-between
+                            gap-4
+                          "
+                        >
+                          <div>
+                            <p
+                              className="
+                                font-semibold
+                                text-slate-900
+                              "
+                            >
+                              {item.peon_nombre}
+                            </p>
+
+                            <p
+                              className="
+                                mt-1
+                                text-sm
+                                font-medium
+                                text-red-700
+                              "
+                            >
+                              Trabajó para{" "}
+                              {data.peon.nombre}
+                            </p>
+
+                            <p
+                              className="
+                                mt-2
+                                text-sm
+                                text-slate-600
+                              "
+                            >
+                              {
+                                item.fraccion_display
+                              }
+                              {" · "}
+                              {formatDate(
+                                item.fecha,
+                              )}
+                            </p>
+
+                            {item.observacion && (
+                              <p
+                                className="
+                                  mt-2
+                                  text-xs
+                                  text-slate-500
+                                "
+                              >
+                                {item.observacion}
+                              </p>
+                            )}
+                          </div>
+
+                          <div
+                            className="
+                              text-right
+                            "
+                          >
+                            <p
+                              className="
+                                text-xs
+                                font-medium
+                                uppercase
+                                tracking-wide
+                                text-red-600
+                              "
+                            >
+                              Descuento
+                            </p>
+
+                            <p
+                              className="
+                                mt-1
+                                text-lg
+                                font-bold
+                                text-red-700
+                              "
+                            >
+                              -
+                              {money(
+                                item.importe,
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ),
+                  )}
+                </div>
+
+                <div
+                  className="
+                    mt-4
+                    flex
+                    justify-end
+                    border-t
+                    border-red-100
+                    pt-4
+                  "
+                >
+                  <div
+                    className="
+                      text-right
+                    "
+                  >
+                    <p
+                      className="
+                        text-xs
+                        font-medium
+                        text-slate-500
+                      "
+                    >
+                      Total a descontar
+                    </p>
+
+                    <p
+                      className="
+                        mt-1
+                        text-xl
+                        font-bold
+                        text-red-700
+                      "
+                    >
+                      -
+                      {money(
+                        data.resumen
+                          .total_descuentos,
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </section>
+            )}
+
             <section
               className="
                 sticky
@@ -943,9 +1270,9 @@ export default function PersonalPage() {
                   flex
                   flex-col
                   gap-4
-                  lg:flex-row
-                  lg:items-end
-                  lg:justify-between
+                  xl:flex-row
+                  xl:items-end
+                  xl:justify-between
                 "
               >
                 <div
@@ -955,6 +1282,7 @@ export default function PersonalPage() {
                     grid-cols-1
                     gap-3
                     sm:grid-cols-2
+                    lg:grid-cols-3
                   "
                 >
                   <label>
@@ -983,10 +1311,71 @@ export default function PersonalPage() {
                         rounded-xl
                         border
                         border-slate-300
+                        bg-white
                         px-3
                         py-3
+                        outline-none
+                        focus:border-emerald-500
                       "
                     />
+                  </label>
+
+                  <label>
+                    <span
+                      className="
+                        mb-2
+                        block
+                        text-sm
+                        font-medium
+                        text-slate-700
+                      "
+                    >
+                      Cuenta de pago
+                    </span>
+
+                    <select
+                      value={cuentaFinanciera}
+                      onChange={(e) =>
+                        setCuentaFinanciera(
+                          e.target.value,
+                        )
+                      }
+                      disabled={
+                        loadingCuentas
+                        ||
+                        paying
+                      }
+                      className="
+                        w-full
+                        rounded-xl
+                        border
+                        border-slate-300
+                        bg-white
+                        px-3
+                        py-3
+                        outline-none
+                        focus:border-emerald-500
+                        disabled:bg-slate-100
+                        disabled:text-slate-500
+                      "
+                    >
+                      <option value="">
+                        {loadingCuentas
+                          ? "Cargando cuentas..."
+                          : "Seleccionar cuenta"}
+                      </option>
+
+                      {cuentas.map(
+                        (item) => (
+                          <option
+                            key={item.id}
+                            value={item.id}
+                          >
+                            {item.nombre}
+                          </option>
+                        ),
+                      )}
+                    </select>
                   </label>
 
                   <label>
@@ -1017,6 +1406,8 @@ export default function PersonalPage() {
                         border-slate-300
                         px-3
                         py-3
+                        outline-none
+                        focus:border-emerald-500
                       "
                     />
                   </label>
@@ -1032,6 +1423,26 @@ export default function PersonalPage() {
                   "
                 >
                   <div>
+                    {Number(
+                      data.resumen
+                        .total_descuentos,
+                    ) > 0 && (
+                      <p
+                        className="
+                          mb-1
+                          text-xs
+                          font-medium
+                          text-red-600
+                        "
+                      >
+                        Descuentos: -
+                        {money(
+                          data.resumen
+                            .total_descuentos,
+                        )}
+                      </p>
+                    )}
+
                     <p
                       className="
                         text-xs
@@ -1042,11 +1453,15 @@ export default function PersonalPage() {
                     </p>
 
                     <p
-                      className="
+                      className={`
                         text-2xl
                         font-bold
-                        text-slate-900
-                      "
+                        ${
+                          totalSeleccionado <= 0
+                            ? "text-red-700"
+                            : "text-slate-900"
+                        }
+                      `}
                     >
                       {money(
                         totalSeleccionado,
@@ -1059,6 +1474,10 @@ export default function PersonalPage() {
                     onClick={pagar}
                     disabled={
                       paying
+                      ||
+                      loadingCuentas
+                      ||
+                      !cuentaFinanciera
                       ||
                       totalSeleccionado <= 0
                     }
@@ -1074,7 +1493,9 @@ export default function PersonalPage() {
                       py-3
                       font-semibold
                       text-white
+                      transition
                       hover:bg-emerald-700
+                      disabled:cursor-not-allowed
                       disabled:opacity-50
                     "
                   >

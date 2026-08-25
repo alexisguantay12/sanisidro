@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Peon, Tarja, HoraExtra, ValorJornal,JornalCarpida
+from .models import Peon, Tarja, HoraExtra, ValorJornal,JornalCarpida,ConfiguracionPaleada
 from django.db.models import Q
 
 class PeonSerializer(serializers.ModelSerializer):
@@ -77,7 +77,32 @@ class JornalCarpidaSerializer(serializers.ModelSerializer):
             )
 
         return attrs
+    
+class ConfiguracionPaleadaSerializer(
+    serializers.ModelSerializer
+):
+    class Meta:
+        model = ConfiguracionPaleada
 
+        fields = [
+            "id",
+            "valor",
+        ]
+
+        read_only_fields = [
+            "id",
+        ]
+
+    def validate_valor(
+        self,
+        value,
+    ):
+        if value <= 0:
+            raise serializers.ValidationError(
+                "El valor debe ser mayor a cero."
+            )
+
+        return value
 
 
 class TarjaSerializer(
@@ -1887,3 +1912,80 @@ class VentaSerializer(serializers.ModelSerializer):
         instance.actualizar_estado()
 
         return instance
+
+
+from datetime import date
+class ResumenOperativoQuerySerializer(
+    serializers.Serializer
+):
+    fecha_desde = serializers.DateField(
+        required=False,
+    )
+
+    fecha_hasta = serializers.DateField(
+        required=False,
+    )
+
+    def validate(self, attrs):
+
+        inicio_campania = date(
+            2026,
+            7,
+            1,
+        )
+
+        fin_campania = date(
+            2027,
+            7,
+            31,
+        )
+
+        fecha_desde = attrs.get(
+            "fecha_desde",
+            inicio_campania,
+        )
+
+        fecha_hasta = attrs.get(
+            "fecha_hasta",
+            fin_campania,
+        )
+
+        if (
+            fecha_hasta
+            < fecha_desde
+        ):
+            raise serializers.ValidationError(
+                {
+                    "fecha_hasta": (
+                        "La fecha hasta no puede "
+                        "ser anterior a la fecha desde."
+                    )
+                }
+            )
+
+        if (
+            fecha_desde
+            < inicio_campania
+            or
+            fecha_hasta
+            > fin_campania
+        ):
+            raise serializers.ValidationError(
+                {
+                    "periodo": (
+                        "El período debe encontrarse "
+                        "dentro de la campaña "
+                        "15/07/2026 al 15/07/2027."
+                    )
+                }
+            )
+
+        attrs[
+            "fecha_desde"
+        ] = fecha_desde
+
+        attrs[
+            "fecha_hasta"
+        ] = fecha_hasta
+
+        return attrs

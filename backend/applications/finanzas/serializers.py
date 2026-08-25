@@ -357,7 +357,10 @@ class CuentaFinancieraSerializer(
         source="get_tipo_display",
         read_only=True,
     )
-
+    moneda_display = serializers.CharField(
+        source="get_moneda_display",
+        read_only=True,
+    )
     saldo_actual = (
         serializers.SerializerMethodField()
     )
@@ -370,6 +373,8 @@ class CuentaFinancieraSerializer(
             "nombre",
             "tipo",
             "tipo_display",
+            "moneda",
+            "moneda_display",
             "saldo_inicial",
             "saldo_actual",
             "descripcion",
@@ -378,6 +383,7 @@ class CuentaFinancieraSerializer(
 
         read_only_fields = [
             "tipo_display",
+            "moneda_display",
             "saldo_actual",
         ]
 
@@ -760,6 +766,22 @@ class MovimientoFinancieroSerializer(
             if (
                 cuenta_origen
                 and cuenta_destino
+                and cuenta_origen.moneda
+                != cuenta_destino.moneda
+            ):
+                raise serializers.ValidationError({
+                    "cuenta_destino": (
+                        "No se puede realizar una "
+                        "transferencia directa entre "
+                        "cuentas de distintas monedas."
+                    )
+                })
+
+            
+
+            if (
+                cuenta_origen
+                and cuenta_destino
                 and cuenta_origen.id
                 == cuenta_destino.id
             ):
@@ -844,10 +866,16 @@ class CategoriaFinancieraSelectorSerializer(
 class CuentaFinancieraSelectorSerializer(
     serializers.ModelSerializer
 ):
+    moneda_display = serializers.CharField(
+        source="get_moneda_display",
+        read_only=True,
+    )
     class Meta:
         model = CuentaFinanciera
 
         fields = [
             "id",
+            "moneda",
+            "moneda_display",
             "nombre",
         ]

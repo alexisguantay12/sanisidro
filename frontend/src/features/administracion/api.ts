@@ -15,6 +15,7 @@ import type {
   RendicionVenta,
   RendicionesPendientesResponse,
   TipoTractor,
+  CuentaFinancieraSimple,
   TractorPendienteResponse,
 } from "./types";
 
@@ -50,6 +51,23 @@ export async function getProveedores() {
 // ============================================================
 // PERSONAL - PENDIENTES
 // ============================================================
+
+// ============================================================
+// CUENTAS FINANCIERAS
+// ============================================================
+
+export async function getCuentasFinancieras() {
+
+  const response =
+    await api.get<
+      CuentaFinancieraSimple[]
+    >(
+      "/finanzas/cuentas/selector/"
+    );
+
+  return response.data;
+}
+
 
 export async function getPersonalPendiente(
   peon: number,
@@ -185,7 +203,7 @@ export async function liquidarTractor(
       "/administracion/tractor/liquidar/",
       payload,
     );
-
+  
   return response.data;
 }
 

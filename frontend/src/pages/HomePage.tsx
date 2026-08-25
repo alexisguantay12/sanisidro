@@ -90,6 +90,7 @@ export default function HomePage() {
 
   const {
     esAdministracion,
+    esFinanzas,
     loadingUser,
   } = useAuth();
 
@@ -99,18 +100,27 @@ export default function HomePage() {
   }
 
 
-  const visibleModules =
-    modules.filter(
-      (module) => {
+ const visibleModules =
+  modules.filter(
+    (module) => {
 
-        if (!module.adminOnly) {
-          return true;
-        }
-
-        return esAdministracion;
+      if (
+        module.adminOnly &&
+        !esAdministracion
+      ) {
+        return false;
       }
-    );
 
+      if (
+        module.finanzasOnly &&
+        !esFinanzas
+      ) {
+        return false;
+      }
+
+      return true;
+    }
+  );
 
   return (
     <div className="space-y-7">

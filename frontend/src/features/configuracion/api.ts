@@ -161,6 +161,10 @@ Promise<ValorJornal> {
   return response.data;
 }
 
+import type {
+  ConfiguracionPaleada,
+} from "./types";
+
 
 export async function createValorJornal(
   data: ValorJornalPayload
@@ -217,6 +221,31 @@ export async function updateConfiguracionTractorActual(
       {
         valor_hora_sergio,
       }
+    );
+
+  return response.data;
+}
+
+
+export async function getConfiguracionPaleadaActual() {
+  const response =
+    await api.get<ConfiguracionPaleada>(
+      "/paleada/configuracion/actual/",
+    );
+
+  return response.data;
+}
+
+
+export async function updateConfiguracionPaleadaActual(
+  valor: number,
+) {
+  const response =
+    await api.patch<ConfiguracionPaleada>(
+      "/paleada/configuracion/actual/",
+      {
+        valor,
+      },
     );
 
   return response.data;

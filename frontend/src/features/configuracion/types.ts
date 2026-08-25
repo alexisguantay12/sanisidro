@@ -43,3 +43,9 @@ export interface ConfiguracionTractor {
   id: number;
   valor_hora_sergio: string;
 }
+
+
+export interface ConfiguracionPaleada {
+  id: number;
+  valor: string;
+}

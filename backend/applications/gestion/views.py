@@ -6,10 +6,10 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.db.models import Q
 from django.utils import timezone
-from .models import Peon, Tarja, JornalCarpida
-from .serializers import TarjaSerializer,PeonSerializer,JornalCarpidaSerializer
+from .models import Peon, Tarja, JornalCarpida,ConfiguracionPaleada
+from .serializers import ResumenOperativoQuerySerializer,TarjaSerializer,PeonSerializer,JornalCarpidaSerializer,ConfiguracionPaleadaSerializer
 from applications.administracion.views import recalcular_horas_extra_pendientes,obtener_valor_jornal
-
+from collections import defaultdict
 
 from rest_framework.views import APIView
 
@@ -1534,6 +1534,92 @@ class ConsumoInsumoViewSet(viewsets.ModelViewSet):
         )
 
 from datetime import timedelta
+
+
+
+class ConfiguracionPaleadaViewSet(
+    viewsets.ViewSet
+):
+    permission_classes = [
+        IsAuthenticated,
+    ]
+
+    def _get_configuracion(
+        self,
+        request,
+    ):
+        configuracion, created = (
+            ConfiguracionPaleada.objects
+            .get_or_create(
+                pk=1,
+                defaults={
+                    "valor": Decimal(
+                        "0.01"
+                    ),
+                    "user_made":
+                        request.user,
+                    "user_updated":
+                        request.user,
+                },
+            )
+        )
+
+        return configuracion
+
+    @action(
+        detail=False,
+        methods=[
+            "get",
+            "patch",
+        ],
+        url_path="actual",
+    )
+    def actual(
+        self,
+        request,
+    ):
+        configuracion = (
+            self._get_configuracion(
+                request
+            )
+        )
+
+        if (
+            request.method
+            == "GET"
+        ):
+            serializer = (
+                ConfiguracionPaleadaSerializer(
+                    configuracion
+                )
+            )
+
+            return Response(
+                serializer.data
+            )
+
+        serializer = (
+            ConfiguracionPaleadaSerializer(
+                configuracion,
+                data=request.data,
+                partial=True,
+            )
+        )
+
+        serializer.is_valid(
+            raise_exception=True
+        )
+
+        serializer.save(
+            user_updated=
+                request.user
+        )
+
+        return Response(
+            serializer.data
+        )
+
+
 class ValorJornalViewSet(
     viewsets.ModelViewSet
 ):
@@ -2300,3 +2386,774 @@ class PagoVentaViewSet(ModelViewSet):
         )
 
         venta.actualizar_estado()
+
+
+# ============================================================
+# RESUMEN OPERATIVO
+# ============================================================
+
+
+class ResumenOperativoViewSet(
+    viewsets.ViewSet
+):
+    permission_classes = [
+        IsAuthenticated,
+    ]
+
+    # --------------------------------------------------------
+    # HELPERS
+    # --------------------------------------------------------
+
+    def _decimal(
+        self,
+        value,
+    ):
+        return Decimal(
+            str(
+                value or 0
+            )
+        )
+
+    def _decimal_dos(
+        self,
+        value,
+    ):
+        return self._decimal(
+            value
+        ).quantize(
+            Decimal("0.01")
+        )
+
+    def _nombre_mes(
+        self,
+        mes,
+    ):
+        meses = {
+            1: "Enero",
+            2: "Febrero",
+            3: "Marzo",
+            4: "Abril",
+            5: "Mayo",
+            6: "Junio",
+            7: "Julio",
+            8: "Agosto",
+            9: "Septiembre",
+            10: "Octubre",
+            11: "Noviembre",
+            12: "Diciembre",
+        }
+
+        return meses.get(
+            mes,
+            "",
+        )
+
+    # --------------------------------------------------------
+    # RESUMEN
+    # --------------------------------------------------------
+
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path="operativo",
+    )
+    def operativo(
+        self,
+        request,
+    ):
+
+        serializer = (
+            ResumenOperativoQuerySerializer(
+                data=request.query_params
+            )
+        )
+
+        serializer.is_valid(
+            raise_exception=True
+        )
+
+        data = (
+            serializer
+            .validated_data
+        )
+
+        fecha_desde = (
+            data[
+                "fecha_desde"
+            ]
+        )
+
+        fecha_hasta = (
+            data[
+                "fecha_hasta"
+            ]
+        )
+
+        # ====================================================
+        # TARJAS DEL PERIODO
+        # ====================================================
+
+        tarjas_periodo = (
+            Tarja.objects
+            .filter(
+                is_deleted=False,
+                fecha__range=(
+                    fecha_desde,
+                    fecha_hasta,
+                ),
+            )
+            .select_related(
+                "peon",
+                "destinatario",
+            )
+            .order_by(
+                "fecha",
+                "id",
+            )
+        )
+
+        # ====================================================
+        # JORNALES SAN ISIDRO
+        # ====================================================
+
+        total_jornales_san_isidro = (
+            Decimal("0.00")
+        )
+
+        total_paleadas = (
+            Decimal("0.00")
+        )
+
+        # ====================================================
+        # POR TAREA
+        # ====================================================
+
+        tareas = defaultdict(
+            lambda: {
+                "jornales": Decimal(
+                    "0.00"
+                ),
+                "registros": 0,
+            }
+        )
+
+        # ====================================================
+        # JORNALES POR MES
+        # ====================================================
+
+        jornales_por_mes = defaultdict(
+            lambda: Decimal(
+                "0.00"
+            )
+        )
+
+        # ====================================================
+        # DATOS POR PEON
+        # ====================================================
+
+        colaboradores = {}
+
+        peones = (
+            Peon.objects
+            .filter(
+                is_deleted=False,
+            )
+            .order_by(
+                "nombre",
+            )
+        )
+
+        for peon in peones:
+
+            colaboradores[
+                peon.id
+            ] = {
+                "peon": (
+                    peon.id
+                ),
+                "nombre": (
+                    peon.nombre
+                ),
+                "jornales_san_isidro": (
+                    Decimal("0.00")
+                ),
+                "jornales_externos_realizados": (
+                    Decimal("0.00")
+                ),
+                "jornales_a_compensar": (
+                    Decimal("0.00")
+                ),
+                "horas_extra": (
+                    Decimal("0.00")
+                ),
+            }
+
+        # ====================================================
+        # RECORRER TARJAS
+        # ====================================================
+
+        for tarja in tarjas_periodo:
+
+            fraccion = (
+                Decimal(
+                    str(
+                        tarja.fraccion
+                    )
+                )
+            )
+
+            # ------------------------------------------------
+            # TRABAJO PARA SAN ISIDRO
+            # ------------------------------------------------
+
+            if (
+                tarja.destino
+                ==
+                Tarja.Destino.SAN_ISIDRO
+            ):
+
+                total_jornales_san_isidro += (
+                    fraccion
+                )
+
+                # --------------------------------------------
+                # POR MES
+                # --------------------------------------------
+
+                clave_mes = (
+                    tarja.fecha.year,
+                    tarja.fecha.month,
+                )
+
+                jornales_por_mes[
+                    clave_mes
+                ] += fraccion
+
+                # --------------------------------------------
+                # POR TAREA
+                # --------------------------------------------
+
+                tarea_codigo = (
+                    tarja.tarea
+                    or
+                    "sin_tarea"
+                )
+
+                tarea_nombre = (
+                    tarja
+                    .get_tarea_display()
+                    if tarja.tarea
+                    else "Sin tarea"
+                )
+
+                tareas[
+                    tarea_codigo
+                ][
+                    "nombre"
+                ] = tarea_nombre
+
+                tareas[
+                    tarea_codigo
+                ][
+                    "jornales"
+                ] += fraccion
+
+                tareas[
+                    tarea_codigo
+                ][
+                    "registros"
+                ] += 1
+
+                # --------------------------------------------
+                # PALEADAS
+                # --------------------------------------------
+
+                if (
+                    tarja.tarea
+                    ==
+                    Tarja.Tarea.PALEADA
+                ):
+                    total_paleadas += (
+                        fraccion
+                    )
+
+                # --------------------------------------------
+                # COLABORADOR
+                # --------------------------------------------
+
+                if (
+                    tarja.peon_id
+                    in colaboradores
+                ):
+
+                    colaboradores[
+                        tarja.peon_id
+                    ][
+                        "jornales_san_isidro"
+                    ] += fraccion
+
+            # ------------------------------------------------
+            # TRABAJO EXTERNO
+            # ------------------------------------------------
+
+            elif (
+                tarja.destino
+                ==
+                Tarja.Destino.EXTERNO
+            ):
+
+                # --------------------------------------------
+                # QUIEN TRABAJO PARA OTRO
+                # --------------------------------------------
+
+                if (
+                    tarja.peon_id
+                    in colaboradores
+                ):
+
+                    colaboradores[
+                        tarja.peon_id
+                    ][
+                        "jornales_externos_realizados"
+                    ] += fraccion
+
+                # --------------------------------------------
+                # QUIEN RECIBIO EL TRABAJO
+                # --------------------------------------------
+
+                if (
+                    tarja.destinatario_id
+                    and
+                    tarja.destinatario_id
+                    in colaboradores
+                ):
+
+                    colaboradores[
+                        tarja.destinatario_id
+                    ][
+                        "jornales_a_compensar"
+                    ] += fraccion
+
+        # ====================================================
+        # HORAS EXTRA
+        # ====================================================
+
+        horas_extra = (
+            HoraExtra.objects
+            .filter(
+                is_deleted=False,
+                fecha__range=(
+                    fecha_desde,
+                    fecha_hasta,
+                ),
+            )
+            .select_related(
+                "peon",
+            )
+        )
+
+        total_horas_extra = (
+            Decimal("0.00")
+        )
+
+        for hora in horas_extra:
+
+            cantidad = (
+                Decimal(
+                    str(
+                        hora.cantidad_horas
+                    )
+                )
+            )
+
+            total_horas_extra += (
+                cantidad
+            )
+
+            if (
+                hora.peon_id
+                in colaboradores
+            ):
+
+                colaboradores[
+                    hora.peon_id
+                ][
+                    "horas_extra"
+                ] += cantidad
+
+        # ====================================================
+        # TRACTOR SERGIO
+        # ====================================================
+
+        tractor_sergio = (
+            TractorSergio.objects
+            .filter(
+                is_deleted=False,
+                fecha__range=(
+                    fecha_desde,
+                    fecha_hasta,
+                ),
+            )
+            .aggregate(
+                total=Sum(
+                    "cantidad_horas"
+                )
+            )
+        )
+
+        horas_tractor_sergio = (
+            tractor_sergio[
+                "total"
+            ]
+            or
+            Decimal("0.00")
+        )
+
+        # ====================================================
+        # TRACTOR TERCEROS
+        # ====================================================
+
+        tractor_terceros = (
+            TractorTercero.objects
+            .filter(
+                is_deleted=False,
+                fecha__range=(
+                    fecha_desde,
+                    fecha_hasta,
+                ),
+            )
+            .aggregate(
+                total=Sum(
+                    "cantidad_horas"
+                )
+            )
+        )
+
+        horas_tractor_terceros = (
+            tractor_terceros[
+                "total"
+            ]
+            or
+            Decimal("0.00")
+        )
+
+        # ====================================================
+        # ALMACIGOS
+        # ====================================================
+
+        almacigos = (
+            Almacigo.objects
+            .filter(
+                is_deleted=False,
+                fecha__range=(
+                    fecha_desde,
+                    fecha_hasta,
+                ),
+            )
+            .aggregate(
+                cantidad=Sum(
+                    "cantidad"
+                )
+            )
+        )
+
+        cantidad_almacigos = (
+            almacigos[
+                "cantidad"
+            ]
+            or
+            0
+        )
+
+        # ====================================================
+        # MULA
+        # ====================================================
+
+        registros_mula = (
+            JornalCarpida.objects
+            .filter(
+                is_deleted=False,
+                fecha__range=(
+                    fecha_desde,
+                    fecha_hasta,
+                ),
+            )
+            .order_by(
+                "fecha",
+                "id",
+            )
+        )
+
+        jornales_mula = (
+            Decimal("0.00")
+        )
+
+        cantidad_registros_mula = 0
+
+        for registro in registros_mula:
+
+            cantidad_registros_mula += 1
+
+            if (
+                registro.tipo_jornada
+                ==
+                JornalCarpida
+                .TipoJornada
+                .DIA
+            ):
+
+                jornales_mula += (
+                    Decimal("1.00")
+                )
+
+            else:
+
+                jornales_mula += (
+                    Decimal("0.50")
+                )
+
+        # ====================================================
+        # ARMAR JORNALES POR MES
+        # ====================================================
+
+        jornales_mes_data = []
+
+        for (
+            anio,
+            mes,
+        ), cantidad in sorted(
+            jornales_por_mes.items()
+        ):
+
+            jornales_mes_data.append(
+                {
+                    "anio": (
+                        anio
+                    ),
+                    "mes": (
+                        mes
+                    ),
+                    "mes_nombre": (
+                        self._nombre_mes(
+                            mes
+                        )
+                    ),
+                    "jornales": (
+                        self._decimal_dos(
+                            cantidad
+                        )
+                    ),
+                }
+            )
+
+        # ====================================================
+        # ARMAR TAREAS
+        # ====================================================
+
+        tareas_data = []
+
+        for (
+            codigo,
+            datos,
+        ) in tareas.items():
+
+            tareas_data.append(
+                {
+                    "tarea": (
+                        codigo
+                    ),
+                    "nombre": (
+                        datos[
+                            "nombre"
+                        ]
+                    ),
+                    "jornales": (
+                        self._decimal_dos(
+                            datos[
+                                "jornales"
+                            ]
+                        )
+                    ),
+                    "registros": (
+                        datos[
+                            "registros"
+                        ]
+                    ),
+                }
+            )
+
+        tareas_data.sort(
+            key=lambda item: (
+                item[
+                    "jornales"
+                ]
+            ),
+            reverse=True,
+        )
+
+        # ====================================================
+        # ARMAR COLABORADORES
+        # ====================================================
+
+        colaboradores_data = []
+
+        for item in (
+            colaboradores.values()
+        ):
+
+            # No mostramos peones completamente
+            # vacíos para el período.
+            tiene_actividad = (
+                item[
+                    "jornales_san_isidro"
+                ]
+                > 0
+                or
+                item[
+                    "jornales_externos_realizados"
+                ]
+                > 0
+                or
+                item[
+                    "jornales_a_compensar"
+                ]
+                > 0
+                or
+                item[
+                    "horas_extra"
+                ]
+                > 0
+            )
+
+            if not tiene_actividad:
+                continue
+
+            colaboradores_data.append(
+                {
+                    "peon": (
+                        item[
+                            "peon"
+                        ]
+                    ),
+                    "nombre": (
+                        item[
+                            "nombre"
+                        ]
+                    ),
+                    "jornales_san_isidro": (
+                        self._decimal_dos(
+                            item[
+                                "jornales_san_isidro"
+                            ]
+                        )
+                    ),
+                    "jornales_externos_realizados": (
+                        self._decimal_dos(
+                            item[
+                                "jornales_externos_realizados"
+                            ]
+                        )
+                    ),
+                    "jornales_a_compensar": (
+                        self._decimal_dos(
+                            item[
+                                "jornales_a_compensar"
+                            ]
+                        )
+                    ),
+                    "horas_extra": (
+                        self._decimal_dos(
+                            item[
+                                "horas_extra"
+                            ]
+                        )
+                    ),
+                }
+            )
+
+        colaboradores_data.sort(
+            key=lambda item: (
+                item[
+                    "jornales_san_isidro"
+                ]
+            ),
+            reverse=True,
+        )
+
+        # ====================================================
+        # RESPUESTA
+        # ====================================================
+
+        return Response(
+            {
+                "periodo": {
+                    "fecha_desde": (
+                        fecha_desde
+                    ),
+                    "fecha_hasta": (
+                        fecha_hasta
+                    ),
+                    "campania": (
+                        "2026-2027"
+                    ),
+                },
+
+                "resumen": {
+                    "jornales_san_isidro": (
+                        self._decimal_dos(
+                            total_jornales_san_isidro
+                        )
+                    ),
+
+                    "horas_extra": (
+                        self._decimal_dos(
+                            total_horas_extra
+                        )
+                    ),
+
+                    "horas_tractor_sergio": (
+                        self._decimal_dos(
+                            horas_tractor_sergio
+                        )
+                    ),
+
+                    "horas_tractor_terceros": (
+                        self._decimal_dos(
+                            horas_tractor_terceros
+                        )
+                    ),
+
+                    "cantidad_almacigos": (
+                        cantidad_almacigos
+                    ),
+
+                    "jornales_mula": (
+                        self._decimal_dos(
+                            jornales_mula
+                        )
+                    ),
+
+                    "registros_mula": (
+                        cantidad_registros_mula
+                    ),
+
+                    "paleadas": (
+                        self._decimal_dos(
+                            total_paleadas
+                        )
+                    ),
+                },
+
+                "jornales_por_mes": (
+                    jornales_mes_data
+                ),
+
+                "por_tarea": (
+                    tareas_data
+                ),
+
+                "colaboradores": (
+                    colaboradores_data
+                ),
+            }
+        )

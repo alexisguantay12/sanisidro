@@ -6,7 +6,7 @@ export type FraccionTarja =
 export type TareaTarja =
   | "plantacion"
   | "carpida"
-  | "cultivada"
+  | "cultivo"
   | "riego"
   | "cosecha"
   | "embolsado"

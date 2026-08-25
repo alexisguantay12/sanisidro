@@ -58,7 +58,7 @@ class Tarja(BaseAbstractWithUser):
     class Tarea(models.TextChoices):
         PLANTACION = "plantacion", "Plantación"
         CARPIDA = "carpida", "Carpida"
-        CULTIVADA = "cultivada", "Cultivada"
+        CULTIVO = "cultivo", "Cultivo"
         RIEGO = "riego", "Riego"
         COSECHA = "cosecha", "Cosecha"
         EMBOLSADO = "embolsado", "Embolsado"
@@ -1119,3 +1119,34 @@ class PagoVenta(BaseAbstractWithUser):
         )
 
         super().save(*args, **kwargs)
+
+
+
+class ConfiguracionPaleada(
+    BaseAbstractWithUser
+):
+    valor = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=[
+            MinValueValidator(
+                Decimal("0.01")
+            )
+        ],
+        verbose_name="valor de paleada",
+    )
+
+    class Meta:
+        verbose_name = (
+            "configuración de paleada"
+        )
+
+        verbose_name_plural = (
+            "configuración de paleada"
+        )
+
+    def __str__(self):
+        return (
+            f"Valor paleada: "
+            f"${self.valor}"
+        )

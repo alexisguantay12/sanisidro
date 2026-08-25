@@ -10,6 +10,11 @@ from applications.administracion.models import (
     LiquidacionPersonal,
     LiquidacionTractor,
     RendicionVenta,
+    DetalleLiquidacionTarjaExterna
+)
+
+from applications.finanzas.models import (
+    CuentaFinanciera,
 )
 
 
@@ -76,6 +81,17 @@ class LiquidarPersonalRequestSerializer(
 ):
     peon = serializers.IntegerField(
         min_value=1,
+    )
+    cuenta_financiera = (
+        serializers.PrimaryKeyRelatedField(
+            queryset=(
+                CuentaFinanciera.objects
+                .filter(
+                    is_deleted=False,
+                    activa=True,
+                )
+            ),
+        )
     )
 
     fecha_pago = serializers.DateField()
@@ -185,7 +201,17 @@ class LiquidarTractorRequestSerializer(
     TractorPendientesQuerySerializer
 ):
     fecha_pago = serializers.DateField()
-
+    cuenta_financiera = (
+        serializers.PrimaryKeyRelatedField(
+            queryset=(
+                CuentaFinanciera.objects
+                .filter(
+                    is_deleted=False,
+                    activa=True,
+                )
+            ),
+        )
+    )
     trabajos = serializers.ListField(
         child=serializers.IntegerField(
             min_value=1,
@@ -235,6 +261,12 @@ class LiquidarAlmacigoRequestSerializer(
         required=False,
         allow_blank=True,
         default="",
+    )
+    cuenta_financiera = serializers.PrimaryKeyRelatedField(
+        queryset=CuentaFinanciera.objects.filter(
+            is_deleted=False,
+            activa=True,
+        ),
     )
 
     def validate_almacigos(self, value):
@@ -299,6 +331,12 @@ class CrearRendicionRequestSerializer(
         ),
         min_length=1,
     )
+    cuenta_financiera = serializers.PrimaryKeyRelatedField(
+        queryset=CuentaFinanciera.objects.filter(
+            is_deleted=False,
+            activa=True,
+        ),
+    )
 
     observacion = serializers.CharField(
         required=False,
@@ -318,6 +356,7 @@ class CrearRendicionRequestSerializer(
 class DetalleLiquidacionTarjaSerializer(
     serializers.ModelSerializer
 ):
+
     tarea_display = serializers.CharField(
         source="tarja.get_tarea_display",
         read_only=True,
@@ -347,6 +386,7 @@ class DetalleLiquidacionTarjaSerializer(
 class DetalleLiquidacionHoraExtraSerializer(
     serializers.ModelSerializer
 ):
+
     motivo_display = serializers.CharField(
         source="hora_extra.get_motivo_display",
         read_only=True,
@@ -369,6 +409,35 @@ class DetalleLiquidacionHoraExtraSerializer(
 
 
 # ============================================================
+# DETALLE TARJA EXTERNA / DESCUENTO
+# ============================================================
+
+
+class DetalleLiquidacionTarjaExternaSerializer(
+    serializers.ModelSerializer
+):
+
+    peon_origen_nombre = serializers.CharField(
+        source="peon_origen.nombre",
+        read_only=True,
+    )
+
+    class Meta:
+        model = DetalleLiquidacionTarjaExterna
+
+        fields = [
+            "id",
+            "tarja",
+            "peon_origen",
+            "peon_origen_nombre",
+            "fecha",
+            "fraccion",
+            "valor_jornal_aplicado",
+            "importe",
+        ]
+
+
+# ============================================================
 # LIQUIDACION PERSONAL
 # ============================================================
 
@@ -376,9 +445,20 @@ class DetalleLiquidacionHoraExtraSerializer(
 class LiquidacionPersonalSerializer(
     serializers.ModelSerializer
 ):
+
     peon_nombre = serializers.CharField(
         source="peon.nombre",
         read_only=True,
+    )
+
+    cuenta_financiera_nombre = (
+        serializers.CharField(
+            source=(
+                "cuenta_financiera.nombre"
+            ),
+            read_only=True,
+            allow_null=True,
+        )
     )
 
     detalles_tarjas = (
@@ -395,22 +475,43 @@ class LiquidacionPersonalSerializer(
         )
     )
 
+    detalles_tarjas_externas = (
+        DetalleLiquidacionTarjaExternaSerializer(
+            many=True,
+            read_only=True,
+        )
+    )
+
     class Meta:
         model = LiquidacionPersonal
 
         fields = [
             "id",
+
             "peon",
             "peon_nombre",
+
             "fecha_desde",
             "fecha_hasta",
             "fecha_pago",
+
+            "cuenta_financiera",
+            "cuenta_financiera_nombre",
+
             "total_tarjas",
             "total_horas_extra",
+            "total_descuentos",
             "total",
+
             "observacion",
+
+            "estado",
+            "fecha_anulacion",
+            "motivo_anulacion",
+
             "detalles_tarjas",
             "detalles_horas_extra",
+            "detalles_tarjas_externas",
         ]
 
 
@@ -460,7 +561,11 @@ class LiquidacionTractorSerializer(
         many=True,
         read_only=True,
     )
-
+    cuenta_financiera_nombre = serializers.CharField(
+        source="cuenta_financiera.nombre",
+        read_only=True,
+        allow_null=True,
+    )
     class Meta:
         model = LiquidacionTractor
 
@@ -477,6 +582,8 @@ class LiquidacionTractorSerializer(
             "total",
             "observacion",
             "detalles",
+            "cuenta_financiera",
+            "cuenta_financiera_nombre",
         ]
 
 
@@ -516,7 +623,11 @@ class LiquidacionAlmacigoSerializer(
             read_only=True,
         )
     )
-
+    cuenta_financiera_nombre = serializers.CharField(
+        source="cuenta_financiera.nombre",
+        read_only=True,
+        allow_null=True,
+    )
     class Meta:
         model = LiquidacionAlmacigo
 
@@ -529,6 +640,8 @@ class LiquidacionAlmacigoSerializer(
             "total",
             "observacion",
             "detalles",
+            "cuenta_financiera_nombre",
+            "cuenta_financiera"
         ]
 
 
@@ -572,7 +685,15 @@ class RendicionVentaSerializer(
         many=True,
         read_only=True,
     )
-
+    cuenta_financiera_nombre = (
+        serializers.CharField(
+            source=(
+                "cuenta_financiera.nombre"
+            ),
+            read_only=True,
+            allow_null=True,
+        )
+    )
     class Meta:
         model = RendicionVenta
 
@@ -582,4 +703,6 @@ class RendicionVentaSerializer(
             "total",
             "observacion",
             "detalles",
+            "cuenta_financiera",
+            "cuenta_financiera_nombre"
         ]

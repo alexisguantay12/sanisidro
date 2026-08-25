@@ -11,6 +11,7 @@ import {
   History,
   Pencil,
   Plus,
+  Shovel,
   Sprout,
 } from "lucide-react";
 
@@ -19,6 +20,7 @@ import {
 } from "react-router-dom";
 
 import {
+  getConfiguracionPaleadaActual,
   getConfiguracionTractorActual,
   getValoresJornal,
   getValorJornalActual,
@@ -34,10 +36,13 @@ import ValorJornalModal
 import TractorValorModal
   from "../../features/configuracion/TractorValorModal";
 
+import ValorPaleadaModal from "../../features/configuracion/ValorPaleadaModal";
+
 import ValorAlmacigoModal
   from "../../features/configuracion/ValorAlmacigoModal";
 
 import type {
+  ConfiguracionPaleada,
   ConfiguracionTractor,
   ValorJornal,
 } from "../../features/configuracion/types";
@@ -46,7 +51,6 @@ import type {
 function money(
   value: string | number
 ) {
-
   return new Intl.NumberFormat(
     "es-AR",
     {
@@ -68,7 +72,6 @@ function date(
     | null
     | undefined
 ) {
-
   if (!value) {
     return "-";
   }
@@ -120,6 +123,16 @@ export default function ValoresPage() {
 
 
   const [
+    paleada,
+    setPaleada,
+  ] = useState<
+    ConfiguracionPaleada | null
+  >(
+    null
+  );
+
+
+  const [
     valorAlmacigo,
     setValorAlmacigo,
   ] = useState("0");
@@ -144,6 +157,12 @@ export default function ValoresPage() {
   const [
     tractorOpen,
     setTractorOpen,
+  ] = useState(false);
+
+
+  const [
+    paleadaOpen,
+    setPaleadaOpen,
   ] = useState(false);
 
 
@@ -218,6 +237,28 @@ export default function ValoresPage() {
       );
 
       setTractor(null);
+    }
+
+
+    try {
+
+      const paleadaActual =
+        await getConfiguracionPaleadaActual();
+
+      setPaleada(
+        paleadaActual
+      );
+
+    } catch (
+      error
+    ) {
+
+      console.error(
+        "Error cargando configuración de paleada:",
+        error
+      );
+
+      setPaleada(null);
     }
 
 
@@ -340,7 +381,7 @@ export default function ValoresPage() {
           </div>
 
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
 
             {/* VALOR JORNAL */}
 
@@ -436,6 +477,7 @@ export default function ValoresPage() {
                   />
                 </div>
 
+
                 <button
                   type="button"
                   onClick={() =>
@@ -478,6 +520,65 @@ export default function ValoresPage() {
                 Valor utilizado al
                 registrar nuevas horas
                 del tractor.
+              </p>
+
+            </div>
+
+
+            {/* PALEADA */}
+
+            <div className="rounded-[26px] border border-[#E4E8E5] bg-white p-5 shadow-[0_8px_28px_rgba(27,30,28,0.04)] sm:p-6">
+
+              <div className="flex items-start justify-between gap-4">
+
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#EEF3EF] text-[#18392B]">
+                  <Shovel
+                    size={22}
+                  />
+                </div>
+
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPaleadaOpen(
+                      true
+                    )
+                  }
+                  className="flex h-10 items-center gap-2 rounded-xl border border-[#DDE3DF] px-3 text-sm font-semibold text-[#59615C] transition hover:bg-[#F7F8F7]"
+                >
+
+                  <Pencil
+                    size={15}
+                  />
+
+                  Editar
+
+                </button>
+
+              </div>
+
+
+              <p className="mt-5 text-sm font-semibold text-[#737C76]">
+                Valor Paleada
+              </p>
+
+
+              <p className="mt-2 text-3xl font-semibold tracking-tight text-[#1B1E1C]">
+
+                {paleada
+                  ? money(
+                      paleada.valor
+                    )
+                  : "Sin configurar"}
+
+              </p>
+
+
+              <p className="mt-2 text-xs leading-5 text-[#8B948E]">
+                Valor utilizado al
+                liquidar tarjas cuya
+                tarea sea Paleada.
               </p>
 
             </div>
@@ -715,6 +816,28 @@ export default function ValoresPage() {
         }
         onClose={() =>
           setTractorOpen(
+            false
+          )
+        }
+        onSuccess={
+          loadData
+        }
+      />
+
+
+      {/* MODAL PALEADA */}
+
+      <ValorPaleadaModal
+        open={
+          paleadaOpen
+        }
+        valorActual={
+          paleada
+            ?.valor ??
+          ""
+        }
+        onClose={() =>
+          setPaleadaOpen(
             false
           )
         }

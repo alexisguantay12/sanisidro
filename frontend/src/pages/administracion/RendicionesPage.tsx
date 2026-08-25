@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -10,10 +11,12 @@ import {
   ReceiptText,
   Search,
   ShoppingBag,
+  WalletCards,
 } from "lucide-react";
 
 import {
   crearRendicion,
+  getCuentasFinancieras,
   getRendicionesPendientes,
 } from "../../features/administracion/api";
 
@@ -26,9 +29,11 @@ import PageHeader
 import SummaryCard
   from "../../features/administracion/components/SummaryCard";
 
-import AdministracionTabs from "../../features/administracion/components/AdministracionTabs";  
+import AdministracionTabs
+  from "../../features/administracion/components/AdministracionTabs";
 
 import type {
+  CuentaFinancieraSimple,
   RendicionesPendientesResponse,
 } from "../../features/administracion/types";
 
@@ -41,6 +46,7 @@ import {
 
 
 export default function RendicionesPage() {
+
   const [
     fechaDesde,
     setFechaDesde,
@@ -51,18 +57,36 @@ export default function RendicionesPage() {
   const [
     fechaHasta,
     setFechaHasta,
-  ] = useState(today());
+  ] = useState(
+    today(),
+  );
 
   const [
     fechaRendicion,
     setFechaRendicion,
-  ] = useState(today());
+  ] = useState(
+    today(),
+  );
+
+  const [
+    cuentas,
+    setCuentas,
+  ] = useState<
+    CuentaFinancieraSimple[]
+  >([]);
+
+  const [
+    cuentaFinanciera,
+    setCuentaFinanciera,
+  ] = useState("");
 
   const [
     data,
     setData,
   ] =
-    useState<RendicionesPendientesResponse | null>(
+    useState<
+      RendicionesPendientesResponse | null
+    >(
       null,
     );
 
@@ -82,15 +106,85 @@ export default function RendicionesPage() {
   ] = useState(false);
 
   const [
+    loadingCuentas,
+    setLoadingCuentas,
+  ] = useState(false);
+
+  const [
     error,
     setError,
   ] = useState("");
 
 
+  // ============================================================
+  // CARGAR CUENTAS FINANCIERAS
+  // ============================================================
+
+  useEffect(() => {
+
+    async function cargarCuentas() {
+
+      try {
+
+        setLoadingCuentas(
+          true,
+        );
+
+        const result =
+          await getCuentasFinancieras();
+
+        setCuentas(
+          result,
+        );
+
+        if (
+          result.length === 1
+        ) {
+
+          setCuentaFinanciera(
+            String(
+              result[0].id,
+            ),
+          );
+
+        }
+
+      } catch {
+
+        setError(
+          "No se pudieron cargar las cuentas financieras.",
+        );
+
+      } finally {
+
+        setLoadingCuentas(
+          false,
+        );
+
+      }
+
+    }
+
+    cargarCuentas();
+
+  }, []);
+
+
+  // ============================================================
+  // BUSCAR PENDIENTES
+  // ============================================================
+
   async function buscar() {
+
     try {
-      setLoading(true);
-      setError("");
+
+      setLoading(
+        true,
+      );
+
+      setError(
+        "",
+      );
 
       const result =
         await getRendicionesPendientes(
@@ -98,27 +192,51 @@ export default function RendicionesPage() {
           fechaHasta,
         );
 
-      setData(result);
+      setData(
+        result,
+      );
 
       setSelected(
         result.pagos.map(
-          (item) => item.id,
+          (item) =>
+            item.id,
         ),
       );
+
     } catch {
+
+      setData(
+        null,
+      );
+
       setError(
         "No se pudieron consultar los cobros pendientes.",
       );
+
     } finally {
-      setLoading(false);
+
+      setLoading(
+        false,
+      );
+
     }
+
   }
 
 
-  function toggle(id: number) {
+  // ============================================================
+  // SELECCION
+  // ============================================================
+
+  function toggle(
+    id: number,
+  ) {
+
     setSelected(
       (current) =>
-        current.includes(id)
+        current.includes(
+          id,
+        )
           ? current.filter(
               (item) =>
                 item !== id,
@@ -128,62 +246,132 @@ export default function RendicionesPage() {
               id,
             ],
     );
+
   }
 
 
+  // ============================================================
+  // TOTAL
+  // ============================================================
+
   const total =
-    useMemo(() => {
-      if (!data) {
-        return 0;
-      }
+    useMemo(
+      () => {
 
-      return data.pagos
-        .filter((item) =>
-          selected.includes(
-            item.id,
-          ),
-        )
-        .reduce(
-          (acc, item) =>
-            acc +
-            Number(item.importe),
-          0,
-        );
-    }, [
-      data,
-      selected,
-    ]);
+        if (!data) {
+          return 0;
+        }
 
+        return data.pagos
+          .filter(
+            (item) =>
+              selected.includes(
+                item.id,
+              ),
+          )
+          .reduce(
+            (
+              acc,
+              item,
+            ) =>
+              acc
+              +
+              Number(
+                item.importe,
+              ),
+            0,
+          );
+
+      },
+      [
+        data,
+        selected,
+      ],
+    );
+
+
+  // ============================================================
+  // RENDIR
+  // ============================================================
 
   async function rendir() {
+
+    if (
+      selected.length === 0
+    ) {
+
+      setError(
+        "Seleccioná al menos un cobro.",
+      );
+
+      return;
+
+    }
+
+    if (
+      !cuentaFinanciera
+    ) {
+
+      setError(
+        "Seleccioná la cuenta donde ingresa el dinero.",
+      );
+
+      return;
+
+    }
+
     try {
-      setLoading(true);
-      setError("");
+
+      setLoading(
+        true,
+      );
+
+      setError(
+        "",
+      );
 
       await crearRendicion({
+
         fecha:
           fechaRendicion,
+
+        cuenta_financiera:
+          Number(
+            cuentaFinanciera,
+          ),
 
         pagos:
           selected,
 
         observacion,
+
       });
 
       await buscar();
 
-      setObservacion("");
+      setObservacion(
+        "",
+      );
+
     } catch {
+
       setError(
         "No se pudo registrar la rendición.",
       );
+
     } finally {
-      setLoading(false);
+
+      setLoading(
+        false,
+      );
+
     }
+
   }
 
 
   return (
+
     <main
       className="
         min-h-screen
@@ -194,12 +382,14 @@ export default function RendicionesPage() {
         lg:px-8
       "
     >
+
       <div
         className="
           mx-auto
           max-w-6xl
         "
       >
+
         <PageHeader
           title="Rendición de ventas"
           description="
@@ -209,10 +399,17 @@ export default function RendicionesPage() {
           "
           icon={HandCoins}
         />
+
+
         <AdministracionTabs
-            pendientesTo="/administracion/rendiciones"
-            historialTo="/administracion/rendiciones/historial"
+          pendientesTo="/administracion/rendiciones"
+          historialTo="/administracion/rendiciones/historial"
         />
+
+
+        {/* ====================================================
+            AVISO
+        ==================================================== */}
 
         <div
           className="
@@ -224,6 +421,7 @@ export default function RendicionesPage() {
             p-5
           "
         >
+
           <div
             className="
               flex
@@ -231,6 +429,7 @@ export default function RendicionesPage() {
               gap-3
             "
           >
+
             <HandCoins
               className="
                 mt-0.5
@@ -241,6 +440,7 @@ export default function RendicionesPage() {
             />
 
             <div>
+
               <p
                 className="
                   font-bold
@@ -263,9 +463,17 @@ export default function RendicionesPage() {
                 pero que todavía no fueron
                 incluidos en una rendición.
               </p>
+
             </div>
+
           </div>
+
         </div>
+
+
+        {/* ====================================================
+            FILTROS
+        ==================================================== */}
 
         <section
           className="
@@ -278,6 +486,7 @@ export default function RendicionesPage() {
             sm:p-6
           "
         >
+
           <div
             className="
               grid
@@ -286,44 +495,97 @@ export default function RendicionesPage() {
               sm:grid-cols-2
             "
           >
-            <input
-              type="date"
-              value={fechaDesde}
-              onChange={(e) =>
-                setFechaDesde(
-                  e.target.value,
-                )
-              }
-              className="
-                rounded-xl
-                border
-                border-slate-300
-                px-3
-                py-3
-              "
-            />
 
-            <input
-              type="date"
-              value={fechaHasta}
-              onChange={(e) =>
-                setFechaHasta(
-                  e.target.value,
-                )
-              }
-              className="
-                rounded-xl
-                border
-                border-slate-300
-                px-3
-                py-3
-              "
-            />
+            <label>
+
+              <span
+                className="
+                  mb-2
+                  block
+                  text-sm
+                  font-medium
+                  text-slate-700
+                "
+              >
+                Desde
+              </span>
+
+              <input
+                type="date"
+                value={
+                  fechaDesde
+                }
+                onChange={
+                  (e) =>
+                    setFechaDesde(
+                      e.target.value,
+                    )
+                }
+                className="
+                  w-full
+                  rounded-xl
+                  border
+                  border-slate-300
+                  px-3
+                  py-3
+                  outline-none
+                  focus:border-emerald-500
+                "
+              />
+
+            </label>
+
+
+            <label>
+
+              <span
+                className="
+                  mb-2
+                  block
+                  text-sm
+                  font-medium
+                  text-slate-700
+                "
+              >
+                Hasta
+              </span>
+
+              <input
+                type="date"
+                value={
+                  fechaHasta
+                }
+                onChange={
+                  (e) =>
+                    setFechaHasta(
+                      e.target.value,
+                    )
+                }
+                className="
+                  w-full
+                  rounded-xl
+                  border
+                  border-slate-300
+                  px-3
+                  py-3
+                  outline-none
+                  focus:border-emerald-500
+                "
+              />
+
+            </label>
+
           </div>
+
 
           <button
             type="button"
-            onClick={buscar}
+            onClick={
+              buscar
+            }
+            disabled={
+              loading
+            }
             className="
               mt-4
               flex
@@ -338,20 +600,47 @@ export default function RendicionesPage() {
               text-sm
               font-semibold
               text-white
+              transition
+              hover:bg-slate-800
+              disabled:opacity-50
               sm:w-auto
             "
           >
-            <Search size={18} />
+
+            {loading
+              ? (
+                <Loader2
+                  size={18}
+                  className="
+                    animate-spin
+                  "
+                />
+              )
+              : (
+                <Search
+                  size={18}
+                />
+              )}
 
             Consultar cobros
+
           </button>
+
         </section>
 
+
+        {/* ====================================================
+            ERROR
+        ==================================================== */}
+
         {error && (
+
           <div
             className="
               mt-4
               rounded-xl
+              border
+              border-red-200
               bg-red-50
               px-4
               py-3
@@ -361,10 +650,18 @@ export default function RendicionesPage() {
           >
             {error}
           </div>
+
         )}
 
+
         {data && (
+
           <>
+
+            {/* =================================================
+                RESUMEN
+            ================================================= */}
+
             <div
               className="
                 mt-5
@@ -374,34 +671,55 @@ export default function RendicionesPage() {
                 lg:grid-cols-3
               "
             >
+
               <SummaryCard
                 title="Cobros"
                 value={
                   String(
-                    data.resumen
+                    data
+                      .resumen
                       .cantidad_pagos,
                   )
                 }
-                icon={ReceiptText}
+                icon={
+                  ReceiptText
+                }
               />
+
 
               <SummaryCard
                 title="Pendiente total"
                 value={
                   money(
-                    data.resumen
+                    data
+                      .resumen
                       .total_pendiente_rendir,
                   )
                 }
-                icon={HandCoins}
+                icon={
+                  HandCoins
+                }
               />
+
 
               <SummaryCard
                 title="A rendir ahora"
-                value={money(total)}
-                icon={Check}
+                value={
+                  money(
+                    total,
+                  )
+                }
+                icon={
+                  Check
+                }
               />
+
             </div>
+
+
+            {/* =================================================
+                COBROS
+            ================================================= */}
 
             <section
               className="
@@ -415,8 +733,10 @@ export default function RendicionesPage() {
                 sm:p-6
               "
             >
+
               {data.pagos.length === 0
                 ? (
+
                   <EmptyState
                     title="Todo está rendido"
                     description="
@@ -424,28 +744,36 @@ export default function RendicionesPage() {
                       de rendición para este período.
                     "
                   />
+
                 )
                 : (
+
                   <div
                     className="
                       space-y-3
                     "
                   >
+
                     {data.pagos.map(
                       (item) => {
+
                         const active =
                           selected.includes(
                             item.id,
                           );
 
                         return (
+
                           <button
-                            key={item.id}
+                            key={
+                              item.id
+                            }
                             type="button"
-                            onClick={() =>
-                              toggle(
-                                item.id,
-                              )
+                            onClick={
+                              () =>
+                                toggle(
+                                  item.id,
+                                )
                             }
                             className={`
                               w-full
@@ -457,10 +785,11 @@ export default function RendicionesPage() {
                               ${
                                 active
                                   ? "border-emerald-300 bg-emerald-50"
-                                  : "border-slate-200"
+                                  : "border-slate-200 bg-white hover:bg-slate-50"
                               }
                             `}
                           >
+
                             <div
                               className="
                                 flex
@@ -469,12 +798,14 @@ export default function RendicionesPage() {
                                 gap-4
                               "
                             >
+
                               <div
                                 className="
                                   flex
                                   gap-3
                                 "
                               >
+
                                 <div
                                   className="
                                     flex
@@ -489,11 +820,15 @@ export default function RendicionesPage() {
                                   "
                                 >
                                   <ShoppingBag
-                                    size={19}
+                                    size={
+                                      19
+                                    }
                                   />
                                 </div>
 
+
                                 <div>
+
                                   <p
                                     className="
                                       font-bold
@@ -501,10 +836,12 @@ export default function RendicionesPage() {
                                     "
                                   >
                                     {
-                                      item.comprador
+                                      item
+                                        .comprador
                                         .nombre
                                     }
                                   </p>
+
 
                                   <p
                                     className="
@@ -522,6 +859,7 @@ export default function RendicionesPage() {
                                     } bolsas
                                   </p>
 
+
                                   <p
                                     className="
                                       mt-1
@@ -533,28 +871,80 @@ export default function RendicionesPage() {
                                       item.fecha,
                                     )}
                                   </p>
+
                                 </div>
+
                               </div>
 
-                              <p
+
+                              <div
                                 className="
-                                  text-lg
-                                  font-bold
-                                  text-slate-900
+                                  flex
+                                  items-start
+                                  gap-3
                                 "
                               >
-                                {money(
-                                  item.importe,
-                                )}
-                              </p>
+
+                                <p
+                                  className="
+                                    text-lg
+                                    font-bold
+                                    text-slate-900
+                                  "
+                                >
+                                  {money(
+                                    item.importe,
+                                  )}
+                                </p>
+
+
+                                <div
+                                  className={`
+                                    flex
+                                    h-6
+                                    w-6
+                                    shrink-0
+                                    items-center
+                                    justify-center
+                                    rounded-lg
+                                    border
+                                    ${
+                                      active
+                                        ? "border-emerald-600 bg-emerald-600 text-white"
+                                        : "border-slate-300"
+                                    }
+                                  `}
+                                >
+                                  {active && (
+                                    <Check
+                                      size={
+                                        15
+                                      }
+                                    />
+                                  )}
+                                </div>
+
+                              </div>
+
                             </div>
+
                           </button>
+
                         );
+
                       },
                     )}
+
                   </div>
+
                 )}
+
             </section>
+
+
+            {/* =================================================
+                RENDICION
+            ================================================= */}
 
             <section
               className="
@@ -569,52 +959,203 @@ export default function RendicionesPage() {
                 p-4
                 shadow-xl
                 backdrop-blur
+                sm:p-5
               "
             >
+
               <div
                 className="
                   grid
                   grid-cols-1
                   gap-3
-                  sm:grid-cols-2
+                  md:grid-cols-3
                 "
               >
-                <input
-                  type="date"
-                  value={
-                    fechaRendicion
-                  }
-                  onChange={(e) =>
-                    setFechaRendicion(
-                      e.target.value,
-                    )
-                  }
-                  className="
-                    rounded-xl
-                    border
-                    border-slate-300
-                    px-3
-                    py-3
-                  "
-                />
 
-                <input
-                  value={observacion}
-                  onChange={(e) =>
-                    setObservacion(
-                      e.target.value,
-                    )
-                  }
-                  placeholder="Observación"
-                  className="
-                    rounded-xl
-                    border
-                    border-slate-300
-                    px-3
-                    py-3
-                  "
-                />
+                {/* FECHA */}
+
+                <label>
+
+                  <span
+                    className="
+                      mb-2
+                      block
+                      text-sm
+                      font-medium
+                      text-slate-700
+                    "
+                  >
+                    Fecha de rendición
+                  </span>
+
+                  <input
+                    type="date"
+                    value={
+                      fechaRendicion
+                    }
+                    onChange={
+                      (e) =>
+                        setFechaRendicion(
+                          e.target.value,
+                        )
+                    }
+                    disabled={
+                      loading
+                    }
+                    className="
+                      w-full
+                      rounded-xl
+                      border
+                      border-slate-300
+                      bg-white
+                      px-3
+                      py-3
+                      outline-none
+                      focus:border-emerald-500
+                      disabled:bg-slate-100
+                    "
+                  />
+
+                </label>
+
+
+                {/* CUENTA DE INGRESO */}
+
+                <label>
+
+                  <span
+                    className="
+                      mb-2
+                      flex
+                      items-center
+                      gap-2
+                      text-sm
+                      font-medium
+                      text-slate-700
+                    "
+                  >
+
+                    <WalletCards
+                      size={
+                        16
+                      }
+                    />
+
+                    Cuenta de ingreso
+
+                  </span>
+
+                  <select
+                    value={
+                      cuentaFinanciera
+                    }
+                    onChange={
+                      (e) =>
+                        setCuentaFinanciera(
+                          e.target.value,
+                        )
+                    }
+                    disabled={
+                      loading
+                      ||
+                      loadingCuentas
+                    }
+                    className="
+                      w-full
+                      rounded-xl
+                      border
+                      border-slate-300
+                      bg-white
+                      px-3
+                      py-3
+                      outline-none
+                      focus:border-emerald-500
+                      disabled:bg-slate-100
+                      disabled:text-slate-500
+                    "
+                  >
+
+                    <option
+                      value=""
+                    >
+                      {loadingCuentas
+                        ? "Cargando cuentas..."
+                        : "Seleccionar cuenta"}
+                    </option>
+
+
+                    {cuentas.map(
+                      (item) => (
+
+                        <option
+                          key={
+                            item.id
+                          }
+                          value={
+                            item.id
+                          }
+                        >
+                          {
+                            item.nombre
+                          }
+                        </option>
+
+                      ),
+                    )}
+
+                  </select>
+
+                </label>
+
+
+                {/* OBSERVACION */}
+
+                <label>
+
+                  <span
+                    className="
+                      mb-2
+                      block
+                      text-sm
+                      font-medium
+                      text-slate-700
+                    "
+                  >
+                    Observación
+                  </span>
+
+                  <input
+                    value={
+                      observacion
+                    }
+                    onChange={
+                      (e) =>
+                        setObservacion(
+                          e.target.value,
+                        )
+                    }
+                    disabled={
+                      loading
+                    }
+                    placeholder="Observación opcional"
+                    className="
+                      w-full
+                      rounded-xl
+                      border
+                      border-slate-300
+                      bg-white
+                      px-3
+                      py-3
+                      outline-none
+                      focus:border-emerald-500
+                      disabled:bg-slate-100
+                    "
+                  />
+
+                </label>
+
               </div>
+
 
               <div
                 className="
@@ -627,10 +1168,13 @@ export default function RendicionesPage() {
                   sm:justify-between
                 "
               >
+
                 <div>
+
                   <p
                     className="
                       text-xs
+                      font-medium
                       text-slate-500
                     "
                   >
@@ -639,25 +1183,39 @@ export default function RendicionesPage() {
 
                   <p
                     className="
+                      mt-1
                       text-2xl
                       font-bold
                       text-slate-900
                     "
                   >
-                    {money(total)}
+                    {money(
+                      total,
+                    )}
                   </p>
+
                 </div>
+
 
                 <button
                   type="button"
-                  onClick={rendir}
+                  onClick={
+                    rendir
+                  }
                   disabled={
                     loading
                     ||
+                    loadingCuentas
+                    ||
                     selected.length === 0
+                    ||
+                    !cuentaFinanciera
+                    ||
+                    total <= 0
                   }
                   className="
                     inline-flex
+                    min-h-12
                     items-center
                     justify-center
                     gap-2
@@ -667,23 +1225,42 @@ export default function RendicionesPage() {
                     py-3
                     font-semibold
                     text-white
+                    transition
+                    hover:bg-emerald-700
+                    disabled:cursor-not-allowed
                     disabled:opacity-50
                   "
                 >
+
                   {loading && (
+
                     <Loader2
-                      size={18}
-                      className="animate-spin"
+                      size={
+                        18
+                      }
+                      className="
+                        animate-spin
+                      "
                     />
+
                   )}
 
                   Registrar rendición
+
                 </button>
+
               </div>
+
             </section>
+
           </>
+
         )}
+
       </div>
+
     </main>
+
   );
+
 }

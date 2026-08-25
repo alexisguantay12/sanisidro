@@ -41,7 +41,6 @@ interface Props {
   ) => void;
 }
 
-
 const tareas = [
   [
     "plantacion",
@@ -52,8 +51,8 @@ const tareas = [
     "Carpida",
   ],
   [
-    "cultivada",
-    "Cultivada",
+    "cultivo",
+    "Cultivo",
   ],
   [
     "riego",
@@ -99,12 +98,13 @@ export default function DayModal({
     FraccionTarja | null
   >(null);
 
-  const [
-    tarea,
-    setTarea,
-  ] = useState<
-    TareaTarja | ""
-  >("");
+const [
+  tarea,
+  setTarea,
+] = useState<
+  TareaTarja | ""
+>("cultivo");
+
 
   const [
     destino,
@@ -143,7 +143,7 @@ export default function DayModal({
 
     setTarea(
       registro?.tarea ??
-      ""
+      "cultivo"
     );
 
     setDestino(

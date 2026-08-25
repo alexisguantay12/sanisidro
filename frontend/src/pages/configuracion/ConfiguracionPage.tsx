@@ -14,54 +14,91 @@ import {
   useNavigate,
 } from "react-router-dom";
 
-import { clearTokens } from "../../features/auth/authStorage";
+import {
+  clearTokens,
+} from "../../features/auth/authStorage";
+
+import {
+  useAuth,
+} from "../../features/auth/AuthContext";
 
 
 const opciones = [
+
   {
     title: "Peones",
+
     description:
       "Administrar trabajadores disponibles para tarjas, horas extra y demás módulos.",
+
     path: "/peones",
+
     icon: Users,
   },
+
   {
     title: "Proveedores",
+
     description:
       "Administrar proveedores utilizados en tractor y otros servicios.",
+
     path: "/configuracion/proveedores",
+
     icon: Truck,
   },
+
   {
-  title: "Compradores",
+    title: "Compradores",
+
     description:
       "Administrar compradores utilizados en las ventas de cebolla.",
+
     path: "/configuracion/compradores",
+
     icon: UserRound,
   },
+
   {
     title: "Insumos",
+
     description:
       "Administrar el catálogo de herbicidas, fertilizantes y demás insumos.",
+
     path: "/configuracion/insumos",
+
     icon: FlaskConical,
   },
+
   {
     title: "Valores",
+
     description:
       "Configurar el valor del jornal y la hora del tractor de Sergio.",
+
     path: "/configuracion/valores",
+
     icon: Banknote,
+
+    adminOnly: true,
   },
+
 ];
 
 
 export default function ConfiguracionPage() {
+
   const navigate =
     useNavigate();
 
 
+  const {
+    esAdministracion,
+    loadingUser,
+  } = useAuth();
+
+
   function handleLogout() {
+
     clearTokens();
 
     window.location.href =
@@ -69,18 +106,45 @@ export default function ConfiguracionPage() {
   }
 
 
+  if (loadingUser) {
+    return null;
+  }
+
+
+  const opcionesVisibles =
+    opciones.filter(
+      (item) => {
+
+        if (
+          item.adminOnly &&
+          !esAdministracion
+        ) {
+          return false;
+        }
+
+        return true;
+      }
+    );
+
+
   return (
+
     <div className="min-h-full bg-[#F6F8F6]">
 
       <div className="mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
 
-        {/* HEADER */}
+        {/* ===================================================
+            HEADER
+        =================================================== */}
+
         <div className="mb-7">
 
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#18392B] text-white shadow-[0_8px_22px_rgba(24,57,43,0.16)]">
+
             <Settings2
               size={20}
             />
+
           </div>
 
 
@@ -103,19 +167,25 @@ export default function ConfiguracionPage() {
         </div>
 
 
-        {/* ADMINISTRACIÓN */}
+
+        {/* ===================================================
+            ADMINISTRACIÓN
+        =================================================== */}
+
         <section>
 
           <div className="mb-3">
+
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#859089]">
               Administración
             </p>
+
           </div>
 
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
 
-            {opciones.map(
+            {opcionesVisibles.map(
               (item) => {
 
                 const Icon =
@@ -123,6 +193,7 @@ export default function ConfiguracionPage() {
 
 
                 return (
+
                   <button
                     key={
                       item.path
@@ -151,16 +222,20 @@ export default function ConfiguracionPage() {
                     <div className="flex items-start justify-between">
 
                       <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#EEF3EF] text-[#18392B]">
+
                         <Icon
                           size={22}
                         />
+
                       </div>
 
 
                       <div className="flex h-9 w-9 items-center justify-center rounded-xl text-[#9AA29D] transition group-hover:bg-[#F2F5F3] group-hover:text-[#18392B]">
+
                         <ArrowRight
                           size={17}
                         />
+
                       </div>
 
                     </div>
@@ -176,7 +251,9 @@ export default function ConfiguracionPage() {
                     </p>
 
                   </button>
+
                 );
+
               }
             )}
 
@@ -185,19 +262,26 @@ export default function ConfiguracionPage() {
         </section>
 
 
-        {/* CUENTA */}
+
+        {/* ===================================================
+            CUENTA
+        =================================================== */}
+
         <section className="mt-8">
 
           <div className="mb-3">
+
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#859089]">
               Cuenta
             </p>
+
           </div>
 
 
           <div className="overflow-hidden rounded-[24px] border border-[#E4E8E5] bg-white shadow-[0_8px_28px_rgba(27,30,28,0.04)]">
 
             {/* CAMBIAR CONTRASEÑA */}
+
             <button
               type="button"
               onClick={() =>
@@ -218,9 +302,11 @@ export default function ConfiguracionPage() {
             >
 
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#EEF3EF] text-[#18392B]">
+
                 <KeyRound
                   size={20}
                 />
+
               </div>
 
 
@@ -229,6 +315,7 @@ export default function ConfiguracionPage() {
                 <p className="text-sm font-semibold text-[#242925]">
                   Cambiar contraseña
                 </p>
+
 
                 <p className="mt-1 text-xs leading-5 text-[#7B847E]">
                   Actualizar la contraseña
@@ -247,7 +334,9 @@ export default function ConfiguracionPage() {
             </button>
 
 
+
             {/* CERRAR SESIÓN */}
+
             <button
               type="button"
               onClick={
@@ -265,9 +354,11 @@ export default function ConfiguracionPage() {
             >
 
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-red-600">
+
                 <LogOut
                   size={20}
                 />
+
               </div>
 
 
@@ -276,6 +367,7 @@ export default function ConfiguracionPage() {
                 <p className="text-sm font-semibold text-red-600">
                   Cerrar sesión
                 </p>
+
 
                 <p className="mt-1 text-xs leading-5 text-[#7B847E]">
                   Salir de San Isidro
@@ -293,5 +385,6 @@ export default function ConfiguracionPage() {
       </div>
 
     </div>
+
   );
 }

@@ -1,5 +1,4 @@
-import {
-  Ban,
+import { 
   Printer,
 } from "lucide-react";
 
@@ -19,8 +18,7 @@ interface Props {
 }
 
 
-export default function DetailActions({
-  estado,
+export default function DetailActions({ 
   loading = false,
   onAnular,
 }: Props) {
@@ -86,7 +84,7 @@ export default function DetailActions({
 
           Imprimir
         </button>
-
+        {/*
         {estado === "ACTIVA" && (
           <button
             type="button"
@@ -112,7 +110,7 @@ export default function DetailActions({
 
             Anular
           </button>
-        )}
+        )}*/}
       </div>
 
       {showAnular && (
