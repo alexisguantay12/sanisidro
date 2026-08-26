@@ -92,6 +92,7 @@ import ResumenFinanzasPage from "./features/finanzas/resumen/ResumenFinanzasPage
 
 import ResumenPage from "./pages/ResumenPage";
 
+import AdministradorPage from "./features/configuracion/AdministradorPage";
 
 
 function App() {
@@ -109,6 +110,13 @@ function App() {
           path="/peones"
           element={<PeonesPage />}
         />
+        <Route
+          path="/configuracion/administrador"
+          element={
+            <AdministradorPage />
+          }
+        />
+
         <Route
           path="/tarjas"
           element={<TarjasPage />}

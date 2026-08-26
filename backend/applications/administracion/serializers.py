@@ -1,5 +1,5 @@
 from rest_framework import serializers
-
+from django.db.models import Q
 from applications.administracion.models import (
     DetalleLiquidacionAlmacigo,
     DetalleLiquidacionHoraExtra,
@@ -10,7 +10,9 @@ from applications.administracion.models import (
     LiquidacionPersonal,
     LiquidacionTractor,
     RendicionVenta,
-    DetalleLiquidacionTarjaExterna
+    DetalleLiquidacionTarjaExterna,
+    DetalleLiquidacionAdministracion,
+    ValorAdministrador
 )
 
 from applications.finanzas.models import (
@@ -76,6 +78,189 @@ class PersonalPendientesQuerySerializer(
 # ============================================================
 
 
+class ValorAdministradorSerializer(
+    serializers.ModelSerializer
+):
+    peon_nombre = serializers.CharField(
+        source="peon.nombre",
+        read_only=True,
+    )
+
+    vigente_hasta_display = (
+        serializers.SerializerMethodField()
+    )
+
+    class Meta:
+        model = ValorAdministrador
+
+        fields = [
+            "id",
+            "peon",
+            "peon_nombre",
+            "cantidad_jornales",
+            "vigente_desde",
+            "vigente_hasta",
+            "vigente_hasta_display",
+        ]
+
+        read_only_fields = [
+            "id",
+            "peon_nombre",
+            "vigente_hasta_display",
+        ]
+
+    def get_vigente_hasta_display(
+        self,
+        obj,
+    ):
+        if not obj.vigente_hasta:
+            return "Actualidad"
+
+        return obj.vigente_hasta
+
+    def validate(
+        self,
+        attrs,
+    ):
+        instance = self.instance
+
+        peon = attrs.get(
+            "peon",
+            (
+                instance.peon
+                if instance
+                else None
+            ),
+        )
+
+        vigente_desde = attrs.get(
+            "vigente_desde",
+            (
+                instance.vigente_desde
+                if instance
+                else None
+            ),
+        )
+
+        vigente_hasta = attrs.get(
+            "vigente_hasta",
+            (
+                instance.vigente_hasta
+                if instance
+                else None
+            ),
+        )
+
+        # ====================================================
+        # FECHAS
+        # ====================================================
+
+        if (
+            vigente_hasta
+            and
+            vigente_hasta
+            < vigente_desde
+        ):
+            raise serializers.ValidationError(
+                {
+                    "vigente_hasta": (
+                        "La fecha hasta no puede "
+                        "ser anterior a la fecha desde."
+                    )
+                }
+            )
+
+        # ====================================================
+        # EVITAR VIGENCIAS SUPERPUESTAS DEL MISMO PEON
+        # ====================================================
+
+        queryset = (
+            ValorAdministrador.objects
+            .filter(
+                is_deleted=False,
+                peon=peon,
+            )
+        )
+
+        if instance:
+            queryset = queryset.exclude(
+                pk=instance.pk,
+            )
+
+        superpuestos = (
+            queryset
+            .filter(
+                Q(
+                    vigente_hasta__isnull=True
+                )
+                |
+                Q(
+                    vigente_hasta__gte=(
+                        vigente_desde
+                    )
+                )
+            )
+        )
+
+        if vigente_hasta:
+            superpuestos = (
+                superpuestos.filter(
+                    vigente_desde__lte=(
+                        vigente_hasta
+                    )
+                )
+            )
+
+        if superpuestos.exists():
+
+            registro = (
+                superpuestos
+                .order_by(
+                    "vigente_desde"
+                )
+                .first()
+            )
+
+            hasta = (
+                registro.vigente_hasta
+                if registro.vigente_hasta
+                else "actualidad"
+            )
+
+            raise serializers.ValidationError(
+                {
+                    "vigente_desde": (
+                        "El período indicado se "
+                        "superpone con otra vigencia "
+                        "del administrador: "
+                        f"{registro.vigente_desde} "
+                        f"hasta {hasta}."
+                    )
+                }
+            )
+
+        return attrs
+
+
+class AdministracionLiquidarItemSerializer(
+    serializers.Serializer
+):
+    valor_administrador = serializers.IntegerField(
+        min_value=1,
+    )
+
+    anio = serializers.IntegerField(
+        min_value=2020,
+        max_value=2100,
+    )
+
+    mes = serializers.IntegerField(
+        min_value=1,
+        max_value=12,
+    )
+
+
+
 class LiquidarPersonalRequestSerializer(
     PeriodoSerializer
 ):
@@ -111,6 +296,11 @@ class LiquidarPersonalRequestSerializer(
         required=False,
         default=list,
     )
+    administraciones = AdministracionLiquidarItemSerializer(
+        many=True,
+        required=False,
+        default=list,
+    )
 
     observacion = serializers.CharField(
         required=False,
@@ -129,17 +319,42 @@ class LiquidarPersonalRequestSerializer(
 
         if (
             not attrs.get("tarjas")
+            and not attrs.get("administraciones")
             and not attrs.get("horas_extra")
         ):
             raise serializers.ValidationError(
                 (
                     "Debe seleccionar al menos una tarja "
-                    "o una hora extra."
+                    "o una hora extra o una administracion."
                 )
             )
 
         return attrs
+    def validate_administraciones(
+        self,
+        value,
+    ):
+        claves = [
+            (
+                item[
+                    "valor_administrador"
+                ],
+                item[
+                    "anio"
+                ],
+                item[
+                    "mes"
+                ],
+            )
+            for item in value
+        ]
 
+        if len(claves) != len(set(claves)):
+            raise serializers.ValidationError(
+                "No se pueden repetir administraciones."
+            )
+
+        return value
 
 # ============================================================
 # TRACTOR - CONSULTA
@@ -383,6 +598,29 @@ class DetalleLiquidacionTarjaSerializer(
 # ============================================================
 
 
+class DetalleLiquidacionAdministracionSerializer(
+    serializers.ModelSerializer
+):
+    administrador_nombre = serializers.CharField(
+        source="valor_administrador.peon.nombre",
+        read_only=True,
+    )
+
+    class Meta:
+        model = DetalleLiquidacionAdministracion
+
+        fields = [
+            "id",
+            "valor_administrador",
+            "administrador_nombre",
+            "anio",
+            "mes",
+            "cantidad_jornales",
+            "valor_jornal_aplicado",
+            "importe",
+        ]
+
+
 class DetalleLiquidacionHoraExtraSerializer(
     serializers.ModelSerializer
 ):
@@ -482,6 +720,13 @@ class LiquidacionPersonalSerializer(
         )
     )
 
+    detalles_administracion = (
+        DetalleLiquidacionAdministracionSerializer(
+            many=True,
+            read_only=True,
+        )
+    )
+
     class Meta:
         model = LiquidacionPersonal
 
@@ -500,6 +745,7 @@ class LiquidacionPersonalSerializer(
 
             "total_tarjas",
             "total_horas_extra",
+            "total_administracion",
             "total_descuentos",
             "total",
 
@@ -512,6 +758,7 @@ class LiquidacionPersonalSerializer(
             "detalles_tarjas",
             "detalles_horas_extra",
             "detalles_tarjas_externas",
+            "detalles_administracion"
         ]
 
 
@@ -706,3 +953,5 @@ class RendicionVentaSerializer(
             "cuenta_financiera",
             "cuenta_financiera_nombre"
         ]
+
+

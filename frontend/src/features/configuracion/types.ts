@@ -49,3 +49,35 @@ export interface ConfiguracionPaleada {
   id: number;
   valor: string;
 }
+
+
+export interface ValorAdministrador {
+  id: number;
+
+  peon: number;
+  peon_nombre: string;
+
+  cantidad_jornales: string;
+
+  vigente_desde: string;
+
+  vigente_hasta:
+    | string
+    | null;
+
+  vigente_hasta_display:
+    | string
+    | null;
+}
+
+export interface ValorAdministradorPayload {
+  peon: number;
+
+  cantidad_jornales: number;
+
+  vigente_desde: string;
+
+  vigente_hasta:
+    | string
+    | null;
+}

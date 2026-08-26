@@ -5,6 +5,7 @@ from applications.administracion.views import (
     LiquidacionPersonalViewSet,
     LiquidacionTractorViewSet,
     RendicionVentaViewSet,
+    ValorAdministradorViewSet
 ) 
 from django.urls import path
 router = DefaultRouter()
@@ -33,6 +34,11 @@ router.register(
     basename="administracion-rendiciones",
 )
 
+router.register(
+    r"valores-administrador",
+    ValorAdministradorViewSet,
+    basename="valores-administrador",
+)
  
 
 urlpatterns = router.urls

@@ -15,6 +15,7 @@
 
   width: 100%;
   max-width: 980px;
+
   margin: 0 auto;
 
   background: #ffffff;
@@ -29,6 +30,8 @@
     BlinkMacSystemFont,
     "Segoe UI",
     sans-serif;
+
+  box-sizing: border-box;
 }
 
 
@@ -61,13 +64,16 @@
 
 .si-logo {
   display: flex;
+
   align-items: center;
+
   gap: 8px;
 }
 
 
 .si-logo svg {
   width: 82px;
+
   height: 58px;
 }
 
@@ -102,6 +108,7 @@
     var(--si-green-dark);
 
   font-size: 28px;
+
   line-height: 1.1;
 
   font-weight: 800;
@@ -209,8 +216,7 @@
 
   margin-top: 2px;
 
-  font-size:
-    14px;
+  font-size: 14px;
 }
 
 
@@ -250,7 +256,9 @@
 
 .si-person-main {
   display: flex;
+
   align-items: center;
+
   gap: 12px;
 }
 
@@ -259,11 +267,13 @@
   display: flex;
 
   width: 42px;
+
   height: 42px;
 
   flex: 0 0 42px;
 
   align-items: center;
+
   justify-content: center;
 
   border-radius:
@@ -275,11 +285,9 @@
   color:
     white;
 
-  font-size:
-    18px;
+  font-size: 18px;
 
-  font-weight:
-    800;
+  font-weight: 800;
 }
 
 
@@ -657,7 +665,7 @@ strong {
 
 
 /* ==========================================================
-   HORAS
+   HORAS / ADMINISTRACION
 ========================================================== */
 
 .si-section-footer {
@@ -897,6 +905,9 @@ strong {
   margin-top:
     20px;
 
+  margin-bottom:
+    0;
+
   padding:
     12px
     2px
@@ -923,9 +934,7 @@ strong {
     A4 portrait;
 
   margin:
-    12mm
-    12mm
-    14mm;
+    10mm;
 }
 
 
@@ -933,12 +942,28 @@ strong {
 
   html,
   body {
+    width:
+      100%
+      !important;
+
+    height:
+      auto
+      !important;
+
+    min-height:
+      0
+      !important;
+
     margin:
       0
       !important;
 
     padding:
       0
+      !important;
+
+    overflow:
+      visible
       !important;
 
     background:
@@ -970,39 +995,119 @@ strong {
   }
 
 
+  /*
+   * IMPORTANTE:
+   *
+   * Antes estaba position:absolute.
+   * Eso puede provocar cálculos incorrectos
+   * de altura al imprimir y generar una
+   * página vacía adicional.
+   */
   #comprobante-pago-personal {
     position:
-      absolute;
+      static
+      !important;
 
-    top:
-      0;
-
-    left:
-      0;
+    display:
+      block
+      !important;
 
     width:
-      100%;
+      100%
+      !important;
 
     max-width:
-      none;
+      none
+      !important;
+
+    height:
+      auto
+      !important;
+
+    min-height:
+      0
+      !important;
 
     margin:
-      0;
+      0
+      !important;
 
     padding:
-      0;
+      0
+      !important;
+
+    overflow:
+      visible
+      !important;
 
     box-shadow:
-      none;
+      none
+      !important;
 
     background:
-      white;
+      white
+      !important;
+
+    break-after:
+      auto
+      !important;
+
+    page-break-after:
+      auto
+      !important;
+  }
+
+
+  .si-comprobante {
+    width:
+      100%
+      !important;
+
+    max-width:
+      none
+      !important;
+
+    height:
+      auto
+      !important;
+
+    min-height:
+      0
+      !important;
+
+    margin:
+      0
+      !important;
+
+    margin-bottom:
+      0
+      !important;
+
+    padding-bottom:
+      0
+      !important;
+
+    overflow:
+      visible
+      !important;
+
+    font-size:
+      10pt;
+
+    break-after:
+      auto
+      !important;
+
+    page-break-after:
+      auto
+      !important;
   }
 
 
   /*
-   * Repite las columnas de una tabla cuando
-   * la lista continúa en otra página.
+   * Repetir encabezados de tabla
+   * cuando una tabla continúa
+   * en otra página.
    */
   .si-table thead {
     display:
@@ -1011,7 +1116,7 @@ strong {
 
 
   /*
-   * Nunca partir una fila entre dos hojas.
+   * No cortar una fila a la mitad.
    */
   .si-table tr {
     break-inside:
@@ -1023,15 +1128,14 @@ strong {
 
 
   /*
-   * Los bloques pequeños deberían ir completos
-   * a la próxima página si no tienen espacio.
+   * Mantener estos elementos unidos
+   * cuando sea posible.
    */
   .si-small-section,
   .si-jornal-summary,
   .si-jornal-breakdown,
   .si-observation,
-  .si-total-final,
-  .si-footer {
+  .si-total-final {
     break-inside:
       avoid;
 
@@ -1041,27 +1145,77 @@ strong {
 
 
   /*
-   * NO ponemos break-inside: avoid sobre
-   * toda la sección de jornales.
-   *
-   * Esto permite que 40, 50 o 60 tarjas
-   * continúen naturalmente en varias páginas.
+   * El footer no debe provocar
+   * una hoja adicional.
+   */
+  .si-footer {
+    margin-bottom:
+      0
+      !important;
+
+    padding-bottom:
+      0
+      !important;
+
+    break-inside:
+      avoid;
+
+    page-break-inside:
+      avoid;
+
+    break-after:
+      auto
+      !important;
+
+    page-break-after:
+      auto
+      !important;
+  }
+
+
+  /*
+   * Las secciones grandes pueden
+   * continuar naturalmente en
+   * otra página.
    */
   .si-section {
     overflow:
-      visible;
+      visible
+      !important;
+
+    break-after:
+      auto;
+
+    page-break-after:
+      auto;
   }
 
 
-  .si-comprobante {
-    font-size:
-      10pt;
-  }
-
-
+  /*
+   * Un poco más compacto al imprimir.
+   */
   .si-header {
     padding-top:
       0;
+
+    padding-bottom:
+      16px;
+  }
+
+
+  .si-person {
+    margin-top:
+      14px;
+
+    padding:
+      12px
+      14px;
+  }
+
+
+  .si-section {
+    margin-top:
+      16px;
   }
 
 
@@ -1085,9 +1239,40 @@ strong {
   }
 
 
+  .si-jornal-summary {
+    margin:
+      9px;
+  }
+
+
+  .si-jornal-summary > div {
+    min-height:
+      50px;
+  }
+
+
+  .si-total-final {
+    margin-top:
+      16px;
+
+    padding:
+      12px
+      16px;
+  }
+
+
+  .si-footer {
+    margin-top:
+      14px;
+
+    padding-top:
+      8px;
+  }
+
+
   /*
-   * Evitamos que el navegador agregue
-   * elementos interactivos.
+   * Ocultar elementos interactivos
+   * ajenos al comprobante.
    */
   button,
   nav,

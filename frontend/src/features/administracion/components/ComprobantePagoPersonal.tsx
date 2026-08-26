@@ -29,7 +29,9 @@ interface GrupoJornal {
 function numero(
   value: string | number,
 ) {
-  return Number(value || 0);
+  return Number(
+    value || 0,
+  );
 }
 
 
@@ -42,17 +44,47 @@ function cantidad(
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     },
-  ).format(value);
+  ).format(
+    value,
+  );
+}
+
+
+function nombreMes(
+  mes: number,
+) {
+  const meses = [
+    "",
+    "Enero",
+    "Febrero",
+    "Marzo",
+    "Abril",
+    "Mayo",
+    "Junio",
+    "Julio",
+    "Agosto",
+    "Septiembre",
+    "Octubre",
+    "Noviembre",
+    "Diciembre",
+  ];
+
+  return (
+    meses[mes]
+    ?? ""
+  );
 }
 
 
 function SanIsidroLogo() {
   return (
     <div className="si-logo">
+
       <svg
         viewBox="0 0 110 70"
         aria-hidden="true"
       >
+
         {/* CEBOLLA */}
 
         <g
@@ -62,6 +94,7 @@ function SanIsidroLogo() {
           strokeLinecap="round"
           strokeLinejoin="round"
         >
+
           <path
             d="
               M30 17
@@ -72,13 +105,22 @@ function SanIsidroLogo() {
             "
           />
 
-          <path d="M36 17 C32 11 34 7 38 3" />
+          <path
+            d="M36 17 C32 11 34 7 38 3"
+          />
 
-          <path d="M30 25 C25 35 26 47 31 56" />
+          <path
+            d="M30 25 C25 35 26 47 31 56"
+          />
 
-          <path d="M42 25 C47 35 46 47 41 56" />
+          <path
+            d="M42 25 C47 35 46 47 41 56"
+          />
 
-          <path d="M36 23 L36 58" />
+          <path
+            d="M36 23 L36 58"
+          />
+
         </g>
 
 
@@ -91,6 +133,7 @@ function SanIsidroLogo() {
           strokeLinecap="round"
           strokeLinejoin="round"
         >
+
           <path
             d="
               M22 18
@@ -131,14 +174,18 @@ function SanIsidroLogo() {
             fill="none"
             opacity=".7"
           />
+
         </g>
+
       </svg>
+
 
       <div>
         <div className="si-logo-name">
           SAN ISIDRO
         </div>
       </div>
+
     </div>
   );
 }
@@ -178,9 +225,6 @@ export default function ComprobantePagoPersonal({
 
   // =========================================================
   // AGRUPAR JORNALES POR VALOR
-  //
-  // Esto es importante si el jornal cambió
-  // durante el período liquidado.
   // =========================================================
 
   const gruposJornales =
@@ -194,6 +238,7 @@ export default function ComprobantePagoPersonal({
             number,
             GrupoJornal
           >();
+
 
         for (
           const item
@@ -217,12 +262,16 @@ export default function ComprobantePagoPersonal({
               item.importe,
             );
 
+
           const actual =
             grupos.get(
               valor,
             );
 
-          if (actual) {
+
+          if (
+            actual
+          ) {
 
             actual.cantidad +=
               fraccion;
@@ -246,6 +295,7 @@ export default function ComprobantePagoPersonal({
           }
 
         }
+
 
         return Array.from(
           grupos.values(),
@@ -288,10 +338,22 @@ export default function ComprobantePagoPersonal({
     );
 
 
+  // =========================================================
+  // EXISTENCIA DE SECCIONES
+  // =========================================================
+
   const tieneHoras =
     liquidacion
       .detalles_horas_extra
       .length > 0;
+
+
+  const tieneAdministracion =
+    (
+      liquidacion
+        .detalles_administracion
+      ?? []
+    ).length > 0;
 
 
   const tieneDescuentos =
@@ -300,6 +362,28 @@ export default function ComprobantePagoPersonal({
         .detalles_tarjas_externas
       ?? []
     ).length > 0;
+
+
+  // =========================================================
+  // NUMERACION DINAMICA
+  // =========================================================
+
+  let numeroSeccion = 2;
+
+  const numeroHoras =
+    tieneHoras
+      ? numeroSeccion++
+      : null;
+
+  const numeroAdministracion =
+    tieneAdministracion
+      ? numeroSeccion++
+      : null;
+
+  const numeroDescuentos =
+    tieneDescuentos
+      ? numeroSeccion++
+      : null;
 
 
   const anulada =
@@ -320,6 +404,7 @@ export default function ComprobantePagoPersonal({
       <header className="si-header">
 
         <SanIsidroLogo />
+
 
         <div className="si-header-center">
 
@@ -349,7 +434,9 @@ export default function ComprobantePagoPersonal({
               : "ACTIVA"}
           </span>
 
+
           <div className="si-payment-date">
+
             <span>
               Fecha de pago
             </span>
@@ -360,6 +447,7 @@ export default function ComprobantePagoPersonal({
                   .fecha_pago,
               )}
             </strong>
+
           </div>
 
         </div>
@@ -376,13 +464,20 @@ export default function ComprobantePagoPersonal({
         <div className="si-person-main">
 
           <div className="si-avatar">
+
             {liquidacion
               .peon_nombre
-              .slice(0, 1)
+              .slice(
+                0,
+                1,
+              )
               .toUpperCase()}
+
           </div>
 
+
           <div>
+
             <span className="si-label">
               Colaborador
             </span>
@@ -393,27 +488,34 @@ export default function ComprobantePagoPersonal({
                   .peon_nombre
               }
             </strong>
+
           </div>
 
         </div>
 
 
         <div>
+
           <span className="si-label">
             Período
           </span>
 
           <strong>
+
             {formatDate(
               liquidacion
                 .fecha_desde,
             )}
+
             {" al "}
+
             {formatDate(
               liquidacion
                 .fecha_hasta,
             )}
+
           </strong>
+
         </div>
 
 
@@ -421,6 +523,7 @@ export default function ComprobantePagoPersonal({
           .cuenta_financiera_nombre && (
 
           <div>
+
             <span className="si-label">
               Cuenta de pago
             </span>
@@ -431,6 +534,7 @@ export default function ComprobantePagoPersonal({
                   .cuenta_financiera_nombre
               }
             </strong>
+
           </div>
 
         )}
@@ -452,17 +556,31 @@ export default function ComprobantePagoPersonal({
         <table className="si-table">
 
           <thead>
+
             <tr>
-              <th>Fecha</th>
-              <th>Jornal</th>
-              <th>Tarea</th>
+
+              <th>
+                Fecha
+              </th>
+
+              <th>
+                Jornal
+              </th>
+
+              <th>
+                Tarea
+              </th>
+
               <th className="right">
                 Valor unitario
               </th>
+
               <th className="right">
                 Importe
               </th>
+
             </tr>
+
           </thead>
 
 
@@ -485,32 +603,48 @@ export default function ComprobantePagoPersonal({
                       )}
                     </td>
 
-                    <td>
-                    {Number(item.fraccion) === 1
-                        ? "Día completo"
-                        : "Medio día"}
-                    </td>
 
                     <td>
+
+                      {
+                        Number(
+                          item.fraccion,
+                        ) === 1
+                          ? "Día completo"
+                          : "Medio día"
+                      }
+
+                    </td>
+
+
+                    <td>
+
                       {
                         item
                           .tarea_display
                         ||
                         "-"
                       }
+
                     </td>
 
+
                     <td className="right">
+
                       {money(
                         item
                           .valor_jornal_aplicado,
                       )}
+
                     </td>
 
+
                     <td className="right strong">
+
                       {money(
                         item.importe,
                       )}
+
                     </td>
 
                   </tr>
@@ -524,12 +658,13 @@ export default function ComprobantePagoPersonal({
 
 
         {/* ===================================================
-            RESUMEN DE JORNALES
+            RESUMEN JORNALES
         =================================================== */}
 
         <div className="si-jornal-summary">
 
           <div>
+
             <span>
               Total de jornales
             </span>
@@ -539,58 +674,68 @@ export default function ComprobantePagoPersonal({
                 cantidadJornales,
               )}
             </strong>
+
           </div>
 
 
-          {gruposJornales.length === 1
-            ? (
+          {
+            gruposJornales.length === 1
+              ? (
 
-              <div>
-                <span>
-                  Valor unitario
-                </span>
+                <div>
 
-                <strong>
-                  {money(
-                    gruposJornales[
-                      0
-                    ].valor,
+                  <span>
+                    Valor unitario
+                  </span>
+
+                  <strong>
+                    {money(
+                      gruposJornales[
+                        0
+                      ].valor,
+                    )}
+                  </strong>
+
+                </div>
+
+              )
+              : (
+
+                <div className="si-multi-values">
+
+                  <span>
+                    Valores aplicados
+                  </span>
+
+
+                  {gruposJornales.map(
+                    (grupo) => (
+
+                      <small
+                        key={
+                          grupo.valor
+                        }
+                      >
+
+                        {cantidad(
+                          grupo.cantidad,
+                        )}
+
+                        {" × "}
+
+                        {money(
+                          grupo.valor,
+                        )}
+
+                      </small>
+
+                    ),
                   )}
-                </strong>
-              </div>
 
-            )
-            : (
+                </div>
 
-              <div className="si-multi-values">
-
-                <span>
-                  Valores aplicados
-                </span>
-
-                {gruposJornales.map(
-                  (grupo) => (
-
-                    <small
-                      key={
-                        grupo.valor
-                      }
-                    >
-                      {cantidad(
-                        grupo.cantidad,
-                      )}
-                      {" × "}
-                      {money(
-                        grupo.valor,
-                      )}
-                    </small>
-
-                  ),
-                )}
-
-              </div>
-
-            )}
+              )
+          }
 
 
           <div className="si-summary-highlight">
@@ -600,10 +745,12 @@ export default function ComprobantePagoPersonal({
             </span>
 
             <strong>
+
               {money(
                 liquidacion
                   .total_tarjas,
               )}
+
             </strong>
 
           </div>
@@ -625,19 +772,26 @@ export default function ComprobantePagoPersonal({
                 >
 
                   <span>
+
                     {cantidad(
                       grupo.cantidad,
                     )}
+
                     {" jornales × "}
+
                     {money(
                       grupo.valor,
                     )}
+
                   </span>
 
+
                   <strong>
+
                     {money(
                       grupo.subtotal,
                     )}
+
                   </strong>
 
                 </div>
@@ -666,24 +820,38 @@ export default function ComprobantePagoPersonal({
         >
 
           <div className="si-section-title si-sand">
-            2. Horas extra
+            {numeroHoras}. Horas extra
           </div>
 
 
           <table className="si-table">
 
             <thead>
+
               <tr>
-                <th>Fecha</th>
-                <th>Motivo</th>
-                <th>Cantidad</th>
+
+                <th>
+                  Fecha
+                </th>
+
+                <th>
+                  Motivo
+                </th>
+
+                <th>
+                  Cantidad
+                </th>
+
                 <th className="right">
                   Valor hora
                 </th>
+
                 <th className="right">
                   Importe
                 </th>
+
               </tr>
+
             </thead>
 
 
@@ -706,12 +874,14 @@ export default function ComprobantePagoPersonal({
                         )}
                       </td>
 
+
                       <td>
                         {
                           item
                             .motivo_display
                         }
                       </td>
+
 
                       <td>
                         {
@@ -720,18 +890,24 @@ export default function ComprobantePagoPersonal({
                         } hs
                       </td>
 
+
                       <td className="right">
+
                         {money(
                           item
                             .valor_hora,
                         )}
+
                       </td>
 
+
                       <td className="right strong">
+
                         {money(
                           item
                             .importe,
                         )}
+
                       </td>
 
                     </tr>
@@ -747,23 +923,182 @@ export default function ComprobantePagoPersonal({
           <div className="si-section-footer">
 
             <span>
+
               Total horas:{" "}
+
               <strong>
                 {cantidad(
                   cantidadHoras,
                 )}
               </strong>
+
             </span>
+
 
             <span>
               Subtotal horas extra
             </span>
 
+
             <strong>
+
               {money(
                 liquidacion
                   .total_horas_extra,
               )}
+
+            </strong>
+
+          </div>
+
+        </section>
+
+      )}
+
+
+      {/* =====================================================
+          ADMINISTRACION
+      ===================================================== */}
+
+      {tieneAdministracion && (
+
+        <section
+          className="
+            si-section
+            si-small-section
+          "
+        >
+
+          <div className="si-section-title si-green">
+
+            {numeroAdministracion}.
+            {" "}
+            Administración
+
+          </div>
+
+
+          <p className="si-section-note">
+
+            Compensación mensual
+            correspondiente al rol
+            de administrador.
+
+          </p>
+
+
+          <table className="si-table">
+
+            <thead>
+
+              <tr>
+
+                <th>
+                  Período
+                </th>
+
+                <th className="right">
+                  Jornales
+                </th>
+
+                <th className="right">
+                  Valor jornal
+                </th>
+
+                <th className="right">
+                  Importe
+                </th>
+
+              </tr>
+
+            </thead>
+
+
+            <tbody>
+
+              {(
+                liquidacion
+                  .detalles_administracion
+                ?? []
+              ).map(
+                (item) => (
+
+                  <tr
+                    key={
+                      item.id
+                    }
+                  >
+
+                    <td className="strong">
+
+                      Administración{" "}
+
+                      {nombreMes(
+                        item.mes,
+                      )}
+
+                      {" "}
+
+                      {item.anio}
+
+                    </td>
+
+
+                    <td className="right">
+
+                      {cantidad(
+                        numero(
+                          item
+                            .cantidad_jornales,
+                        ),
+                      )}
+
+                    </td>
+
+
+                    <td className="right">
+
+                      {money(
+                        item
+                          .valor_jornal_aplicado,
+                      )}
+
+                    </td>
+
+
+                    <td className="right strong">
+
+                      {money(
+                        item
+                          .importe,
+                      )}
+
+                    </td>
+
+                  </tr>
+
+                ),
+              )}
+
+            </tbody>
+
+          </table>
+
+
+          <div className="si-section-footer">
+
+            <span>
+              Subtotal administración
+            </span>
+
+
+            <strong>
+
+              {money(
+                liquidacion
+                  .total_administracion,
+              )}
+
             </strong>
 
           </div>
@@ -787,31 +1122,44 @@ export default function ComprobantePagoPersonal({
         >
 
           <div className="si-section-title si-red">
-            {tieneHoras
-              ? "3"
-              : "2"}
-            . Descuentos
+
+            {numeroDescuentos}.
+            {" "}
+            Descuentos
+
           </div>
 
 
           <p className="si-section-note">
+
             Jornales realizados por otros
             colaboradores para{" "}
-            {liquidacion.peon_nombre}.
+
+            {
+              liquidacion
+                .peon_nombre
+            }.
+
           </p>
 
 
           <table className="si-table si-discount-table">
 
             <thead>
+
               <tr>
-                <th>Fecha</th>
+
+                <th>
+                  Fecha
+                </th>
 
                 <th>
                   Colaborador que trabajó
                 </th>
 
-                <th>Jornal</th>
+                <th>
+                  Jornal
+                </th>
 
                 <th className="right">
                   Valor unitario
@@ -820,7 +1168,9 @@ export default function ComprobantePagoPersonal({
                 <th className="right">
                   Importe
                 </th>
+
               </tr>
+
             </thead>
 
 
@@ -838,36 +1188,55 @@ export default function ComprobantePagoPersonal({
                     >
 
                       <td>
+
                         {formatDate(
                           item.fecha,
                         )}
+
                       </td>
 
+
                       <td className="strong">
+
                         {
                           item
                             .peon_origen_nombre
                         }
+
                       </td>
 
+
                       <td>
-                    {Number(item.fraccion) === 1
-                        ? "Día completo"
-                        : "Medio día"}
-                    </td>
+
+                        {
+                          Number(
+                            item.fraccion,
+                          ) === 1
+                            ? "Día completo"
+                            : "Medio día"
+                        }
+
+                      </td>
+
 
                       <td className="right">
+
                         {money(
                           item
                             .valor_jornal_aplicado,
                         )}
+
                       </td>
 
+
                       <td className="right si-negative">
+
                         -
+
                         {money(
                           item.importe,
                         )}
+
                       </td>
 
                     </tr>
@@ -886,11 +1255,16 @@ export default function ComprobantePagoPersonal({
               Total descuentos
             </span>
 
+
             <strong>
+
               -
+
               {money(
-                liquidacion.total_descuentos,
+                liquidacion
+                  .total_descuentos,
               )}
+
             </strong>
 
           </div>
@@ -913,10 +1287,12 @@ export default function ComprobantePagoPersonal({
           </span>
 
           <p>
+
             {
               liquidacion
                 .observacion
             }
+
           </p>
 
         </section>
@@ -945,9 +1321,11 @@ export default function ComprobantePagoPersonal({
 
 
         <strong>
+
           {money(
             liquidacion.total,
           )}
+
         </strong>
 
       </section>
@@ -959,17 +1337,25 @@ export default function ComprobantePagoPersonal({
           San Isidro
         </span>
 
-        <span>
-          Comprobante N°{" "}
-          {liquidacion.id}
-        </span>
 
         <span>
+
+          Comprobante N°{" "}
+
+          {liquidacion.id}
+
+        </span>
+
+
+        <span>
+
           Fecha de emisión:{" "}
+
           {formatDate(
             liquidacion
               .fecha_pago,
           )}
+
         </span>
 
       </footer>

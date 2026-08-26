@@ -82,6 +82,18 @@ class LiquidacionPersonal(BaseAbstractWithUser):
         ],
         verbose_name="total descuentos",
     )
+    total_administracion = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        validators=[
+            MinValueValidator(
+                Decimal("0.00")
+            ),
+        ],
+        verbose_name="total administración",
+    )
+
 
     total = models.DecimalField(
         max_digits=14,
@@ -1217,3 +1229,201 @@ class DetalleRendicionVenta(BaseAbstractWithUser):
         )
 
 
+
+
+
+
+
+class ValorAdministrador(
+    BaseAbstractWithUser
+):
+    """
+    Define qué peón cumple el rol de administrador
+    durante un período determinado.
+
+    No representa un pago.
+    Solo define la vigencia del administrador y
+    la cantidad de jornales mensuales que le corresponden.
+    """
+
+    peon = models.ForeignKey(
+        "gestion.Peon",
+        on_delete=models.PROTECT,
+        related_name="vigencias_administrador",
+        verbose_name="administrador",
+    )
+
+    cantidad_jornales = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("6.00"),
+        validators=[
+            MinValueValidator(
+                Decimal("0.01")
+            )
+        ],
+        verbose_name="cantidad de jornales",
+    )
+
+    vigente_desde = models.DateField(
+        verbose_name="vigente desde",
+        db_index=True,
+    )
+
+    vigente_hasta = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="vigente hasta",
+        db_index=True,
+    )
+
+    class Meta:
+        ordering = [
+            "-vigente_desde",
+            "-id",
+        ]
+
+        verbose_name = "valor administrador"
+        verbose_name_plural = "valores administrador"
+
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    Q(
+                        vigente_hasta__isnull=True
+                    )
+                    |
+                    Q(
+                        vigente_hasta__gte=
+                        models.F(
+                            "vigente_desde"
+                        )
+                    )
+                ),
+                name=(
+                    "valor_administrador_"
+                    "vigencia_valida"
+                ),
+            ),
+        ]
+
+    def __str__(self):
+        hasta = (
+            self.vigente_hasta
+            if self.vigente_hasta
+            else "actualidad"
+        )
+
+        return (
+            f"{self.peon} - "
+            f"{self.cantidad_jornales} jornales - "
+            f"{self.vigente_desde} "
+            f"hasta {hasta}"
+        )
+
+
+
+
+class DetalleLiquidacionAdministracion(
+    BaseAbstractWithUser
+):
+    """
+    Registra que una administración mensual
+    fue incluida en una liquidación de personal.
+
+    Este modelo es el que determina si un mes
+    ya fue pagado o todavía debe aparecer como pendiente.
+    """
+
+    liquidacion = models.ForeignKey(
+        LiquidacionPersonal,
+        on_delete=models.PROTECT,
+        related_name="detalles_administracion",
+        verbose_name="liquidación",
+    )
+
+    valor_administrador = models.ForeignKey(
+        ValorAdministrador,
+        on_delete=models.PROTECT,
+        related_name="detalles_liquidacion",
+        verbose_name="configuración administrador",
+    )
+
+    anio = models.PositiveSmallIntegerField(
+        verbose_name="año",
+    )
+
+    mes = models.PositiveSmallIntegerField(
+        verbose_name="mes",
+    )
+
+    cantidad_jornales = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        validators=[
+            MinValueValidator(
+                Decimal("0.01")
+            )
+        ],
+        verbose_name="cantidad de jornales",
+    )
+
+    valor_jornal_aplicado = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=[
+            MinValueValidator(
+                Decimal("0.01")
+            )
+        ],
+        verbose_name="valor jornal aplicado",
+    )
+
+    importe = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        validators=[
+            MinValueValidator(
+                Decimal("0.00")
+            )
+        ],
+        verbose_name="importe",
+    )
+
+    class Meta:
+        ordering = [
+            "anio",
+            "mes",
+            "id",
+        ]
+
+        verbose_name = (
+            "detalle liquidación administración"
+        )
+
+        verbose_name_plural = (
+            "detalles liquidación administración"
+        )
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "valor_administrador",
+                    "anio",
+                    "mes",
+                ],
+                condition=Q(
+                    is_deleted=False,
+                ),
+                name=(
+                    "unique_administracion_"
+                    "mes_liquidada"
+                ),
+            ),
+        ]
+    def __str__(self):
+        return (
+            f"{self.valor_administrador.peon} - "
+            f"{self.mes}/{self.anio} - "
+            f"${self.importe}"
+        )

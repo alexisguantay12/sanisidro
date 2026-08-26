@@ -10,12 +10,20 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ReadOnlyModelViewSet
 from rest_framework.permissions import IsAuthenticated
 from .permissions import EsAdministracion 
+from datetime import date
+from calendar import monthrange
 
 from applications.finanzas.movimientos_automaticos import (
     crear_movimiento_liquidacion_personal,
     crear_movimiento_liquidacion_tractor,
     crear_movimiento_liquidacion_almacigo,
     crear_movimiento_rendicion_venta
+)
+
+
+from rest_framework import (
+    status,
+    viewsets,
 )
 
 from applications.gestion.models import (
@@ -29,6 +37,7 @@ from applications.gestion.models import (
     TractorTercero,
     ValorJornal,
     ConfiguracionPaleada,
+    
 )
 
 from applications.administracion.models import (
@@ -37,11 +46,13 @@ from applications.administracion.models import (
     DetalleLiquidacionTarja,
     DetalleLiquidacionTractor,
     DetalleLiquidacionTarjaExterna,
+    DetalleLiquidacionAdministracion,
     DetalleRendicionVenta,
     LiquidacionAlmacigo,
     LiquidacionPersonal,
     LiquidacionTractor,
     RendicionVenta,
+    ValorAdministrador,
 )
 
 from applications.administracion.serializers import (
@@ -57,6 +68,7 @@ from applications.administracion.serializers import (
     RendicionPendientesQuerySerializer,
     RendicionVentaSerializer,
     TractorPendientesQuerySerializer,
+    ValorAdministradorSerializer,
 )
 
 
@@ -68,7 +80,184 @@ from applications.administracion.serializers import (
 # ============================================================
 
 
+class ValorAdministradorViewSet(
+    viewsets.ModelViewSet
+):
+    permission_classes = [
+        IsAuthenticated,
+        EsAdministracion,
+    ]
+
+    serializer_class = (
+        ValorAdministradorSerializer
+    )
+
+    def get_queryset(self):
+        queryset = (
+            ValorAdministrador.objects
+            .filter(
+                is_deleted=False,
+            )
+            .select_related(
+                "peon",
+            )
+            .order_by(
+                "-vigente_desde",
+                "-id",
+            )
+        )
+
+        peon = (
+            self.request
+            .query_params
+            .get(
+                "peon"
+            )
+        )
+
+        if peon:
+            queryset = (
+                queryset.filter(
+                    peon_id=peon
+                )
+            )
+
+        return queryset
+
+    def perform_create(
+        self,
+        serializer,
+    ):
+        serializer.save(
+            user_made=(
+                self.request.user
+            ),
+        )
+
+    def perform_update(
+        self,
+        serializer,
+    ):
+        serializer.save(
+            user_updated=(
+                self.request.user
+            ),
+        )
+
+    def perform_destroy(
+        self,
+        instance,
+    ):
+        # ----------------------------------------------------
+        # NO PERMITIR BORRAR SI YA SE USO EN LIQUIDACIONES
+        # ----------------------------------------------------
+
+        usado = (
+            DetalleLiquidacionAdministracion
+            .objects
+            .filter(
+                valor_administrador=(
+                    instance
+                ),
+                is_deleted=False,
+            )
+            .exists()
+        )
+
+        if usado:
+            raise ValidationError(
+                {
+                    "detail": (
+                        "No se puede eliminar esta "
+                        "configuración porque ya fue "
+                        "utilizada en una liquidación."
+                    )
+                }
+            )
+
+        instance.delete(
+            user=self.request.user
+        )
+
+
+
+
+
+
+
+
+
 DOS_DECIMALES = Decimal("0.01")
+
+
+
+
+def meses_del_periodo(
+    fecha_desde,
+    fecha_hasta,
+):
+    """
+    Devuelve los meses comprendidos en un período.
+
+    Ejemplo:
+    15/08/2026 - 10/10/2026
+
+    [
+        (2026, 8),
+        (2026, 9),
+        (2026, 10),
+    ]
+    """
+
+    meses = []
+
+    anio = fecha_desde.year
+    mes = fecha_desde.month
+
+    while (
+        anio < fecha_hasta.year
+        or (
+            anio == fecha_hasta.year
+            and mes <= fecha_hasta.month
+        )
+    ):
+
+        meses.append(
+            (
+                anio,
+                mes,
+            )
+        )
+
+        mes += 1
+
+        if mes > 12:
+            mes = 1
+            anio += 1
+
+    return meses
+
+
+def nombre_mes(mes):
+    meses = {
+        1: "Enero",
+        2: "Febrero",
+        3: "Marzo",
+        4: "Abril",
+        5: "Mayo",
+        6: "Junio",
+        7: "Julio",
+        8: "Agosto",
+        9: "Septiembre",
+        10: "Octubre",
+        11: "Noviembre",
+        12: "Diciembre",
+    }
+
+    return meses.get(
+        mes,
+        "",
+    )
 
 
 def decimal_dos(value):
@@ -249,6 +438,8 @@ class LiquidacionPersonalViewSet(
         .prefetch_related(
             "detalles_tarjas",
             "detalles_horas_extra",
+            "detalles_tarjas_externas",
+            "detalles_administracion",
         )
         .order_by(
             "-fecha_pago",
@@ -505,12 +696,172 @@ class LiquidacionPersonalViewSet(
                     "importe": hora.total,
                 }
             )
+        # ----------------------------------------------------
+        # ADMINISTRACION PENDIENTE
+        # ----------------------------------------------------
 
-        total = (
-            total_tarjas
-            + total_horas_extra
-            -total_descuentos
+        administraciones_data = []
+
+        total_administracion = Decimal(
+            "0.00"
         )
+
+        for anio, mes in meses_del_periodo(
+            fecha_desde,
+            fecha_hasta,
+        ):
+
+            primer_dia_mes = date(
+                anio,
+                mes,
+                1,
+            )
+
+            ultimo_dia_mes = date(
+                anio,
+                mes,
+                monthrange(
+                    anio,
+                    mes,
+                )[1],
+            )
+
+            # ------------------------------------------------
+            # EL MES DEBE INTERSECTAR EL PERIODO SELECCIONADO
+            # ------------------------------------------------
+
+            inicio_consulta = max(
+                fecha_desde,
+                primer_dia_mes,
+            )
+
+            fin_consulta = min(
+                fecha_hasta,
+                ultimo_dia_mes,
+            )
+
+            # ------------------------------------------------
+            # VER SI EL PEON ERA ADMINISTRADOR ESE MES
+            # ------------------------------------------------
+
+            valor_administrador = (
+                ValorAdministrador.objects
+                .filter(
+                    is_deleted=False,
+                    peon=peon,
+                    vigente_desde__lte=(
+                        fin_consulta
+                    ),
+                )
+                .filter(
+                    Q(
+                        vigente_hasta__isnull=True
+                    )
+                    |
+                    Q(
+                        vigente_hasta__gte=(
+                            inicio_consulta
+                        )
+                    )
+                )
+                .order_by(
+                    "-vigente_desde",
+                    "-id",
+                )
+                .first()
+            )
+
+            if not valor_administrador:
+                continue
+
+            # ------------------------------------------------
+            # VER SI YA COBRO ESE MES
+            # ------------------------------------------------
+
+            ya_liquidada = (
+                DetalleLiquidacionAdministracion
+                .objects
+                .filter(
+                    valor_administrador__peon=peon,
+                    anio=anio,
+                    mes=mes,
+                    is_deleted=False,
+                )
+                .exists()
+            )
+
+            if ya_liquidada:
+                continue
+
+            # ------------------------------------------------
+            # VALOR DEL JORNAL
+            #
+            # Usamos el primer dia del mes como referencia.
+            # ------------------------------------------------
+
+            valor_jornal = (
+                obtener_valor_jornal(
+                    primer_dia_mes
+                )
+            )
+
+            cantidad_jornales = Decimal(
+                str(
+                    valor_administrador
+                    .cantidad_jornales
+                )
+            )
+
+            importe = decimal_dos(
+                cantidad_jornales
+                *
+                valor_jornal.valor
+            )
+
+            total_administracion += (
+                importe
+            )
+
+            administraciones_data.append(
+                {
+                    "valor_administrador": (
+                        valor_administrador.id
+                    ),
+
+                    "anio": (
+                        anio
+                    ),
+
+                    "mes": (
+                        mes
+                    ),
+
+                    "mes_nombre": (
+                        nombre_mes(
+                            mes
+                        )
+                    ),
+
+                    "descripcion": (
+                        f"Administración "
+                        f"{nombre_mes(mes)} "
+                        f"{anio}"
+                    ),
+
+                    "cantidad_jornales": (
+                        cantidad_jornales
+                    ),
+
+                    "valor_jornal": (
+                        valor_jornal.valor
+                    ),
+
+                    "importe": (
+                        importe
+                    ),
+                }
+            ) 
+ 
 
         return Response(
             {
@@ -518,33 +869,68 @@ class LiquidacionPersonalViewSet(
                     "id": peon.id,
                     "nombre": peon.nombre,
                 },
-                "fecha_desde": fecha_desde,
-                "fecha_hasta": fecha_hasta,
-                "tarjas": tarjas_data,
-                "horas_extra": horas_data,
+
+                "fecha_desde": (
+                    fecha_desde
+                ),
+
+                "fecha_hasta": (
+                    fecha_hasta
+                ),
+
+                "tarjas": (
+                    tarjas_data
+                ),
+
+                "horas_extra": (
+                    horas_data
+                ),
+
+                "administraciones": (
+                    administraciones_data
+                ),
+
                 "tarjas_externas": (
                     tarjas_externas_data
                 ),
+
                 "resumen": {
-                    "cantidad_tarjas": len(
-                        tarjas_data
+                    "cantidad_tarjas": (
+                        len(
+                            tarjas_data
+                        )
                     ),
-                    "cantidad_horas_extra": len(
-                        horas_data
+
+                    "cantidad_horas_extra": (
+                        len(
+                            horas_data
+                        )
                     ),
+
+                    "cantidad_administraciones": (
+                        len(
+                            administraciones_data
+                        )
+                    ),
+
                     "total_tarjas": (
                         decimal_dos(
                             total_tarjas
                         )
                     ),
+
                     "total_horas_extra": (
                         decimal_dos(
                             total_horas_extra
                         )
                     ),
-                    "total": decimal_dos(
-                        total
+
+                    "total_administracion": (
+                        decimal_dos(
+                            total_administracion
+                        )
                     ),
+
                     "cantidad_tarjas_externas": (
                         len(
                             tarjas_externas_data
@@ -552,6 +938,18 @@ class LiquidacionPersonalViewSet(
                     ),
 
                     "total_descuentos": (
+                        decimal_dos(
+                            total_descuentos
+                        )
+                    ),
+
+                    "total": decimal_dos(
+                        total_tarjas
+                        +
+                        total_horas_extra
+                        +
+                        total_administracion
+                        -
                         total_descuentos
                     ),
                 },
@@ -563,11 +961,18 @@ class LiquidacionPersonalViewSet(
     # --------------------------------------------------------
 
     @action(
-    detail=False,
-    methods=["post"],
-    url_path="liquidar",
+        detail=False,
+        methods=["post"],
+        url_path="liquidar",
     )
-    def liquidar(self, request):
+    def liquidar(
+        self,
+        request,
+    ):
+
+        # =========================================================
+        # VALIDAR REQUEST
+        # =========================================================
 
         serializer = (
             LiquidarPersonalRequestSerializer(
@@ -602,13 +1007,24 @@ class LiquidacionPersonalViewSet(
             "fecha_hasta"
         ]
 
-        tarjas_ids = data[
-            "tarjas"
-        ]
+        tarjas_ids = data.get(
+            "tarjas",
+            [],
+        )
 
-        horas_ids = data[
-            "horas_extra"
-        ]
+        horas_ids = data.get(
+            "horas_extra",
+            [],
+        )
+
+        administraciones_request = data.get(
+            "administraciones",
+            [],
+        )
+
+        # =========================================================
+        # TRANSACCION
+        # =========================================================
 
         with transaction.atomic():
 
@@ -706,7 +1122,7 @@ class LiquidacionPersonalViewSet(
             )
 
             # =====================================================
-            # VALIDAR TARJAS NORMALES
+            # VALIDAR Y CALCULAR TARJAS NORMALES
             # =====================================================
 
             total_tarjas = Decimal(
@@ -716,6 +1132,10 @@ class LiquidacionPersonalViewSet(
             datos_tarjas = []
 
             for tarja in tarjas:
+
+                # -------------------------------------------------
+                # PERTENECE AL PEON
+                # -------------------------------------------------
 
                 if (
                     tarja.peon_id
@@ -731,6 +1151,10 @@ class LiquidacionPersonalViewSet(
                         }
                     )
 
+                # -------------------------------------------------
+                # PERIODO
+                # -------------------------------------------------
+
                 if not (
                     fecha_desde
                     <= tarja.fecha
@@ -745,12 +1169,17 @@ class LiquidacionPersonalViewSet(
                         }
                     )
 
+                # -------------------------------------------------
+                # YA LIQUIDADA
+                # -------------------------------------------------
+
                 ya_liquidada = (
                     DetalleLiquidacionTarja
                     .objects
                     .filter(
                         tarja=tarja,
                         is_deleted=False,
+                        liquidacion__is_deleted=False, 
                     )
                     .exists()
                 )
@@ -764,6 +1193,10 @@ class LiquidacionPersonalViewSet(
                             )
                         }
                     )
+
+                # -------------------------------------------------
+                # CALCULAR
+                # -------------------------------------------------
 
                 valor_unitario = (
                     obtener_valor_tarja(
@@ -779,7 +1212,8 @@ class LiquidacionPersonalViewSet(
 
                 importe = decimal_dos(
                     valor_unitario
-                    * fraccion
+                    *
+                    fraccion
                 )
 
                 total_tarjas += (
@@ -788,9 +1222,7 @@ class LiquidacionPersonalViewSet(
 
                 datos_tarjas.append(
                     {
-                        "tarja": (
-                            tarja
-                        ),
+                        "tarja": tarja,
 
                         "valor_jornal": (
                             valor_unitario
@@ -807,7 +1239,7 @@ class LiquidacionPersonalViewSet(
                 )
 
             # =====================================================
-            # VALIDAR HORAS EXTRA
+            # VALIDAR Y CALCULAR HORAS EXTRA
             # =====================================================
 
             total_horas = Decimal(
@@ -815,6 +1247,10 @@ class LiquidacionPersonalViewSet(
             )
 
             for hora in horas:
+
+                # -------------------------------------------------
+                # PERTENECE AL PEON
+                # -------------------------------------------------
 
                 if (
                     hora.peon_id
@@ -830,6 +1266,10 @@ class LiquidacionPersonalViewSet(
                         }
                     )
 
+                # -------------------------------------------------
+                # PERIODO
+                # -------------------------------------------------
+
                 if not (
                     fecha_desde
                     <= hora.fecha
@@ -844,6 +1284,10 @@ class LiquidacionPersonalViewSet(
                             )
                         }
                     )
+
+                # -------------------------------------------------
+                # ESTADO
+                # -------------------------------------------------
 
                 if (
                     hora.estado
@@ -861,12 +1305,17 @@ class LiquidacionPersonalViewSet(
                         }
                     )
 
+                # -------------------------------------------------
+                # YA LIQUIDADA
+                # -------------------------------------------------
+
                 ya_liquidada = (
                     DetalleLiquidacionHoraExtra
                     .objects
                     .filter(
                         hora_extra=hora,
                         is_deleted=False,
+                        liquidacion__is_deleted=False, 
                     )
                     .exists()
                 )
@@ -887,7 +1336,7 @@ class LiquidacionPersonalViewSet(
                 )
 
             # =====================================================
-            # CALCULAR TARJAS EXTERNAS / DESCUENTOS
+            # TARJAS EXTERNAS / DESCUENTOS
             # =====================================================
 
             total_descuentos = Decimal(
@@ -897,6 +1346,24 @@ class LiquidacionPersonalViewSet(
             datos_descuentos = []
 
             for tarja in tarjas_externas:
+
+                # -------------------------------------------------
+                # COMPROBAR QUE NO HAYA SIDO DESCONTADA
+                # -------------------------------------------------
+
+                ya_descontada = (
+                    DetalleLiquidacionTarjaExterna
+                    .objects
+                    .filter(
+                        tarja=tarja,
+                        is_deleted=False,
+                        liquidacion__is_deleted=False, 
+                    )
+                    .exists()
+                )
+
+                if ya_descontada:
+                    continue
 
                 valor_unitario = (
                     obtener_valor_tarja(
@@ -912,7 +1379,8 @@ class LiquidacionPersonalViewSet(
 
                 importe = decimal_dos(
                     valor_unitario
-                    * fraccion
+                    *
+                    fraccion
                 )
 
                 total_descuentos += (
@@ -944,18 +1412,311 @@ class LiquidacionPersonalViewSet(
                 )
 
             # =====================================================
-            # TOTALES
+            # ADMINISTRACION
             # =====================================================
 
-            total_tarjas = (
-                decimal_dos(
-                    total_tarjas
-                )
+            total_administracion = Decimal(
+                "0.00"
             )
 
-            total_horas = (
+            datos_administracion = []
+
+            for item in administraciones_request:
+
+                valor_administrador_id = (
+                    item[
+                        "valor_administrador"
+                    ]
+                )
+
+                anio = item[
+                    "anio"
+                ]
+
+                mes = item[
+                    "mes"
+                ]
+
+                # -------------------------------------------------
+                # BLOQUEAR LA CONFIGURACION
+                # -------------------------------------------------
+                #
+                # Esto hace que dos liquidaciones simultaneas
+                # del mismo administrador no puedan avanzar
+                # al mismo tiempo.
+                # -------------------------------------------------
+
+                try:
+
+                    valor_administrador = (
+                        ValorAdministrador
+                        .objects
+                        .select_for_update()
+                        .select_related(
+                            "peon"
+                        )
+                        .get(
+                            id=(
+                                valor_administrador_id
+                            ),
+                            is_deleted=False,
+                        )
+                    )
+
+                except (
+                    ValorAdministrador
+                    .DoesNotExist
+                ):
+
+                    raise ValidationError(
+                        {
+                            "administraciones": (
+                                "La configuración de "
+                                "administración seleccionada "
+                                "no existe."
+                            )
+                        }
+                    )
+
+                # -------------------------------------------------
+                # DEBE SER DEL PEON QUE ESTAMOS LIQUIDANDO
+                # -------------------------------------------------
+
+                if (
+                    valor_administrador
+                    .peon_id
+                    != peon.id
+                ):
+                    raise ValidationError(
+                        {
+                            "administraciones": (
+                                "La administración "
+                                "seleccionada no corresponde "
+                                "al peón que se está "
+                                "liquidando."
+                            )
+                        }
+                    )
+
+                # -------------------------------------------------
+                # FECHAS DEL MES
+                # -------------------------------------------------
+
+                try:
+
+                    primer_dia_mes = date(
+                        anio,
+                        mes,
+                        1,
+                    )
+
+                    ultimo_dia_mes = date(
+                        anio,
+                        mes,
+                        monthrange(
+                            anio,
+                            mes,
+                        )[1],
+                    )
+
+                except (
+                    TypeError,
+                    ValueError,
+                ):
+
+                    raise ValidationError(
+                        {
+                            "administraciones": (
+                                "El período de "
+                                "administración no es válido."
+                            )
+                        }
+                    )
+
+                # -------------------------------------------------
+                # EL MES TIENE QUE INTERSECTAR EL PERIODO
+                # SELECCIONADO EN LA LIQUIDACION
+                # -------------------------------------------------
+
+                if (
+                    ultimo_dia_mes
+                    < fecha_desde
+                    or
+                    primer_dia_mes
+                    > fecha_hasta
+                ):
+                    raise ValidationError(
+                        {
+                            "administraciones": (
+                                f"La administración de "
+                                f"{nombre_mes(mes)} "
+                                f"{anio} está fuera del "
+                                "período seleccionado."
+                            )
+                        }
+                    )
+
+                # -------------------------------------------------
+                # PERIODO EFECTIVAMENTE CONSULTADO DENTRO DEL MES
+                # -------------------------------------------------
+
+                inicio_periodo_mes = max(
+                    fecha_desde,
+                    primer_dia_mes,
+                )
+
+                fin_periodo_mes = min(
+                    fecha_hasta,
+                    ultimo_dia_mes,
+                )
+
+                # -------------------------------------------------
+                # COMPROBAR VIGENCIA DEL ADMINISTRADOR
+                # -------------------------------------------------
+
+                if (
+                    valor_administrador
+                    .vigente_desde
+                    > fin_periodo_mes
+                ):
+                    raise ValidationError(
+                        {
+                            "administraciones": (
+                                f"{peon.nombre} no era "
+                                "administrador durante "
+                                f"{nombre_mes(mes)} "
+                                f"{anio}."
+                            )
+                        }
+                    )
+
+                if (
+                    valor_administrador
+                    .vigente_hasta
+                    is not None
+                    and
+                    valor_administrador
+                    .vigente_hasta
+                    < inicio_periodo_mes
+                ):
+                    raise ValidationError(
+                        {
+                            "administraciones": (
+                                f"{peon.nombre} no era "
+                                "administrador durante "
+                                f"{nombre_mes(mes)} "
+                                f"{anio}."
+                            )
+                        }
+                    )
+
+                # -------------------------------------------------
+                # COMPROBAR QUE EL MES NO ESTE YA PAGADO
+                # EN UNA LIQUIDACION ACTIVA
+                # -------------------------------------------------
+
+                ya_liquidada = (
+                    DetalleLiquidacionAdministracion
+                    .objects
+                    .filter(
+                        valor_administrador__peon=peon,
+                        anio=anio,
+                        mes=mes,
+                        is_deleted=False,
+                    )
+                    .exists()
+                )
+
+                if ya_liquidada:
+
+                    raise ValidationError(
+                        {
+                            "administraciones": (
+                                f"La administración de "
+                                f"{nombre_mes(mes)} "
+                                f"{anio} ya fue liquidada."
+                            )
+                        }
+                    )
+
+                # -------------------------------------------------
+                # OBTENER JORNAL DEL MES
+                # -------------------------------------------------
+                #
+                # La referencia elegida es el primer día del mes.
+                #
+                # Septiembre 2026 -> valor jornal vigente
+                # al 01/09/2026.
+                # -------------------------------------------------
+
+                valor_jornal = (
+                    obtener_valor_jornal(
+                        primer_dia_mes
+                    )
+                )
+
+                cantidad_jornales = (
+                    Decimal(
+                        str(
+                            valor_administrador
+                            .cantidad_jornales
+                        )
+                    )
+                )
+
+                importe = decimal_dos(
+                    cantidad_jornales
+                    *
+                    valor_jornal.valor
+                )
+
+                total_administracion += (
+                    importe
+                )
+
+                datos_administracion.append(
+                    {
+                        "valor_administrador": (
+                            valor_administrador
+                        ),
+
+                        "anio": (
+                            anio
+                        ),
+
+                        "mes": (
+                            mes
+                        ),
+
+                        "cantidad_jornales": (
+                            cantidad_jornales
+                        ),
+
+                        "valor_jornal": (
+                            valor_jornal.valor
+                        ),
+
+                        "importe": (
+                            importe
+                        ),
+                    }
+                )
+
+            # =====================================================
+            # NORMALIZAR TOTALES
+            # =====================================================
+
+            total_tarjas = decimal_dos(
+                total_tarjas
+            )
+
+            total_horas = decimal_dos(
+                total_horas
+            )
+
+            total_administracion = (
                 decimal_dos(
-                    total_horas
+                    total_administracion
                 )
             )
 
@@ -965,14 +1726,22 @@ class LiquidacionPersonalViewSet(
                 )
             )
 
+            # =====================================================
+            # TOTAL FINAL
+            # =====================================================
+
             total = decimal_dos(
                 total_tarjas
-                + total_horas
-                - total_descuentos
+                +
+                total_horas
+                +
+                total_administracion
+                -
+                total_descuentos
             )
 
             # =====================================================
-            # POR AHORA NO PERMITIMOS TOTAL NEGATIVO
+            # NO PERMITIR TOTAL NEGATIVO
             # =====================================================
 
             if (
@@ -982,8 +1751,8 @@ class LiquidacionPersonalViewSet(
                 raise ValidationError(
                     {
                         "total": (
-                            "Los jornales a descontar "
-                            "superan el total a pagar. "
+                            "Los descuentos superan "
+                            "el total a pagar. "
                             "No se puede generar una "
                             "liquidación negativa."
                         )
@@ -1028,6 +1797,10 @@ class LiquidacionPersonalViewSet(
                         total_horas
                     ),
 
+                    total_administracion=(
+                        total_administracion
+                    ),
+
                     total_descuentos=(
                         total_descuentos
                     ),
@@ -1049,7 +1822,7 @@ class LiquidacionPersonalViewSet(
             )
 
             # =====================================================
-            # CREAR DETALLES TARJAS NORMALES
+            # DETALLES TARJAS NORMALES
             # =====================================================
 
             for item in datos_tarjas:
@@ -1107,7 +1880,7 @@ class LiquidacionPersonalViewSet(
                 )
 
             # =====================================================
-            # CREAR DETALLES DE DESCUENTOS
+            # DETALLES DESCUENTOS / TARJAS EXTERNAS
             # =====================================================
 
             for item in datos_descuentos:
@@ -1163,7 +1936,7 @@ class LiquidacionPersonalViewSet(
                 )
 
             # =====================================================
-            # CREAR DETALLES HORAS EXTRA
+            # DETALLES HORAS EXTRA
             # =====================================================
 
             for hora in horas:
@@ -1222,7 +1995,69 @@ class LiquidacionPersonalViewSet(
                     usuario
                 )
 
-                hora.save()
+                hora.save(
+                    update_fields=[
+                        "estado",
+                        "user_updated",
+                        "updated_at",
+                    ]
+                )
+
+            # =====================================================
+            # DETALLES ADMINISTRACION
+            # =====================================================
+
+            for item in datos_administracion:
+
+                (
+                    DetalleLiquidacionAdministracion
+                    .objects
+                    .create(
+                        liquidacion=(
+                            liquidacion
+                        ),
+
+                        valor_administrador=(
+                            item[
+                                "valor_administrador"
+                            ]
+                        ),
+
+                        anio=(
+                            item[
+                                "anio"
+                            ]
+                        ),
+
+                        mes=(
+                            item[
+                                "mes"
+                            ]
+                        ),
+
+                        cantidad_jornales=(
+                            item[
+                                "cantidad_jornales"
+                            ]
+                        ),
+
+                        valor_jornal_aplicado=(
+                            item[
+                                "valor_jornal"
+                            ]
+                        ),
+
+                        importe=(
+                            item[
+                                "importe"
+                            ]
+                        ),
+
+                        user_made=(
+                            usuario
+                        ),
+                    )
+                )
 
             # =====================================================
             # MOVIMIENTO FINANCIERO
@@ -1255,11 +2090,9 @@ class LiquidacionPersonalViewSet(
         return Response(
             resultado.data,
             status=(
-                status
-                .HTTP_201_CREATED
+                status.HTTP_201_CREATED
             ),
         )
-
 
 # ============================================================
 # LIQUIDACION TRACTOR

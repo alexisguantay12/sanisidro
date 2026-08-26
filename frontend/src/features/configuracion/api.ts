@@ -8,6 +8,10 @@ import type {
   ValorJornal,
 } from "./types";
 
+import type {
+  ValorAdministrador,
+  ValorAdministradorPayload,
+} from "./types";
 
 // ============================================================
 // PROVEEDORES
@@ -249,4 +253,51 @@ export async function updateConfiguracionPaleadaActual(
     );
 
   return response.data;
+}
+
+
+export async function getValoresAdministrador() {
+  const response = await api.get<
+    ValorAdministrador[]
+  >(
+    "/administracion/valores-administrador/"
+  );
+
+  return response.data;
+}
+
+export async function createValorAdministrador(
+  data: ValorAdministradorPayload
+) {
+  const response = await api.post<
+    ValorAdministrador
+  >(
+    "/administracion/valores-administrador/",
+    data
+  );
+
+  return response.data;
+}
+
+
+export async function updateValorAdministrador(
+  id: number,
+  data: Partial<ValorAdministradorPayload>
+) {
+  const response = await api.patch<
+    ValorAdministrador
+  >(
+    `/administracion/valores-administrador/${id}/`,
+    data
+  );
+
+  return response.data;
+}
+
+export async function deleteValorAdministrador(
+  id: number
+) {
+  await api.delete(
+    `/administracion/valores-administrador/${id}/`
+  );
 }

@@ -76,7 +76,7 @@ export interface PersonalPendienteResponse {
   fecha_hasta: string;
 
   tarjas: TarjaPendiente[];
-
+  administraciones: AdministracionPendiente[];
   horas_extra: HoraExtraPendiente[];
   tarjas_externas: TarjaExternaPendiente[];
   resumen: {
@@ -86,16 +86,18 @@ export interface PersonalPendienteResponse {
     total_descuentos: string;
     total_tarjas: string;
     total_horas_extra: string;
+    cantidad_administraciones: number;
+    total_administracion: string | number;
 
     total: string;
   };
 }
 
-
 export interface LiquidarPersonalPayload {
   peon: number;
 
   fecha_desde: string;
+
   fecha_hasta: string;
 
   fecha_pago: string;
@@ -106,12 +108,53 @@ export interface LiquidarPersonalPayload {
 
   horas_extra: number[];
 
+  administraciones: AdministracionLiquidar[];
+
   observacion: string;
 }
+
+
+export interface DetalleLiquidacionAdministracion {
+  id: number;
+
+  valor_administrador: number;
+
+  administrador_nombre: string;
+
+  anio: number;
+
+  mes: number;
+
+  cantidad_jornales: string;
+
+  valor_jornal_aplicado: string;
+
+  importe: string;
+}
+
 
 // ============================================================
 // PERSONAL - LIQUIDACIONES
 // ============================================================
+
+
+export interface AdministracionPendiente {
+  valor_administrador: number;
+  anio: number;
+  mes: number;
+  mes_nombre: string;
+  descripcion: string;
+  cantidad_jornales: string | number;
+  valor_jornal: string | number;
+  importe: string | number;
+}
+
+export interface AdministracionLiquidar {
+  valor_administrador: number;
+  anio: number;
+  mes: number;
+}
+
 
 
 export interface DetalleLiquidacionTarjaExterna {
@@ -171,30 +214,39 @@ export interface DetalleHoraExtraLiquidada {
 
   importe: string;
 }
-
 export interface LiquidacionPersonal {
   id: number;
 
   peon: number;
+
   peon_nombre: string;
 
   fecha_desde: string;
+
   fecha_hasta: string;
+
   fecha_pago: string;
 
   cuenta_financiera: number | null;
+
   cuenta_financiera_nombre: string | null;
 
   total_tarjas: string;
+
   total_horas_extra: string;
+
+  total_administracion: string;
+
+  total_descuentos: string;
+
   total: string;
-  total_descuentos:string;
 
   observacion: string;
 
   estado: EstadoLiquidacion;
 
   fecha_anulacion: string | null;
+
   motivo_anulacion: string;
 
   detalles_tarjas:
@@ -203,10 +255,12 @@ export interface LiquidacionPersonal {
   detalles_horas_extra:
     DetalleHoraExtraLiquidada[];
 
-  
   detalles_tarjas_externas:
     DetalleLiquidacionTarjaExterna[];
-}  
+
+  detalles_administracion:
+    DetalleLiquidacionAdministracion[];
+}
 
 // ============================================================
 // TRACTOR - PENDIENTES
