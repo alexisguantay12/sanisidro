@@ -524,3 +524,175 @@ def crear_movimiento_rendicion_venta(
     )
 
     return movimiento
+
+
+
+
+
+# ============================================================
+# LIQUIDACION DE CARPIDAS
+# ============================================================
+
+
+ORIGEN_LIQUIDACION_CARPIDA = (
+    "LIQUIDACION_CARPIDA"
+)
+
+
+def crear_movimiento_liquidacion_carpida(
+    *,
+    liquidacion,
+    cuenta,
+    usuario,
+):
+    """
+    Crea el gasto financiero correspondiente
+    al pago de una liquidación de carpidas.
+
+    Debe ejecutarse dentro de transaction.atomic()
+    desde el módulo de administración.
+    """
+
+    # ========================================================
+    # EVITAR MOVIMIENTOS DUPLICADOS
+    # ========================================================
+
+    existente = (
+        MovimientoFinanciero.objects
+        .filter(
+            is_deleted=False,
+            origen_modulo=(
+                ORIGEN_LIQUIDACION_CARPIDA
+            ),
+            origen_id=liquidacion.id,
+        )
+        .first()
+    )
+
+    if existente:
+        raise ValidationError(
+            {
+                "movimiento_financiero": (
+                    "Esta liquidación de carpidas "
+                    "ya tiene un movimiento "
+                    "financiero asociado."
+                )
+            }
+        )
+
+    # ========================================================
+    # CATEGORIA FINANCIERA
+    # ========================================================
+
+    categoria = (
+        CategoriaFinanciera.objects
+        .filter(
+            is_deleted=False,
+            activo=True,
+            nombre__iexact=(
+                "Carpidas"
+            ),
+        )
+        .first()
+    )
+
+    if not categoria:
+        raise ValidationError(
+            {
+                "categoria_financiera": (
+                    "No existe una categoría financiera "
+                    "activa llamada 'Carpidas'."
+                )
+            }
+        )
+
+    # ========================================================
+    # VALIDAR CUENTA
+    # ========================================================
+
+    if not cuenta:
+        raise ValidationError(
+            {
+                "cuenta_financiera": (
+                    "Debe seleccionar una cuenta "
+                    "financiera de origen."
+                )
+            }
+        )
+
+    if cuenta.is_deleted:
+        raise ValidationError(
+            {
+                "cuenta_financiera": (
+                    "La cuenta financiera seleccionada "
+                    "fue eliminada."
+                )
+            }
+        )
+
+    if not cuenta.activa:
+        raise ValidationError(
+            {
+                "cuenta_financiera": (
+                    "La cuenta financiera seleccionada "
+                    "se encuentra inactiva."
+                )
+            }
+        )
+
+    # ========================================================
+    # CREAR MOVIMIENTO
+    # ========================================================
+
+    movimiento = (
+        MovimientoFinanciero.objects
+        .create(
+            fecha=(
+                liquidacion.fecha_pago
+            ),
+
+            descripcion=(
+                "Pago de carpidas"
+            ),
+
+            tipo=(
+                MovimientoFinanciero
+                .Tipo
+                .GASTO
+            ),
+
+            monto=(
+                liquidacion.total
+            ),
+
+            categoria=(
+                categoria
+            ),
+
+            cuenta_origen=(
+                cuenta
+            ),
+
+            cuenta_destino=None,
+
+            observacion=(
+                "Generado automáticamente desde "
+                "liquidación de carpidas "
+                f"#{liquidacion.id}"
+            ),
+
+            origen_modulo=(
+                ORIGEN_LIQUIDACION_CARPIDA
+            ),
+
+            origen_id=(
+                liquidacion.id
+            ),
+
+            user_made=(
+                usuario
+            ),
+        )
+    )
+
+    return movimiento

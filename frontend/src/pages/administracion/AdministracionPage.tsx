@@ -5,6 +5,7 @@ import {
   Sprout,
   Tractor,
   WalletCards,
+  Wheat,
 } from "lucide-react";
 
 import AdminModuleCard
@@ -43,6 +44,17 @@ const modules = [
     to: "/administracion/almacigos",
 
     icon: Sprout,
+  },
+
+  {
+    title: "Pago de carpidas",
+
+    description:
+      "Consultar carpidas pendientes, registrar pagos y revisar comprobantes realizados.",
+
+    to: "/administracion/carpidas",
+
+    icon: Wheat,
   },
 
   {

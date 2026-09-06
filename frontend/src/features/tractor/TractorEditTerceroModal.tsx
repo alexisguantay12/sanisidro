@@ -4,7 +4,11 @@ import {
   useState,
 } from "react";
 
-import { X } from "lucide-react";
+import {
+  Minus,
+  Plus,
+  X,
+} from "lucide-react";
 
 import {
   updateTractorTercero,
@@ -23,12 +27,17 @@ interface Props {
   onSuccess: () => void;
 }
 
-function money(value: number) {
-  return new Intl.NumberFormat("es-AR", {
-    style: "currency",
-    currency: "ARS",
-    maximumFractionDigits: 2,
-  }).format(value);
+function money(
+  value: number
+) {
+  return new Intl.NumberFormat(
+    "es-AR",
+    {
+      style: "currency",
+      currency: "ARS",
+      maximumFractionDigits: 2,
+    }
+  ).format(value);
 }
 
 export default function TractorEditTerceroModal({
@@ -38,12 +47,35 @@ export default function TractorEditTerceroModal({
   onClose,
   onSuccess,
 }: Props) {
-  const [proveedor, setProveedor] = useState("");
-  const [horas, setHoras] = useState("");
-  const [precioHora, setPrecioHora] = useState("");
-  const [observacion, setObservacion] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [
+    proveedor,
+    setProveedor,
+  ] = useState("");
+
+  const [
+    horas,
+    setHoras,
+  ] = useState(1);
+
+  const [
+    precioHora,
+    setPrecioHora,
+  ] = useState("");
+
+  const [
+    observacion,
+    setObservacion,
+  ] = useState("");
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(false);
+
+  const [
+    error,
+    setError,
+  ] = useState("");
 
   useEffect(() => {
     if (!registro) {
@@ -51,14 +83,14 @@ export default function TractorEditTerceroModal({
     }
 
     setProveedor(
-      String(registro.proveedor)
+      String(
+        registro.proveedor
+      )
     );
 
     setHoras(
-      String(
-        Number(
-          registro.cantidad_horas
-        )
+      Number(
+        registro.cantidad_horas
       )
     );
 
@@ -77,15 +109,47 @@ export default function TractorEditTerceroModal({
     setError("");
   }, [registro]);
 
-  const total = useMemo(
-    () =>
-      Number(horas || 0) *
-      Number(precioHora || 0),
-    [horas, precioHora]
-  );
+  const total =
+    useMemo(() => {
+      return (
+        horas *
+        Number(
+          precioHora || 0
+        )
+      );
+    }, [
+      horas,
+      precioHora,
+    ]);
 
   if (!open || !registro) {
     return null;
+  }
+
+  function decreaseHours() {
+    setHoras((current) =>
+      Math.max(
+        0.5,
+        Number(
+          (
+            current - 0.5
+          ).toFixed(1)
+        )
+      )
+    );
+  }
+
+  function increaseHours() {
+    setHoras((current) =>
+      Math.min(
+        50,
+        Number(
+          (
+            current + 0.5
+          ).toFixed(1)
+        )
+      )
+    );
   }
 
   async function handleSubmit(
@@ -93,48 +157,56 @@ export default function TractorEditTerceroModal({
   ) {
     event.preventDefault();
 
-    const cantidad =
-      Number(horas);
-
     const precio =
-      Number(precioHora);
+      Number(
+        precioHora
+      );
 
     if (!proveedor) {
       setError(
         "Seleccioná un proveedor."
       );
+
       return;
     }
 
     if (
-      !cantidad ||
-      cantidad < 1 ||
-      cantidad > 50
+      horas < 0.5 ||
+      horas > 50
     ) {
       setError(
-        "Las horas deben estar entre 1 y 50."
+        "Las horas deben estar entre 0,5 y 50."
       );
+
       return;
     }
 
-    if (!precio || precio <= 0) {
+    if (
+      !precio ||
+      precio <= 0
+    ) {
       setError(
         "El precio por hora debe ser mayor a cero."
       );
+
       return;
     }
 
     try {
       setLoading(true);
       setError("");
-      if(!registro)return;
+      if (!registro) {
+        return;
+      }
       await updateTractorTercero(
         registro.id,
         {
           proveedor:
-            Number(proveedor),
+            Number(
+              proveedor
+            ),
           cantidad_horas:
-            cantidad,
+            horas,
           precio_hora:
             precio,
           observacion:
@@ -143,13 +215,17 @@ export default function TractorEditTerceroModal({
       );
 
       onClose();
+
       await onSuccess();
     } catch (error: any) {
-      console.error(error);
+      console.error(
+        error
+      );
 
       setError(
-        error?.response?.data?.detail ??
-        "No se pudo actualizar el registro."
+        error?.response?.data
+          ?.detail ??
+          "No se pudo actualizar el registro."
       );
     } finally {
       setLoading(false);
@@ -204,6 +280,7 @@ export default function TractorEditTerceroModal({
               </div>
             )}
 
+            {/* PROVEEDOR */}
             <div>
               <label className="mb-2 block text-sm font-semibold text-[#444B47]">
                 Proveedor
@@ -218,7 +295,7 @@ export default function TractorEditTerceroModal({
                   )
                 }
                 disabled={loading}
-                className="h-12 w-full rounded-2xl border border-[#DDE3DF] bg-white px-4 text-sm outline-none focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5 disabled:bg-slate-50"
+                className="h-12 w-full rounded-2xl border border-[#DDE3DF] bg-white px-4 text-sm outline-none transition focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5 disabled:bg-slate-50"
               >
                 {proveedores.map(
                   (item) => (
@@ -233,33 +310,105 @@ export default function TractorEditTerceroModal({
               </select>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-[#444B47]">
-                  Horas
+            {/* HORAS */}
+            <div>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <label className="text-sm font-semibold text-[#444B47]">
+                  Cantidad de horas
                 </label>
 
-                <input
-                  type="number"
-                  min={1}
-                  max={50}
-                  step="0.5"
-                  required
-                  value={horas}
-                  onChange={(e) =>
-                    setHoras(
-                      e.target.value
-                    )
-                  }
-                  disabled={loading}
-                  className="h-12 w-full rounded-2xl border border-[#DDE3DF] bg-white px-4 text-sm outline-none focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5 disabled:bg-slate-50"
-                />
+                <span className="shrink-0 text-xs font-medium text-[#8A938D]">
+                  Mín. 0,5 · Máx. 50
+                </span>
               </div>
 
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-[#444B47]">
-                  Precio / hora
-                </label>
+              <div className="flex items-center justify-between rounded-2xl border border-[#E0E5E1] bg-[#FAFBFA] p-2">
+                <button
+                  type="button"
+                  onClick={decreaseHours}
+                  disabled={
+                    loading ||
+                    horas <= 0.5
+                  }
+                  className="
+                    flex h-12 w-12
+                    shrink-0
+                    items-center
+                    justify-center
+                    rounded-xl
+                    bg-white
+                    text-[#4F5852]
+                    shadow-sm
+                    transition
+                    hover:bg-[#F2F4F2]
+                    disabled:cursor-not-allowed
+                    disabled:opacity-30
+                  "
+                >
+                  <Minus size={20} />
+                </button>
+
+                <div className="min-w-[100px] flex-1 text-center">
+                  <p className="text-3xl font-semibold tracking-tight text-[#18392B]">
+                    {horas.toLocaleString(
+                      "es-AR",
+                      {
+                        minimumFractionDigits:
+                          horas % 1 === 0
+                            ? 0
+                            : 1,
+                        maximumFractionDigits: 1,
+                      }
+                    )}
+                  </p>
+
+                  <p className="mt-0.5 text-xs font-medium text-[#7A837D]">
+                    {horas <= 1
+                      ? "hora"
+                      : "horas"}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={increaseHours}
+                  disabled={
+                    loading ||
+                    horas >= 50
+                  }
+                  className="
+                    flex h-12 w-12
+                    shrink-0
+                    items-center
+                    justify-center
+                    rounded-xl
+                    bg-[#EAF2ED]
+                    text-[#18392B]
+                    transition
+                    hover:bg-[#DCE9E0]
+                    disabled:cursor-not-allowed
+                    disabled:opacity-30
+                  "
+                >
+                  <Plus size={20} />
+                </button>
+              </div>
+
+              <p className="mt-2 text-center text-xs text-[#828B85]">
+                Cada toque suma o resta 0,5 horas
+              </p>
+            </div>
+
+            {/* PRECIO HORA */}
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-[#444B47]">
+                Precio por hora
+              </label>
+
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-[#7A837D]">
+                  $
+                </span>
 
                 <input
                   type="number"
@@ -273,11 +422,16 @@ export default function TractorEditTerceroModal({
                     )
                   }
                   disabled={loading}
-                  className="h-12 w-full rounded-2xl border border-[#DDE3DF] bg-white px-4 text-sm outline-none focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5 disabled:bg-slate-50"
+                  className="h-12 w-full rounded-2xl border border-[#DDE3DF] bg-white pl-9 pr-4 text-sm outline-none transition focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5 disabled:bg-slate-50"
                 />
               </div>
+
+              <p className="mt-2 text-xs text-[#828B85]">
+                Ingresá el valor acordado por cada hora de trabajo.
+              </p>
             </div>
 
+            {/* OBSERVACIÓN */}
             <div>
               <label className="mb-2 block text-sm font-semibold text-[#444B47]">
                 Observación
@@ -292,18 +446,39 @@ export default function TractorEditTerceroModal({
                   )
                 }
                 disabled={loading}
-                className="w-full resize-none rounded-2xl border border-[#DDE3DF] bg-white px-4 py-3 text-sm outline-none focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5 disabled:bg-slate-50"
+                className="w-full resize-none rounded-2xl border border-[#DDE3DF] bg-white px-4 py-3 text-sm outline-none transition focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5 disabled:bg-slate-50"
               />
             </div>
 
+            {/* RESUMEN */}
             <div className="rounded-[20px] bg-[#F4F7F5] p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-[#87918A]">
-                Nuevo importe
-              </p>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#87918A]">
+                    Precio hora
+                  </p>
 
-              <p className="mt-1 text-xl font-semibold text-[#18392B]">
-                {money(total)}
-              </p>
+                  <p className="mt-1 font-semibold text-[#1B1E1C]">
+                    {precioHora
+                      ? money(
+                          Number(
+                            precioHora
+                          )
+                        )
+                      : money(0)}
+                  </p>
+                </div>
+
+                <div className="text-right">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#87918A]">
+                    Nuevo total
+                  </p>
+
+                  <p className="mt-1 text-lg font-semibold text-[#18392B]">
+                    {money(total)}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 

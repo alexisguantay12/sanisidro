@@ -17,7 +17,9 @@ from applications.finanzas.movimientos_automaticos import (
     crear_movimiento_liquidacion_personal,
     crear_movimiento_liquidacion_tractor,
     crear_movimiento_liquidacion_almacigo,
-    crear_movimiento_rendicion_venta
+    crear_movimiento_rendicion_venta,
+
+    crear_movimiento_liquidacion_carpida,
 )
 
 
@@ -37,6 +39,8 @@ from applications.gestion.models import (
     TractorTercero,
     ValorJornal,
     ConfiguracionPaleada,
+
+    JornalCarpida,
     
 )
 
@@ -53,6 +57,8 @@ from applications.administracion.models import (
     LiquidacionTractor,
     RendicionVenta,
     ValorAdministrador,
+    LiquidacionCarpida,
+    DetalleLiquidacionCarpida,
 )
 
 from applications.administracion.serializers import (
@@ -69,6 +75,10 @@ from applications.administracion.serializers import (
     RendicionVentaSerializer,
     TractorPendientesQuerySerializer,
     ValorAdministradorSerializer,
+
+    CarpidaPendientesQuerySerializer,
+    LiquidarCarpidaRequestSerializer,
+    LiquidacionCarpidaSerializer,
 )
 
 
@@ -3224,6 +3234,498 @@ class LiquidacionAlmacigoViewSet(
             resultado.data,
             status=status.HTTP_201_CREATED,
         )
+    
+
+
+
+
+
+# ============================================================
+# LIQUIDACION CARPIDAS
+# ============================================================
+
+
+class LiquidacionCarpidaViewSet(
+    ReadOnlyModelViewSet
+):
+    permission_classes = [
+        IsAuthenticated,
+        EsAdministracion,
+    ]
+
+    serializer_class = (
+        LiquidacionCarpidaSerializer
+    )
+
+    queryset = (
+        LiquidacionCarpida.objects
+        .filter(
+            is_deleted=False,
+        )
+        .select_related(
+            "cuenta_financiera",
+        )
+        .prefetch_related(
+            "detalles",
+        )
+        .order_by(
+            "-fecha_pago",
+            "-id",
+        )
+    )
+
+    # ========================================================
+    # PENDIENTES
+    # ========================================================
+
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path="pendientes",
+    )
+    def pendientes(
+        self,
+        request,
+    ):
+        serializer = (
+            CarpidaPendientesQuerySerializer(
+                data=request.query_params
+            )
+        )
+
+        serializer.is_valid(
+            raise_exception=True
+        )
+
+        data = (
+            serializer.validated_data
+        )
+
+        carpidas = (
+            JornalCarpida.objects
+            .filter(
+                is_deleted=False,
+                liquidada=False,
+                fecha__range=(
+                    data["fecha_desde"],
+                    data["fecha_hasta"],
+                ),
+            )
+            .exclude(
+                detalles_liquidacion__is_deleted=False,
+            )
+            .order_by(
+                "fecha",
+                "id",
+            )
+        )
+
+        items = []
+
+        total = Decimal(
+            "0.00"
+        )
+
+        for carpida in carpidas:
+
+            total += (
+                carpida.importe
+            )
+
+            items.append(
+                {
+                    "id": (
+                        carpida.id
+                    ),
+
+                    "fecha": (
+                        carpida.fecha
+                    ),
+
+                    "tipo_jornada": (
+                        carpida.tipo_jornada
+                    ),
+
+                    "tipo_jornada_display": (
+                        carpida
+                        .get_tipo_jornada_display()
+                    ),
+
+                    "valor_jornal": (
+                        carpida.valor_jornal
+                    ),
+
+                    "importe": (
+                        carpida.importe
+                    ),
+
+                    "observacion": (
+                        carpida.observacion
+                    ),
+
+                    "liquidada": (
+                        carpida.liquidada
+                    ),
+                }
+            )
+
+        return Response(
+            {
+                "fecha_desde": (
+                    data[
+                        "fecha_desde"
+                    ]
+                ),
+
+                "fecha_hasta": (
+                    data[
+                        "fecha_hasta"
+                    ]
+                ),
+
+                "carpidas": items,
+
+                "resumen": {
+                    "cantidad_registros": (
+                        len(items)
+                    ),
+
+                    "total": (
+                        decimal_dos(
+                            total
+                        )
+                    ),
+                },
+            }
+        )
+
+    # ========================================================
+    # LIQUIDAR
+    # ========================================================
+
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="liquidar",
+    )
+    def liquidar(
+        self,
+        request,
+    ):
+        serializer = (
+            LiquidarCarpidaRequestSerializer(
+                data=request.data
+            )
+        )
+
+        serializer.is_valid(
+            raise_exception=True
+        )
+
+        data = (
+            serializer.validated_data
+        )
+
+        ids = data[
+            "carpidas"
+        ]
+
+        cuenta_financiera = (
+            data[
+                "cuenta_financiera"
+            ]
+        )
+
+        usuario = (
+            request.user
+        )
+
+        with transaction.atomic():
+
+            # =================================================
+            # BLOQUEAR Y OBTENER CARPIDAS
+            # =================================================
+
+            carpidas = list(
+                JornalCarpida.objects
+                .select_for_update()
+                .filter(
+                    id__in=ids,
+                    is_deleted=False,
+                )
+                .order_by(
+                    "fecha",
+                    "id",
+                )
+            )
+
+            # =================================================
+            # VALIDAR EXISTENCIA
+            # =================================================
+
+            if (
+                len(carpidas)
+                != len(ids)
+            ):
+                raise ValidationError(
+                    {
+                        "carpidas": (
+                            "Una o más carpidas "
+                            "no existen."
+                        )
+                    }
+                )
+
+            total = Decimal(
+                "0.00"
+            )
+
+            # =================================================
+            # VALIDACIONES INDIVIDUALES
+            # =================================================
+
+            for carpida in carpidas:
+
+                # ---------------------------------------------
+                # PERIODO
+                # ---------------------------------------------
+
+                if not (
+                    data["fecha_desde"]
+                    <= carpida.fecha
+                    <= data["fecha_hasta"]
+                ):
+                    raise ValidationError(
+                        {
+                            "carpidas": (
+                                f"La carpida "
+                                f"#{carpida.id} "
+                                "está fuera del período "
+                                "seleccionado."
+                            )
+                        }
+                    )
+
+                # ---------------------------------------------
+                # LIQUIDADA
+                # ---------------------------------------------
+
+                if carpida.liquidada:
+                    raise ValidationError(
+                        {
+                            "carpidas": (
+                                f"La carpida "
+                                f"#{carpida.id} "
+                                "ya se encuentra pagada."
+                            )
+                        }
+                    )
+
+                # ---------------------------------------------
+                # DETALLE EXISTENTE
+                # ---------------------------------------------
+
+                ya_liquidada = (
+                    DetalleLiquidacionCarpida
+                    .objects
+                    .filter(
+                        jornal_carpida=carpida,
+                        is_deleted=False,
+                    )
+                    .exists()
+                )
+
+                if ya_liquidada:
+                    raise ValidationError(
+                        {
+                            "carpidas": (
+                                f"La carpida "
+                                f"#{carpida.id} "
+                                "ya pertenece a una "
+                                "liquidación."
+                            )
+                        }
+                    )
+
+                # ---------------------------------------------
+                # VALIDAR IMPORTE
+                # ---------------------------------------------
+
+                if (
+                    carpida.importe
+                    is None
+                    or carpida.importe
+                    <= Decimal("0.00")
+                ):
+                    raise ValidationError(
+                        {
+                            "carpidas": (
+                                f"La carpida "
+                                f"#{carpida.id} "
+                                "no posee un importe "
+                                "válido."
+                            )
+                        }
+                    )
+
+                # ---------------------------------------------
+                # TOTAL
+                # ---------------------------------------------
+
+                total += (
+                    carpida.importe
+                )
+
+            total = decimal_dos(
+                total
+            )
+
+            # =================================================
+            # CREAR LIQUIDACION
+            # =================================================
+
+            liquidacion = (
+                LiquidacionCarpida.objects
+                .create(
+                    fecha_desde=(
+                        data[
+                            "fecha_desde"
+                        ]
+                    ),
+
+                    fecha_hasta=(
+                        data[
+                            "fecha_hasta"
+                        ]
+                    ),
+
+                    fecha_pago=(
+                        data[
+                            "fecha_pago"
+                        ]
+                    ),
+
+                    cuenta_financiera=(
+                        cuenta_financiera
+                    ),
+
+                    cantidad_carpidas=(
+                        len(carpidas)
+                    ),
+
+                    total=total,
+
+                    observacion=(
+                        data[
+                            "observacion"
+                        ]
+                    ),
+
+                    user_made=(
+                        usuario
+                    ),
+                )
+            )
+
+            # =================================================
+            # CREAR DETALLES
+            # =================================================
+
+            for carpida in carpidas:
+
+                (
+                    DetalleLiquidacionCarpida
+                    .objects
+                    .create(
+                        liquidacion=(
+                            liquidacion
+                        ),
+
+                        jornal_carpida=(
+                            carpida
+                        ),
+
+                        fecha=(
+                            carpida.fecha
+                        ),
+
+                        tipo_jornada=(
+                            carpida
+                            .tipo_jornada
+                        ),
+
+                        valor_jornal_aplicado=(
+                            carpida
+                            .valor_jornal
+                        ),
+
+                        importe=(
+                            carpida
+                            .importe
+                        ),
+
+                        observacion=(
+                            carpida
+                            .observacion
+                        ),
+
+                        user_made=(
+                            usuario
+                        ),
+                    )
+                )
+
+                # =============================================
+                # MARCAR CARPIDA COMO LIQUIDADA
+                # =============================================
+
+                carpida.liquidada = True
+
+                carpida.user_updated = (
+                    usuario
+                )
+
+                carpida.save(
+                    update_fields=[
+                        "liquidada",
+                        "user_updated",
+                        "updated_at",
+                    ]
+                )
+
+            # =================================================
+            # MOVIMIENTO FINANCIERO
+            # =================================================
+
+            crear_movimiento_liquidacion_carpida(
+                liquidacion=liquidacion,
+                cuenta=cuenta_financiera,
+                usuario=usuario,
+            )
+
+        # =====================================================
+        # RESPUESTA
+        # =====================================================
+
+        resultado = (
+            LiquidacionCarpidaSerializer(
+                liquidacion
+            )
+        )
+
+        return Response(
+            resultado.data,
+            status=(
+                status.HTTP_201_CREATED
+            ),
+        )
+
+
+
+
+
+
+
 # ============================================================
 # RENDICIONES DE VENTA
 # ============================================================

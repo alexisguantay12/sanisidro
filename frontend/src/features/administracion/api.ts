@@ -20,6 +20,12 @@ import type {
 } from "./types";
 
 
+import type {
+  CarpidasPendientesResponse,
+  LiquidacionCarpida,
+  LiquidarCarpidasPayload,
+} from "./types";
+
 // ============================================================
 // PEONES
 // ============================================================
@@ -435,6 +441,71 @@ export async function anularRendicion(
         motivo,
       },
     );
+
+  return response.data;
+}
+
+
+
+// ============================================================
+// CARPIDAS
+// ============================================================
+
+export async function getCarpidasPendientes(
+  fechaDesde: string,
+  fechaHasta: string
+): Promise<CarpidasPendientesResponse> {
+  const response = await api.get<CarpidasPendientesResponse>(
+    "/administracion/carpidas/pendientes/",
+    {
+      params: {
+        fecha_desde: fechaDesde,
+        fecha_hasta: fechaHasta,
+      },
+    }
+  );
+
+  return response.data;
+}
+
+
+// ============================================================
+// LIQUIDACIONES DE CARPIDAS
+// ============================================================
+
+export async function getLiquidacionesCarpidas(): Promise<
+  LiquidacionCarpida[]
+> {
+  const response = await api.get<LiquidacionCarpida[]>(
+    "/administracion/carpidas/"
+  );
+
+  return response.data;
+}
+
+
+export async function getLiquidacionCarpida(
+  id: number
+): Promise<LiquidacionCarpida> {
+  const response = await api.get<LiquidacionCarpida>(
+    `/administracion/carpidas/${id}/`
+  );
+
+  return response.data;
+}
+
+
+// ============================================================
+// PAGAR CARPIDAS
+// ============================================================
+
+export async function liquidarCarpidas(
+  payload: LiquidarCarpidasPayload
+): Promise<LiquidacionCarpida> {
+  const response = await api.post<LiquidacionCarpida>(
+    "/administracion/carpidas/liquidar/",
+    payload
+  );
 
   return response.data;
 }

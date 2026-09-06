@@ -4,7 +4,11 @@ import {
   useState,
 } from "react";
 
-import { X } from "lucide-react";
+import {
+  Minus,
+  Plus,
+  X,
+} from "lucide-react";
 
 import {
   createTractorTercero,
@@ -21,12 +25,17 @@ interface Props {
   onSuccess: () => void;
 }
 
-function money(value: number) {
-  return new Intl.NumberFormat("es-AR", {
-    style: "currency",
-    currency: "ARS",
-    maximumFractionDigits: 2,
-  }).format(value);
+function money(
+  value: number
+) {
+  return new Intl.NumberFormat(
+    "es-AR",
+    {
+      style: "currency",
+      currency: "ARS",
+      maximumFractionDigits: 2,
+    }
+  ).format(value);
 }
 
 function today() {
@@ -41,13 +50,42 @@ export default function TractorCreateTerceroModal({
   onClose,
   onSuccess,
 }: Props) {
-  const [fecha, setFecha] = useState(today());
-  const [proveedor, setProveedor] = useState("");
-  const [horas, setHoras] = useState("");
-  const [precioHora, setPrecioHora] = useState("");
-  const [observacion, setObservacion] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [
+    fecha,
+    setFecha,
+  ] = useState(
+    today()
+  );
+
+  const [
+    proveedor,
+    setProveedor,
+  ] = useState("");
+
+  const [
+    horas,
+    setHoras,
+  ] = useState(1);
+
+  const [
+    precioHora,
+    setPrecioHora,
+  ] = useState("");
+
+  const [
+    observacion,
+    setObservacion,
+  ] = useState("");
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(false);
+
+  const [
+    error,
+    setError,
+  ] = useState("");
 
   useEffect(() => {
     if (!open) {
@@ -56,21 +94,53 @@ export default function TractorCreateTerceroModal({
 
     setFecha(today());
     setProveedor("");
-    setHoras("");
+    setHoras(1);
     setPrecioHora("");
     setObservacion("");
     setError("");
   }, [open]);
 
-  const total = useMemo(
-    () =>
-      Number(horas || 0) *
-      Number(precioHora || 0),
-    [horas, precioHora]
-  );
+  const total =
+    useMemo(() => {
+      return (
+        horas *
+        Number(
+          precioHora || 0
+        )
+      );
+    }, [
+      horas,
+      precioHora,
+    ]);
 
   if (!open) {
     return null;
+  }
+
+  function decreaseHours() {
+    setHoras((current) =>
+      Math.max(
+        0.5,
+        Number(
+          (
+            current - 0.5
+          ).toFixed(1)
+        )
+      )
+    );
+  }
+
+  function increaseHours() {
+    setHoras((current) =>
+      Math.min(
+        50,
+        Number(
+          (
+            current + 0.5
+          ).toFixed(1)
+        )
+      )
+    );
   }
 
   async function handleSubmit(
@@ -78,26 +148,27 @@ export default function TractorCreateTerceroModal({
   ) {
     event.preventDefault();
 
-    const cantidad =
-      Number(horas);
-
     const precio =
-      Number(precioHora);
+      Number(
+        precioHora
+      );
 
     if (!proveedor) {
       setError(
         "Seleccioná un proveedor."
       );
+
       return;
     }
 
     if (
-      cantidad < 1 ||
-      cantidad > 50
+      horas < 0.5 ||
+      horas > 50
     ) {
       setError(
-        "Las horas deben estar entre 1 y 50."
+        "Las horas deben estar entre 0,5 y 50."
       );
+
       return;
     }
 
@@ -105,6 +176,7 @@ export default function TractorCreateTerceroModal({
       setError(
         "El precio por hora debe ser mayor a cero."
       );
+
       return;
     }
 
@@ -114,21 +186,30 @@ export default function TractorCreateTerceroModal({
 
       await createTractorTercero({
         fecha,
-        proveedor: Number(proveedor),
-        cantidad_horas: cantidad,
-        precio_hora: precio,
+        proveedor:
+          Number(
+            proveedor
+          ),
+        cantidad_horas:
+          horas,
+        precio_hora:
+          precio,
         observacion:
           observacion.trim(),
       });
 
       onClose();
+
       await onSuccess();
     } catch (error: any) {
-      console.error(error);
+      console.error(
+        error
+      );
 
       setError(
-        error?.response?.data?.detail ??
-        "No se pudo registrar el trabajo."
+        error?.response?.data
+          ?.detail ??
+          "No se pudo registrar el trabajo."
       );
     } finally {
       setLoading(false);
@@ -163,16 +244,24 @@ export default function TractorCreateTerceroModal({
 
           <button
             type="button"
-            onClick={onClose}
-            disabled={loading}
+            onClick={
+              onClose
+            }
+            disabled={
+              loading
+            }
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[#747D77] transition hover:bg-[#F3F5F3] disabled:opacity-50"
           >
-            <X size={20} />
+            <X
+              size={20}
+            />
           </button>
         </div>
 
         <form
-          onSubmit={handleSubmit}
+          onSubmit={
+            handleSubmit
+          }
           className="flex min-h-0 flex-1 flex-col"
         >
           {/* CONTENIDO */}
@@ -183,6 +272,7 @@ export default function TractorCreateTerceroModal({
               </div>
             )}
 
+            {/* FECHA */}
             <div>
               <label className="mb-2 block text-sm font-semibold text-[#444B47]">
                 Fecha
@@ -191,15 +281,24 @@ export default function TractorCreateTerceroModal({
               <input
                 type="date"
                 required
-                value={fecha}
-                onChange={(e) =>
-                  setFecha(e.target.value)
+                value={
+                  fecha
                 }
-                disabled={loading}
-                className="h-12 w-full rounded-2xl border border-[#DDE3DF] bg-white px-4 text-sm outline-none focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5 disabled:bg-slate-50"
+                onChange={(
+                  e
+                ) =>
+                  setFecha(
+                    e.target.value
+                  )
+                }
+                disabled={
+                  loading
+                }
+                className="h-12 w-full rounded-2xl border border-[#DDE3DF] bg-white px-4 text-sm outline-none transition focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5 disabled:bg-slate-50"
               />
             </div>
 
+            {/* PROVEEDOR */}
             <div>
               <label className="mb-2 block text-sm font-semibold text-[#444B47]">
                 Proveedor
@@ -207,75 +306,179 @@ export default function TractorCreateTerceroModal({
 
               <select
                 required
-                value={proveedor}
-                onChange={(e) =>
-                  setProveedor(e.target.value)
+                value={
+                  proveedor
                 }
-                disabled={loading}
-                className="h-12 w-full rounded-2xl border border-[#DDE3DF] bg-white px-4 text-sm outline-none focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5 disabled:bg-slate-50"
+                onChange={(
+                  e
+                ) =>
+                  setProveedor(
+                    e.target.value
+                  )
+                }
+                disabled={
+                  loading
+                }
+                className="h-12 w-full rounded-2xl border border-[#DDE3DF] bg-white px-4 text-sm outline-none transition focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5 disabled:bg-slate-50"
               >
                 <option value="">
                   Seleccionar proveedor...
                 </option>
 
                 {proveedores.map(
-                  (item) => (
+                  (
+                    item
+                  ) => (
                     <option
-                      key={item.id}
-                      value={item.id}
+                      key={
+                        item.id
+                      }
+                      value={
+                        item.id
+                      }
                     >
-                      {item.nombre}
+                      {
+                        item.nombre
+                      }
                     </option>
                   )
                 )}
               </select>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-[#444B47]">
-                  Horas
+            {/* HORAS */}
+            <div>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <label className="text-sm font-semibold text-[#444B47]">
+                  Cantidad de horas
                 </label>
 
-                <input
-                  type="number"
-                  min={1}
-                  max={50}
-                  step="0.5"
-                  required
-                  placeholder="5"
-                  value={horas}
-                  onChange={(e) =>
-                    setHoras(e.target.value)
-                  }
-                  disabled={loading}
-                  className="h-12 w-full rounded-2xl border border-[#DDE3DF] bg-white px-4 text-sm outline-none focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5 disabled:bg-slate-50"
-                />
+                <span className="shrink-0 text-xs font-medium text-[#8A938D]">
+                  Mín. 0,5 · Máx. 50
+                </span>
               </div>
 
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-[#444B47]">
-                  Precio / hora
-                </label>
+              <div className="flex items-center justify-between rounded-2xl border border-[#E0E5E1] bg-[#FAFBFA] p-2">
+                <button
+                  type="button"
+                  onClick={
+                    decreaseHours
+                  }
+                  disabled={
+                    loading ||
+                    horas <= 0.5
+                  }
+                  className="
+                    flex h-12 w-12
+                    shrink-0
+                    items-center
+                    justify-center
+                    rounded-xl
+                    bg-white
+                    text-[#4F5852]
+                    shadow-sm
+                    transition
+                    hover:bg-[#F2F4F2]
+                    disabled:cursor-not-allowed
+                    disabled:opacity-30
+                  "
+                >
+                  <Minus
+                    size={20}
+                  />
+                </button>
+
+                <div className="min-w-[100px] flex-1 text-center">
+                  <p className="text-3xl font-semibold tracking-tight text-[#18392B]">
+                    {horas.toLocaleString(
+                      "es-AR",
+                      {
+                        minimumFractionDigits:
+                          horas % 1 === 0
+                            ? 0
+                            : 1,
+                        maximumFractionDigits: 1,
+                      }
+                    )}
+                  </p>
+
+                  <p className="mt-0.5 text-xs font-medium text-[#7A837D]">
+                    {horas <= 1
+                      ? "hora"
+                      : "horas"}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={
+                    increaseHours
+                  }
+                  disabled={
+                    loading ||
+                    horas >= 50
+                  }
+                  className="
+                    flex h-12 w-12
+                    shrink-0
+                    items-center
+                    justify-center
+                    rounded-xl
+                    bg-[#EAF2ED]
+                    text-[#18392B]
+                    transition
+                    hover:bg-[#DCE9E0]
+                    disabled:cursor-not-allowed
+                    disabled:opacity-30
+                  "
+                >
+                  <Plus
+                    size={20}
+                  />
+                </button>
+              </div>
+
+              <p className="mt-2 text-center text-xs text-[#828B85]">
+                Cada toque suma o resta 0,5 horas
+              </p>
+            </div>
+
+            {/* PRECIO HORA */}
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-[#444B47]">
+                Precio por hora
+              </label>
+
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-[#7A837D]">
+                  $
+                </span>
 
                 <input
                   type="number"
                   min="0.01"
                   step="0.01"
                   required
-                  placeholder="35000"
-                  value={precioHora}
-                  onChange={(e) =>
+                  placeholder=""
+                  value={
+                    precioHora
+                  }
+                  onChange={(
+                    e
+                  ) =>
                     setPrecioHora(
                       e.target.value
                     )
                   }
-                  disabled={loading}
-                  className="h-12 w-full rounded-2xl border border-[#DDE3DF] bg-white px-4 text-sm outline-none focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5 disabled:bg-slate-50"
+                  disabled={
+                    loading
+                  }
+                  className="h-12 w-full rounded-2xl border border-[#DDE3DF] bg-white pl-9 pr-4 text-sm outline-none transition focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5 disabled:bg-slate-50"
                 />
               </div>
             </div>
 
+            {/* OBSERVACIÓN */}
             <div>
               <label className="mb-2 block text-sm font-semibold text-[#444B47]">
                 Observación
@@ -283,26 +486,57 @@ export default function TractorCreateTerceroModal({
 
               <textarea
                 rows={3}
-                value={observacion}
-                onChange={(e) =>
+                value={
+                  observacion
+                }
+                onChange={(
+                  e
+                ) =>
                   setObservacion(
                     e.target.value
                   )
                 }
                 placeholder="Detalle del trabajo..."
-                disabled={loading}
-                className="w-full resize-none rounded-2xl border border-[#DDE3DF] bg-white px-4 py-3 text-sm outline-none placeholder:text-[#A3AAA5] focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5 disabled:bg-slate-50"
+                disabled={
+                  loading
+                }
+                className="w-full resize-none rounded-2xl border border-[#DDE3DF] bg-white px-4 py-3 text-sm outline-none transition placeholder:text-[#A3AAA5] focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5 disabled:bg-slate-50"
               />
             </div>
 
-            <div className="rounded-[20px] bg-[#18392B] p-4 text-white">
-              <p className="text-xs font-semibold uppercase tracking-wide text-white/60">
-                Importe estimado
-              </p>
+            {/* RESUMEN */}
+            <div className="rounded-[20px] bg-[#F4F7F5] p-4">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#87918A]">
+                    Precio hora
+                  </p>
 
-              <p className="mt-2 text-2xl font-semibold tracking-tight">
-                {money(total)}
-              </p>
+                  <p className="mt-1 font-semibold text-[#1B1E1C]">
+                    {precioHora
+                      ? money(
+                          Number(
+                            precioHora
+                          )
+                        )
+                      : money(
+                          0
+                        )}
+                  </p>
+                </div>
+
+                <div className="text-right">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#87918A]">
+                    Total
+                  </p>
+
+                  <p className="mt-1 text-lg font-semibold text-[#18392B]">
+                    {money(
+                      total
+                    )}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -322,8 +556,12 @@ export default function TractorCreateTerceroModal({
             <div className="flex gap-3">
               <button
                 type="button"
-                onClick={onClose}
-                disabled={loading}
+                onClick={
+                  onClose
+                }
+                disabled={
+                  loading
+                }
                 className="h-12 flex-1 rounded-2xl border border-[#DDE3DF] text-sm font-semibold text-[#59615C] transition hover:bg-[#F7F8F7] disabled:opacity-50"
               >
                 Cancelar
@@ -331,7 +569,9 @@ export default function TractorCreateTerceroModal({
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={
+                  loading
+                }
                 className="h-12 flex-1 rounded-2xl bg-[#18392B] text-sm font-semibold text-white shadow-[0_8px_22px_rgba(24,57,43,0.16)] transition hover:bg-[#204A38] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {loading

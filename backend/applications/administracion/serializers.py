@@ -12,7 +12,10 @@ from applications.administracion.models import (
     RendicionVenta,
     DetalleLiquidacionTarjaExterna,
     DetalleLiquidacionAdministracion,
-    ValorAdministrador
+    ValorAdministrador,
+        # CARPIDAS
+    LiquidacionCarpida,
+    DetalleLiquidacionCarpida,
 )
 
 from applications.finanzas.models import (
@@ -486,6 +489,187 @@ class LiquidarAlmacigoRequestSerializer(
 
     def validate_almacigos(self, value):
         return validar_ids_unicos(value)
+
+
+
+
+# ============================================================
+# CARPIDAS - CONSULTA PENDIENTES
+# ============================================================
+
+
+class CarpidaPendientesQuerySerializer(
+    PeriodoSerializer
+):
+    """
+    Valida el período utilizado para consultar
+    jornales de carpida pendientes de pago.
+    """
+
+    pass
+
+
+# ============================================================
+# CARPIDAS - LIQUIDAR
+# ============================================================
+
+
+class LiquidarCarpidaRequestSerializer(
+    PeriodoSerializer
+):
+    """
+    Request para registrar el pago de una o varias carpidas.
+
+    El frontend solamente indica:
+    - período
+    - carpidas seleccionadas
+    - fecha del pago
+    - cuenta financiera de origen
+    - observación
+
+    Los importes se toman siempre desde los registros
+    existentes en backend.
+    """
+
+    fecha_pago = serializers.DateField()
+
+    cuenta_financiera = (
+        serializers.PrimaryKeyRelatedField(
+            queryset=(
+                CuentaFinanciera.objects
+                .filter(
+                    is_deleted=False,
+                    activa=True,
+                )
+            ),
+        )
+    )
+
+    carpidas = serializers.ListField(
+        child=serializers.IntegerField(
+            min_value=1,
+        ),
+        min_length=1,
+    )
+
+    observacion = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default="",
+    )
+
+    def validate_carpidas(
+        self,
+        value,
+    ):
+        return validar_ids_unicos(
+            value
+        )
+
+
+
+# ============================================================
+# DETALLE LIQUIDACION CARPIDA
+# ============================================================
+
+
+class DetalleLiquidacionCarpidaSerializer(
+    serializers.ModelSerializer
+):
+    tipo_jornada_display = (
+        serializers.SerializerMethodField()
+    )
+
+    class Meta:
+        model = DetalleLiquidacionCarpida
+
+        fields = [
+            "id",
+            "jornal_carpida",
+            "fecha",
+            "tipo_jornada",
+            "tipo_jornada_display",
+            "valor_jornal_aplicado",
+            "importe",
+            "observacion",
+        ]
+
+    def get_tipo_jornada_display(
+        self,
+        obj,
+    ):
+        opciones = {
+            "DIA": "Día",
+            "MEDIO_DIA": "Medio día",
+        }
+
+        return opciones.get(
+            obj.tipo_jornada,
+            obj.tipo_jornada,
+        )
+
+
+# ============================================================
+# LIQUIDACION CARPIDA
+# ============================================================
+
+
+class LiquidacionCarpidaSerializer(
+    serializers.ModelSerializer
+):
+    detalles = (
+        DetalleLiquidacionCarpidaSerializer(
+            many=True,
+            read_only=True,
+        )
+    )
+
+    cuenta_financiera_nombre = (
+        serializers.CharField(
+            source=(
+                "cuenta_financiera.nombre"
+            ),
+            read_only=True,
+        )
+    )
+
+    class Meta:
+        model = LiquidacionCarpida
+
+        fields = [
+            "id",
+
+            "fecha_desde",
+            "fecha_hasta",
+            "fecha_pago",
+
+            "cuenta_financiera",
+            "cuenta_financiera_nombre",
+
+            "cantidad_carpidas",
+            "total",
+
+            "observacion",
+
+            "estado",
+            "fecha_anulacion",
+            "motivo_anulacion",
+
+            "detalles",
+        ]
+
+        read_only_fields = [
+            "id",
+            "cantidad_carpidas",
+            "total",
+            "estado",
+            "fecha_anulacion",
+            "motivo_anulacion",
+            "detalles",
+            "cuenta_financiera_nombre",
+        ]
+
+
 
 
 # ============================================================

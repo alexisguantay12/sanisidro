@@ -3,7 +3,11 @@ import {
   useState,
 } from "react";
 
-import { X } from "lucide-react";
+import {
+  Minus,
+  Plus,
+  X,
+} from "lucide-react";
 
 import {
   createAlmacigo,
@@ -34,7 +38,7 @@ export default function AlmacigoCreateModal({
   const [
     cantidad,
     setCantidad,
-  ] = useState("");
+  ] = useState(1);
 
   const [
     observacion,
@@ -57,7 +61,7 @@ export default function AlmacigoCreateModal({
     }
 
     setFecha(today());
-    setCantidad("");
+    setCantidad(1);
     setObservacion("");
     setError("");
   }, [open]);
@@ -66,19 +70,29 @@ export default function AlmacigoCreateModal({
     return null;
   }
 
+  function decreaseCantidad() {
+    setCantidad((current) =>
+      Math.max(
+        1,
+        current - 1
+      )
+    );
+  }
+
+  function increaseCantidad() {
+    setCantidad((current) =>
+      current + 1
+    );
+  }
+
   async function handleSubmit(
     event: React.FormEvent
   ) {
     event.preventDefault();
 
-    const cantidadNumero =
-      Number(cantidad);
-
     if (
-      !Number.isInteger(
-        cantidadNumero
-      ) ||
-      cantidadNumero < 1
+      !Number.isInteger(cantidad) ||
+      cantidad < 1
     ) {
       setError(
         "La cantidad debe ser un número entero mayor o igual a 1."
@@ -93,7 +107,7 @@ export default function AlmacigoCreateModal({
 
       await createAlmacigo({
         fecha,
-        cantidad: cantidadNumero,
+        cantidad,
         observacion:
           observacion.trim(),
       });
@@ -128,6 +142,7 @@ export default function AlmacigoCreateModal({
           sm:rounded-[28px]
         "
       >
+        {/* HEADER */}
         <div className="shrink-0 flex items-start justify-between border-b border-black/5 px-5 py-5 sm:px-6">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#859089]">
@@ -153,6 +168,7 @@ export default function AlmacigoCreateModal({
           onSubmit={handleSubmit}
           className="flex min-h-0 flex-1 flex-col"
         >
+          {/* CONTENIDO */}
           <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5 sm:p-6">
             {error && (
               <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
@@ -160,6 +176,7 @@ export default function AlmacigoCreateModal({
               </div>
             )}
 
+            {/* FECHA */}
             <div>
               <label className="mb-2 block text-sm font-semibold text-[#444B47]">
                 Fecha
@@ -175,36 +192,96 @@ export default function AlmacigoCreateModal({
                   )
                 }
                 disabled={loading}
-                className="h-12 w-full rounded-2xl border border-[#DDE3DF] bg-white px-4 text-sm outline-none focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5 disabled:bg-slate-50"
+                className="h-12 w-full rounded-2xl border border-[#DDE3DF] bg-white px-4 text-sm outline-none transition focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5 disabled:bg-slate-50"
               />
             </div>
 
+            {/* CANTIDAD */}
             <div>
-              <label className="mb-2 block text-sm font-semibold text-[#444B47]">
-                Cantidad
-              </label>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <label className="text-sm font-semibold text-[#444B47]">
+                  Cantidad
+                </label>
 
-              <input
-                type="number"
-                min={1}
-                step={1}
-                required
-                placeholder="1"
-                value={cantidad}
-                onChange={(e) =>
-                  setCantidad(
-                    e.target.value
-                  )
-                }
-                disabled={loading}
-                className="h-12 w-full rounded-2xl border border-[#DDE3DF] bg-white px-4 text-sm outline-none focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5 disabled:bg-slate-50"
-              />
+                <span className="shrink-0 text-xs font-medium text-[#8A938D]">
+                  Mín. 1
+                </span>
+              </div>
 
-              <p className="mt-2 text-xs leading-5 text-[#89918C]">
+              <div className="flex items-center justify-between rounded-2xl border border-[#E0E5E1] bg-[#FAFBFA] p-2">
+                <button
+                  type="button"
+                  onClick={
+                    decreaseCantidad
+                  }
+                  disabled={
+                    loading ||
+                    cantidad <= 1
+                  }
+                  className="
+                    flex h-12 w-12
+                    shrink-0
+                    items-center
+                    justify-center
+                    rounded-xl
+                    bg-white
+                    text-[#4F5852]
+                    shadow-sm
+                    transition
+                    hover:bg-[#F2F4F2]
+                    disabled:cursor-not-allowed
+                    disabled:opacity-30
+                  "
+                >
+                  <Minus size={20} />
+                </button>
+
+                <div className="min-w-[100px] flex-1 text-center">
+                  <p className="text-3xl font-semibold tracking-tight text-[#18392B]">
+                    {cantidad}
+                  </p>
+
+                  <p className="mt-0.5 text-xs font-medium text-[#7A837D]">
+                    {cantidad === 1
+                      ? "almácigo"
+                      : "almácigos"}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={
+                    increaseCantidad
+                  }
+                  disabled={loading}
+                  className="
+                    flex h-12 w-12
+                    shrink-0
+                    items-center
+                    justify-center
+                    rounded-xl
+                    bg-[#EAF2ED]
+                    text-[#18392B]
+                    transition
+                    hover:bg-[#DCE9E0]
+                    disabled:cursor-not-allowed
+                    disabled:opacity-30
+                  "
+                >
+                  <Plus size={20} />
+                </button>
+              </div>
+
+              <p className="mt-2 text-center text-xs leading-5 text-[#89918C]">
+                Cada toque suma o resta 1 unidad.
+              </p>
+
+              <p className="mt-1 text-center text-xs leading-5 text-[#89918C]">
                 El importe será calculado automáticamente con el valor configurado actualmente.
               </p>
             </div>
 
+            {/* OBSERVACIÓN */}
             <div>
               <label className="mb-2 block text-sm font-semibold text-[#444B47]">
                 Observación
@@ -220,11 +297,12 @@ export default function AlmacigoCreateModal({
                 }
                 placeholder="Ej. Almácigos utilizados en lote norte..."
                 disabled={loading}
-                className="w-full resize-none rounded-2xl border border-[#DDE3DF] bg-white px-4 py-3 text-sm outline-none placeholder:text-[#A3AAA5] focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5 disabled:bg-slate-50"
+                className="w-full resize-none rounded-2xl border border-[#DDE3DF] bg-white px-4 py-3 text-sm outline-none transition placeholder:text-[#A3AAA5] focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5 disabled:bg-slate-50"
               />
             </div>
           </div>
 
+          {/* FOOTER */}
           <div
             className="
               shrink-0

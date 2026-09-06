@@ -281,22 +281,14 @@ export default function InsumoCreateModal({
                   disabled={loading}
                   className="h-12 w-full rounded-2xl border border-[#DDE3DF] bg-white px-4 text-sm outline-none focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5 disabled:bg-slate-50"
                 >
-                  <option value="l">
-                    Litros
+                  <option value="ml">
+                    Mililitros
                   </option>
 
                   <option value="g">
                     Gramos
                   </option>
-
-                  <option value="kg">
-                    Kilogramos
-                  </option>
-
-                  <option value="ml">
-                    Mililitros
-                  </option>
-
+                  
                   <option value="unidad">
                     Unidad
                   </option>

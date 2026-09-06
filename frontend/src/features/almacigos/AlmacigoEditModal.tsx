@@ -3,7 +3,11 @@ import {
   useState,
 } from "react";
 
-import { X } from "lucide-react";
+import {
+  Minus,
+  Plus,
+  X,
+} from "lucide-react";
 
 import {
   updateAlmacigo,
@@ -34,7 +38,7 @@ export default function AlmacigoEditModal({
   const [
     cantidad,
     setCantidad,
-  ] = useState("");
+  ] = useState(1);
 
   const [
     observacion,
@@ -64,7 +68,7 @@ export default function AlmacigoEditModal({
     );
 
     setCantidad(
-      String(
+      Number(
         almacigo.cantidad
       )
     );
@@ -86,19 +90,39 @@ export default function AlmacigoEditModal({
     return null;
   }
 
+  function decreaseCantidad() {
+    setCantidad((current) =>
+      Math.max(
+        1,
+        current - 1
+      )
+    );
+  }
+
+  function increaseCantidad() {
+    setCantidad((current) =>
+      current + 1
+    );
+  }
+
   async function handleSubmit(
     event: React.FormEvent
   ) {
     event.preventDefault();
 
-    const cantidadNumero =
-      Number(cantidad);
+    /*
+     * IMPORTANTE:
+     * aunque arriba hacemos return si almacigo es null,
+     * dentro de esta función TypeScript puede volver
+     * a considerar que es nullable.
+     */
+    if (!almacigo) {
+      return;
+    }
 
     if (
-      !Number.isInteger(
-        cantidadNumero
-      ) ||
-      cantidadNumero < 1
+      !Number.isInteger(cantidad) ||
+      cantidad < 1
     ) {
       setError(
         "La cantidad debe ser un número entero mayor o igual a 1."
@@ -110,13 +134,12 @@ export default function AlmacigoEditModal({
     try {
       setLoading(true);
       setError("");
-      if(!almacigo) return;
+
       await updateAlmacigo(
         almacigo.id,
         {
           fecha,
-          cantidad:
-            cantidadNumero,
+          cantidad,
           observacion:
             observacion.trim(),
         }
@@ -140,8 +163,20 @@ export default function AlmacigoEditModal({
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/40 backdrop-blur-[2px] sm:items-center sm:p-4">
-      <div className="flex max-h-[90dvh] w-full flex-col rounded-t-[28px] bg-white shadow-2xl sm:max-h-[90vh] sm:max-w-lg sm:rounded-[28px]">
-        <div className="flex shrink-0 items-start justify-between border-b border-black/5 px-5 py-5 sm:px-6">
+      <div
+        className="
+          flex w-full flex-col
+          max-h-[90dvh]
+          rounded-t-[28px]
+          bg-white
+          shadow-2xl
+          sm:max-h-[90vh]
+          sm:max-w-lg
+          sm:rounded-[28px]
+        "
+      >
+        {/* HEADER */}
+        <div className="shrink-0 flex items-start justify-between border-b border-black/5 px-5 py-5 sm:px-6">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#859089]">
               Almácigos
@@ -156,7 +191,7 @@ export default function AlmacigoEditModal({
             type="button"
             onClick={onClose}
             disabled={loading}
-            className="flex h-10 w-10 items-center justify-center rounded-xl text-[#747D77] hover:bg-[#F3F5F3]"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[#747D77] transition hover:bg-[#F3F5F3] disabled:opacity-50"
           >
             <X size={20} />
           </button>
@@ -166,6 +201,7 @@ export default function AlmacigoEditModal({
           onSubmit={handleSubmit}
           className="flex min-h-0 flex-1 flex-col"
         >
+          {/* CONTENIDO */}
           <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5 sm:p-6">
             {error && (
               <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
@@ -173,6 +209,7 @@ export default function AlmacigoEditModal({
               </div>
             )}
 
+            {/* FECHA */}
             <div>
               <label className="mb-2 block text-sm font-semibold text-[#444B47]">
                 Fecha
@@ -188,35 +225,96 @@ export default function AlmacigoEditModal({
                   )
                 }
                 disabled={loading}
-                className="h-12 w-full rounded-2xl border border-[#DDE3DF] bg-white px-4 text-sm outline-none focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5"
+                className="h-12 w-full rounded-2xl border border-[#DDE3DF] bg-white px-4 text-sm outline-none transition focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5 disabled:bg-slate-50"
               />
             </div>
 
+            {/* CANTIDAD */}
             <div>
-              <label className="mb-2 block text-sm font-semibold text-[#444B47]">
-                Cantidad
-              </label>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <label className="text-sm font-semibold text-[#444B47]">
+                  Cantidad
+                </label>
 
-              <input
-                type="number"
-                min={1}
-                step={1}
-                required
-                value={cantidad}
-                onChange={(e) =>
-                  setCantidad(
-                    e.target.value
-                  )
-                }
-                disabled={loading}
-                className="h-12 w-full rounded-2xl border border-[#DDE3DF] bg-white px-4 text-sm outline-none focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5"
-              />
+                <span className="shrink-0 text-xs font-medium text-[#8A938D]">
+                  Mín. 1
+                </span>
+              </div>
 
-              <p className="mt-2 text-xs leading-5 text-[#89918C]">
+              <div className="flex items-center justify-between rounded-2xl border border-[#E0E5E1] bg-[#FAFBFA] p-2">
+                <button
+                  type="button"
+                  onClick={
+                    decreaseCantidad
+                  }
+                  disabled={
+                    loading ||
+                    cantidad <= 1
+                  }
+                  className="
+                    flex h-12 w-12
+                    shrink-0
+                    items-center
+                    justify-center
+                    rounded-xl
+                    bg-white
+                    text-[#4F5852]
+                    shadow-sm
+                    transition
+                    hover:bg-[#F2F4F2]
+                    disabled:cursor-not-allowed
+                    disabled:opacity-30
+                  "
+                >
+                  <Minus size={20} />
+                </button>
+
+                <div className="min-w-[100px] flex-1 text-center">
+                  <p className="text-3xl font-semibold tracking-tight text-[#18392B]">
+                    {cantidad}
+                  </p>
+
+                  <p className="mt-0.5 text-xs font-medium text-[#7A837D]">
+                    {cantidad === 1
+                      ? "almácigo"
+                      : "almácigos"}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={
+                    increaseCantidad
+                  }
+                  disabled={loading}
+                  className="
+                    flex h-12 w-12
+                    shrink-0
+                    items-center
+                    justify-center
+                    rounded-xl
+                    bg-[#EAF2ED]
+                    text-[#18392B]
+                    transition
+                    hover:bg-[#DCE9E0]
+                    disabled:cursor-not-allowed
+                    disabled:opacity-30
+                  "
+                >
+                  <Plus size={20} />
+                </button>
+              </div>
+
+              <p className="mt-2 text-center text-xs leading-5 text-[#89918C]">
+                Cada toque suma o resta 1 unidad.
+              </p>
+
+              <p className="mt-1 text-center text-xs leading-5 text-[#89918C]">
                 El importe se recalculará manteniendo el valor unitario con el que fue creado este registro.
               </p>
             </div>
 
+            {/* OBSERVACIÓN */}
             <div>
               <label className="mb-2 block text-sm font-semibold text-[#444B47]">
                 Observación
@@ -231,18 +329,30 @@ export default function AlmacigoEditModal({
                   )
                 }
                 disabled={loading}
-                className="w-full resize-none rounded-2xl border border-[#DDE3DF] px-4 py-3 text-sm outline-none focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5"
+                className="w-full resize-none rounded-2xl border border-[#DDE3DF] bg-white px-4 py-3 text-sm outline-none transition focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5 disabled:bg-slate-50"
               />
             </div>
           </div>
 
-          <div className="shrink-0 border-t border-black/5 bg-white px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+16px)] sm:px-6 sm:pb-5">
+          {/* FOOTER */}
+          <div
+            className="
+              shrink-0
+              border-t border-black/5
+              bg-white
+              px-5
+              pt-3
+              pb-[calc(env(safe-area-inset-bottom)+16px)]
+              sm:px-6
+              sm:pb-5
+            "
+          >
             <div className="flex gap-3">
               <button
                 type="button"
                 onClick={onClose}
                 disabled={loading}
-                className="h-12 flex-1 rounded-2xl border border-[#DDE3DF] text-sm font-semibold text-[#59615C]"
+                className="h-12 flex-1 rounded-2xl border border-[#DDE3DF] text-sm font-semibold text-[#59615C] transition hover:bg-[#F7F8F7] disabled:opacity-50"
               >
                 Cancelar
               </button>
@@ -250,11 +360,11 @@ export default function AlmacigoEditModal({
               <button
                 type="submit"
                 disabled={loading}
-                className="h-12 flex-1 rounded-2xl bg-[#18392B] text-sm font-semibold text-white disabled:opacity-50"
+                className="h-12 flex-1 rounded-2xl bg-[#18392B] text-sm font-semibold text-white shadow-[0_8px_22px_rgba(24,57,43,0.16)] transition hover:bg-[#204A38] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {loading
                   ? "Guardando..."
-                  : "Guardar"}
+                  : "Guardar cambios"}
               </button>
             </div>
           </div>

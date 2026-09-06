@@ -1427,3 +1427,229 @@ class DetalleLiquidacionAdministracion(
             f"{self.mes}/{self.anio} - "
             f"${self.importe}"
         )
+
+
+
+
+
+
+
+# ============================================================
+# LIQUIDACION DE CARPIDAS
+# ============================================================
+
+
+class LiquidacionCarpida(BaseAbstractWithUser):
+    """
+    Representa un pago de uno o varios jornales de carpida.
+
+    La cabecera guarda los datos generales del pago.
+    Los valores históricos de cada carpida quedan congelados
+    en DetalleLiquidacionCarpida.
+
+    El movimiento financiero correspondiente se genera
+    desde el módulo de administración al registrar el pago.
+    """
+
+    fecha_desde = models.DateField(
+        verbose_name="fecha desde",
+    )
+
+    fecha_hasta = models.DateField(
+        verbose_name="fecha hasta",
+    )
+
+    fecha_pago = models.DateField(
+        verbose_name="fecha de pago",
+        db_index=True,
+    )
+
+    cuenta_financiera = models.ForeignKey(
+        "finanzas.CuentaFinanciera",
+        on_delete=models.PROTECT,
+        related_name="liquidaciones_carpidas",
+        verbose_name="cuenta financiera",
+    )
+
+    cantidad_carpidas = models.PositiveIntegerField(
+        default=0,
+        verbose_name="cantidad de carpidas",
+    )
+
+    total = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        validators=[
+            MinValueValidator(
+                Decimal("0.00")
+            ),
+        ],
+        verbose_name="total",
+    )
+
+    observacion = models.TextField(
+        blank=True,
+        default="",
+        verbose_name="observación",
+    )
+
+    class Estado(models.TextChoices):
+        ACTIVA = "ACTIVA", "Activa"
+        ANULADA = "ANULADA", "Anulada"
+
+    estado = models.CharField(
+        max_length=20,
+        choices=Estado.choices,
+        default=Estado.ACTIVA,
+        db_index=True,
+        verbose_name="estado",
+    )
+
+    fecha_anulacion = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="fecha de anulación",
+    )
+
+    motivo_anulacion = models.TextField(
+        blank=True,
+        default="",
+        verbose_name="motivo de anulación",
+    )
+
+    class Meta:
+        ordering = [
+            "-fecha_pago",
+            "-id",
+        ]
+
+        verbose_name = "liquidación de carpidas"
+        verbose_name_plural = "liquidaciones de carpidas"
+
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(
+                    fecha_hasta__gte=F(
+                        "fecha_desde"
+                    )
+                ),
+                name=(
+                    "liquidacion_carpida_"
+                    "periodo_valido"
+                ),
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"Liquidación carpidas #{self.pk} - "
+            f"${self.total}"
+        )
+
+
+# ============================================================
+# DETALLE LIQUIDACION CARPIDA
+# ============================================================
+
+
+class DetalleLiquidacionCarpida(
+    BaseAbstractWithUser
+):
+    """
+    Representa una carpida incluida en una liquidación.
+
+    Se guardan los datos económicos como snapshot para
+    conservar exactamente lo que fue pagado, aunque luego
+    cambie el valor del jornal o cualquier configuración.
+
+    Una carpida solamente puede pertenecer a una
+    liquidación activa.
+    """
+
+    liquidacion = models.ForeignKey(
+        LiquidacionCarpida,
+        on_delete=models.PROTECT,
+        related_name="detalles",
+        verbose_name="liquidación",
+    )
+
+    jornal_carpida = models.ForeignKey(
+        "gestion.JornalCarpida",
+        on_delete=models.PROTECT,
+        related_name="detalles_liquidacion",
+        verbose_name="jornal de carpida",
+    )
+
+    fecha = models.DateField(
+        verbose_name="fecha",
+    )
+
+    tipo_jornada = models.CharField(
+        max_length=20,
+        verbose_name="tipo de jornada",
+    )
+
+    valor_jornal_aplicado = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=[
+            MinValueValidator(
+                Decimal("0.01")
+            ),
+        ],
+        verbose_name="valor jornal aplicado",
+    )
+
+    importe = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        validators=[
+            MinValueValidator(
+                Decimal("0.00")
+            ),
+        ],
+        verbose_name="importe",
+    )
+
+    observacion = models.TextField(
+        blank=True,
+        default="",
+        verbose_name="observación",
+    )
+
+    class Meta:
+        ordering = [
+            "fecha",
+            "id",
+        ]
+
+        verbose_name = (
+            "detalle de liquidación de carpida"
+        )
+
+        verbose_name_plural = (
+            "detalles de liquidaciones de carpidas"
+        )
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "jornal_carpida",
+                ],
+                condition=Q(
+                    is_deleted=False,
+                ),
+                name=(
+                    "unique_jornal_carpida_"
+                    "liquidado_activo"
+                ),
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"Carpida #{self.jornal_carpida_id} - "
+            f"{self.fecha} - "
+            f"${self.importe}"
+        )

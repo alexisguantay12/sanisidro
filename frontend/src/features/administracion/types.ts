@@ -586,3 +586,113 @@ export interface TarjaExternaPendiente {
 export interface AnularPayload {
   motivo: string;
 }
+
+
+
+// ============================================================
+// CARPIDAS
+// ============================================================
+
+export interface CarpidaPendiente {
+  id: number;
+  fecha: string;
+  tipo_jornada: string;
+  tipo_jornada_display: string;
+  valor_jornal: string;
+  importe: string;
+  observacion: string;
+  liquidada: boolean;
+}
+
+export interface CarpidasPendientesResumen {
+  cantidad_registros: number;
+  total: string;
+}
+
+export interface CarpidasPendientesResponse {
+  fecha_desde: string;
+  fecha_hasta: string;
+
+  carpidas: CarpidaPendiente[];
+
+  resumen: CarpidasPendientesResumen;
+}
+
+
+// ============================================================
+// DETALLE LIQUIDACION CARPIDA
+// ============================================================
+
+export interface DetalleLiquidacionCarpida {
+  id: number;
+
+  jornal_carpida: number;
+
+  fecha: string;
+
+  tipo_jornada: string;
+
+  tipo_jornada_display: string;
+
+  valor_jornal_aplicado: string;
+
+  importe: string;
+
+  observacion: string;
+}
+
+
+// ============================================================
+// LIQUIDACION CARPIDA
+// ============================================================
+
+export type EstadoLiquidacionCarpida =
+  | "ACTIVA"
+  | "ANULADA";
+
+export interface LiquidacionCarpida {
+  id: number;
+
+  fecha_desde: string;
+
+  fecha_hasta: string;
+
+  fecha_pago: string;
+
+  cuenta_financiera: number;
+
+  cuenta_financiera_nombre: string;
+
+  cantidad_carpidas: number;
+
+  total: string;
+
+  observacion: string;
+
+  estado: EstadoLiquidacionCarpida;
+
+  fecha_anulacion: string | null;
+
+  motivo_anulacion: string;
+
+  detalles: DetalleLiquidacionCarpida[];
+}
+
+
+// ============================================================
+// PAYLOAD LIQUIDAR CARPIDAS
+// ============================================================
+
+export interface LiquidarCarpidasPayload {
+  fecha_desde: string;
+
+  fecha_hasta: string;
+
+  fecha_pago: string;
+
+  cuenta_financiera: number;
+
+  carpidas: number[];
+
+  observacion?: string;
+}

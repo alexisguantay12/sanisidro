@@ -5,7 +5,8 @@ import {
 } from "react";
 
 import {
-  Clock3,
+  Minus,
+  Plus,
   X,
 } from "lucide-react";
 
@@ -20,12 +21,17 @@ interface Props {
   onSuccess: () => void;
 }
 
-function money(value: string | number) {
-  return new Intl.NumberFormat("es-AR", {
-    style: "currency",
-    currency: "ARS",
-    maximumFractionDigits: 2,
-  }).format(Number(value));
+function money(
+  value: string | number
+) {
+  return new Intl.NumberFormat(
+    "es-AR",
+    {
+      style: "currency",
+      currency: "ARS",
+      maximumFractionDigits: 2,
+    }
+  ).format(Number(value));
 }
 
 function today() {
@@ -39,13 +45,36 @@ export default function TractorCreateSergioModal({
   onClose,
   onSuccess,
 }: Props) {
-  const [fecha, setFecha] = useState(today());
-  const [horas, setHoras] = useState("");
-  const [observacion, setObservacion] = useState("");
-  const [valorHora, setValorHora] = useState<number | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [loadingConfig, setLoadingConfig] = useState(false);
-  const [error, setError] = useState("");
+  const [fecha, setFecha] =
+    useState(today());
+
+  const [horas, setHoras] =
+    useState(1);
+
+  const [
+    observacion,
+    setObservacion,
+  ] = useState("");
+
+  const [
+    valorHora,
+    setValorHora,
+  ] = useState<number | null>(
+    null
+  );
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(false);
+
+  const [
+    loadingConfig,
+    setLoadingConfig,
+  ] = useState(false);
+
+  const [error, setError] =
+    useState("");
 
   useEffect(() => {
     if (!open) {
@@ -53,7 +82,7 @@ export default function TractorCreateSergioModal({
     }
 
     setFecha(today());
-    setHoras("");
+    setHoras(1);
     setObservacion("");
     setError("");
 
@@ -66,7 +95,9 @@ export default function TractorCreateSergioModal({
 
         setValorHora(
           config
-            ? Number(config.valor_hora_sergio)
+            ? Number(
+                config.valor_hora_sergio
+              )
             : null
         );
       } catch (error) {
@@ -80,19 +111,46 @@ export default function TractorCreateSergioModal({
     loadConfig();
   }, [open]);
 
-  const total = useMemo(() => {
-    if (!valorHora) {
-      return 0;
-    }
+  const total =
+    useMemo(() => {
+      if (!valorHora) {
+        return 0;
+      }
 
-    return (
-      Number(horas || 0) *
-      valorHora
-    );
-  }, [horas, valorHora]);
+      return horas * valorHora;
+    }, [
+      horas,
+      valorHora,
+    ]);
 
   if (!open) {
     return null;
+  }
+
+  function decreaseHours() {
+    setHoras((current) =>
+      Math.max(
+        0.5,
+        Number(
+          (
+            current - 0.5
+          ).toFixed(1)
+        )
+      )
+    );
+  }
+
+  function increaseHours() {
+    setHoras((current) =>
+      Math.min(
+        50,
+        Number(
+          (
+            current + 0.5
+          ).toFixed(1)
+        )
+      )
+    );
   }
 
   async function handleSubmit(
@@ -100,16 +158,12 @@ export default function TractorCreateSergioModal({
   ) {
     event.preventDefault();
 
-    const cantidad =
-      Number(horas);
-
     if (
-      !cantidad ||
-      cantidad < 1 ||
-      cantidad > 50
+      horas < 0.5 ||
+      horas > 50
     ) {
       setError(
-        "Las horas deben estar entre 1 y 50."
+        "Las horas deben estar entre 0,5 y 50."
       );
       return;
     }
@@ -120,19 +174,22 @@ export default function TractorCreateSergioModal({
 
       await createTractorSergio({
         fecha,
-        cantidad_horas: cantidad,
+        cantidad_horas:
+          horas,
         observacion:
           observacion.trim(),
       });
 
       onClose();
+
       await onSuccess();
     } catch (error: any) {
       console.error(error);
 
       setError(
-        error?.response?.data?.detail ??
-        "No se pudo registrar el trabajo."
+        error?.response?.data
+          ?.detail ??
+          "No se pudo registrar el trabajo."
       );
     } finally {
       setLoading(false);
@@ -176,7 +233,9 @@ export default function TractorCreateSergioModal({
         </div>
 
         <form
-          onSubmit={handleSubmit}
+          onSubmit={
+            handleSubmit
+          }
           className="flex min-h-0 flex-1 flex-col"
         >
           {/* CONTENIDO */}
@@ -187,6 +246,7 @@ export default function TractorCreateSergioModal({
               </div>
             )}
 
+            {/* FECHA */}
             <div>
               <label className="mb-2 block text-sm font-semibold text-[#444B47]">
                 Fecha
@@ -197,45 +257,111 @@ export default function TractorCreateSergioModal({
                 required
                 value={fecha}
                 onChange={(e) =>
-                  setFecha(e.target.value)
+                  setFecha(
+                    e.target.value
+                  )
                 }
-                disabled={loading}
+                disabled={
+                  loading
+                }
                 className="h-12 w-full rounded-2xl border border-[#DDE3DF] bg-white px-4 text-sm outline-none transition focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5 disabled:bg-slate-50"
               />
             </div>
 
+            {/* HORAS */}
             <div>
-              <label className="mb-2 block text-sm font-semibold text-[#444B47]">
-                Cantidad de horas
-              </label>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <label className="text-sm font-semibold text-[#444B47]">
+                  Cantidad de horas
+                </label>
 
-              <div className="relative">
-                <Clock3
-                  size={18}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-[#929A95]"
-                />
-
-                <input
-                  type="number"
-                  min={1}
-                  max={50}
-                  step="0.5"
-                  required
-                  placeholder="Ej. 5"
-                  value={horas}
-                  onChange={(e) =>
-                    setHoras(e.target.value)
-                  }
-                  disabled={loading}
-                  className="h-12 w-full rounded-2xl border border-[#DDE3DF] bg-white pl-11 pr-4 text-sm outline-none transition focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5 disabled:bg-slate-50"
-                />
+                <span className="shrink-0 text-xs font-medium text-[#8A938D]">
+                  Mín. 0,5 · Máx. 50
+                </span>
               </div>
 
-              <p className="mt-2 text-xs text-[#828B85]">
-                Mínimo 1 · Máximo 50 horas
+              <div className="flex items-center justify-between rounded-2xl border border-[#E0E5E1] bg-[#FAFBFA] p-2">
+                <button
+                  type="button"
+                  onClick={
+                    decreaseHours
+                  }
+                  disabled={
+                    loading ||
+                    horas <= 0.5
+                  }
+                  className="
+                    flex h-12 w-12
+                    shrink-0
+                    items-center
+                    justify-center
+                    rounded-xl
+                    bg-white
+                    text-[#4F5852]
+                    shadow-sm
+                    transition
+                    hover:bg-[#F2F4F2]
+                    disabled:cursor-not-allowed
+                    disabled:opacity-30
+                  "
+                >
+                  <Minus size={20} />
+                </button>
+
+                <div className="min-w-[100px] flex-1 text-center">
+                  <p className="text-3xl font-semibold tracking-tight text-[#18392B]">
+                    {horas.toLocaleString(
+                      "es-AR",
+                      {
+                        minimumFractionDigits:
+                          horas % 1 === 0
+                            ? 0
+                            : 1,
+                        maximumFractionDigits: 1,
+                      }
+                    )}
+                  </p>
+
+                  <p className="mt-0.5 text-xs font-medium text-[#7A837D]">
+                    {horas <= 1
+                      ? "hora"
+                      : "horas"}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={
+                    increaseHours
+                  }
+                  disabled={
+                    loading ||
+                    horas >= 50
+                  }
+                  className="
+                    flex h-12 w-12
+                    shrink-0
+                    items-center
+                    justify-center
+                    rounded-xl
+                    bg-[#EAF2ED]
+                    text-[#18392B]
+                    transition
+                    hover:bg-[#DCE9E0]
+                    disabled:cursor-not-allowed
+                    disabled:opacity-30
+                  "
+                >
+                  <Plus size={20} />
+                </button>
+              </div>
+
+              <p className="mt-2 text-center text-xs text-[#828B85]">
+                Cada toque suma o resta 0,5 horas
               </p>
             </div>
 
+            {/* OBSERVACIÓN */}
             <div>
               <label className="mb-2 block text-sm font-semibold text-[#444B47]">
                 Observación
@@ -244,15 +370,22 @@ export default function TractorCreateSergioModal({
               <textarea
                 rows={3}
                 placeholder="Detalle del trabajo realizado..."
-                value={observacion}
-                onChange={(e) =>
-                  setObservacion(e.target.value)
+                value={
+                  observacion
                 }
-                disabled={loading}
+                onChange={(e) =>
+                  setObservacion(
+                    e.target.value
+                  )
+                }
+                disabled={
+                  loading
+                }
                 className="w-full resize-none rounded-2xl border border-[#DDE3DF] bg-white px-4 py-3 text-sm outline-none transition placeholder:text-[#A3AAA5] focus:border-[#9FB4A6] focus:ring-4 focus:ring-[#18392B]/5 disabled:bg-slate-50"
               />
             </div>
 
+            {/* RESUMEN */}
             <div className="rounded-[20px] bg-[#F4F7F5] p-4">
               <div className="flex items-center justify-between gap-4">
                 <div>
@@ -264,7 +397,9 @@ export default function TractorCreateSergioModal({
                     {loadingConfig
                       ? "Cargando..."
                       : valorHora
-                        ? money(valorHora)
+                        ? money(
+                            valorHora
+                          )
                         : "Sin configurar"}
                   </p>
                 </div>
@@ -275,7 +410,9 @@ export default function TractorCreateSergioModal({
                   </p>
 
                   <p className="mt-1 text-lg font-semibold text-[#18392B]">
-                    {money(total)}
+                    {money(
+                      total
+                    )}
                   </p>
                 </div>
               </div>
@@ -298,8 +435,12 @@ export default function TractorCreateSergioModal({
             <div className="flex gap-3">
               <button
                 type="button"
-                onClick={onClose}
-                disabled={loading}
+                onClick={
+                  onClose
+                }
+                disabled={
+                  loading
+                }
                 className="h-12 flex-1 rounded-2xl border border-[#DDE3DF] text-sm font-semibold text-[#59615C] transition hover:bg-[#F7F8F7] disabled:opacity-50"
               >
                 Cancelar
