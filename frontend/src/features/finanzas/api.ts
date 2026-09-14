@@ -5,6 +5,7 @@ import type {
   CategoriaPayload,
   CuentaFinanciera,
   CuentaMovimientosResponse,
+  CambioMonedaPayload,
   CuentaPayload,
   GrupoFinanciero,
   GrupoPayload,
@@ -13,25 +14,33 @@ import type {
   ResumenFinanciero,
   CategoriaSelector,
   CuentaSelector,
-  PaginatedResponse
+  PaginatedResponse,
 } from "./types";
 
 
-const BASE = "/finanzas";
+const BASE =
+  "/finanzas";
 
 
 /* =========================================================
    GRUPOS
    ========================================================= */
 
-
 export async function getGrupos(
-  params?: Record<string, unknown>
+  params?: Record<
+    string,
+    unknown
+  >
 ) {
+
   const response =
-    await api.get<GrupoFinanciero[]>(
+    await api.get<
+      GrupoFinanciero[]
+    >(
       `${BASE}/grupos/`,
-      { params }
+      {
+        params,
+      }
     );
 
   return response.data;
@@ -41,8 +50,11 @@ export async function getGrupos(
 export async function createGrupo(
   data: GrupoPayload
 ) {
+
   const response =
-    await api.post<GrupoFinanciero>(
+    await api.post<
+      GrupoFinanciero
+    >(
       `${BASE}/grupos/`,
       data
     );
@@ -55,8 +67,11 @@ export async function updateGrupo(
   id: number,
   data: GrupoPayload
 ) {
+
   const response =
-    await api.patch<GrupoFinanciero>(
+    await api.patch<
+      GrupoFinanciero
+    >(
       `${BASE}/grupos/${id}/`,
       data
     );
@@ -68,6 +83,7 @@ export async function updateGrupo(
 export async function deleteGrupo(
   id: number
 ) {
+
   await api.delete(
     `${BASE}/grupos/${id}/`
   );
@@ -75,23 +91,33 @@ export async function deleteGrupo(
 
 
 /* =========================================================
-   CATEGORÍAS
+   CATEGORIAS
    ========================================================= */
 
-
 export async function getCategorias(
-  tipo?: "INGRESO" | "GASTO",
-  extraParams?: Record<string, unknown>
+  tipo?:
+    | "INGRESO"
+    | "GASTO",
+
+  extraParams?: Record<
+    string,
+    unknown
+  >
 ) {
+
   const response =
-    await api.get<CategoriaFinanciera[]>(
+    await api.get<
+      CategoriaFinanciera[]
+    >(
       `${BASE}/categorias/`,
       {
         params: {
           ...extraParams,
 
           ...(tipo
-            ? { tipo }
+            ? {
+                tipo,
+              }
             : {}),
         },
       }
@@ -104,8 +130,11 @@ export async function getCategorias(
 export async function createCategoria(
   data: CategoriaPayload
 ) {
+
   const response =
-    await api.post<CategoriaFinanciera>(
+    await api.post<
+      CategoriaFinanciera
+    >(
       `${BASE}/categorias/`,
       data
     );
@@ -118,8 +147,11 @@ export async function updateCategoria(
   id: number,
   data: CategoriaPayload
 ) {
+
   const response =
-    await api.patch<CategoriaFinanciera>(
+    await api.patch<
+      CategoriaFinanciera
+    >(
       `${BASE}/categorias/${id}/`,
       data
     );
@@ -131,12 +163,16 @@ export async function updateCategoria(
 export async function deleteCategoria(
   id: number
 ) {
+
   await api.delete(
     `${BASE}/categorias/${id}/`
   );
 }
 
 
+/* =========================================================
+   SELECTORES
+   ========================================================= */
 
 export async function getCuentasSelector() {
 
@@ -172,18 +208,26 @@ export async function getCategoriasSelector(
   return response.data;
 }
 
+
 /* =========================================================
    CUENTAS
    ========================================================= */
 
-
 export async function getCuentas(
-  params?: Record<string, unknown>
+  params?: Record<
+    string,
+    unknown
+  >
 ) {
+
   const response =
-    await api.get<CuentaFinanciera[]>(
+    await api.get<
+      CuentaFinanciera[]
+    >(
       `${BASE}/cuentas/`,
-      { params }
+      {
+        params,
+      }
     );
 
   return response.data;
@@ -193,8 +237,11 @@ export async function getCuentas(
 export async function createCuenta(
   data: CuentaPayload
 ) {
+
   const response =
-    await api.post<CuentaFinanciera>(
+    await api.post<
+      CuentaFinanciera
+    >(
       `${BASE}/cuentas/`,
       data
     );
@@ -207,8 +254,11 @@ export async function updateCuenta(
   id: number,
   data: CuentaPayload
 ) {
+
   const response =
-    await api.patch<CuentaFinanciera>(
+    await api.patch<
+      CuentaFinanciera
+    >(
       `${BASE}/cuentas/${id}/`,
       data
     );
@@ -220,10 +270,12 @@ export async function updateCuenta(
 export async function deleteCuenta(
   id: number
 ) {
+
   await api.delete(
     `${BASE}/cuentas/${id}/`
   );
 }
+
 
 export async function getCuentaMovimientos(
   id: number,
@@ -231,7 +283,9 @@ export async function getCuentaMovimientos(
 ) {
 
   const response =
-    await api.get<CuentaMovimientosResponse>(
+    await api.get<
+      CuentaMovimientosResponse
+    >(
       `${BASE}/cuentas/${id}/movimientos/`,
       {
         params: {
@@ -243,15 +297,17 @@ export async function getCuentaMovimientos(
   return response.data;
 }
 
+
 /* =========================================================
    MOVIMIENTOS
    ========================================================= */
 
-
 export async function getMovimientos(
   params?: Record<
     string,
-    string | number | undefined
+    string
+    | number
+    | undefined
   >
 ) {
 
@@ -274,13 +330,20 @@ export async function getMovimientos(
 export async function getResumenMovimientos(
   params?: Record<
     string,
-    string | number | undefined
+    string
+    | number
+    | undefined
   >
 ) {
+
   const response =
-    await api.get<ResumenFinanciero>(
+    await api.get<
+      ResumenFinanciero
+    >(
       `${BASE}/movimientos/resumen/`,
-      { params }
+      {
+        params,
+      }
     );
 
   return response.data;
@@ -290,9 +353,32 @@ export async function getResumenMovimientos(
 export async function createMovimiento(
   data: MovimientoPayload
 ) {
+
   const response =
-    await api.post<MovimientoFinanciero>(
+    await api.post<
+      MovimientoFinanciero
+    >(
       `${BASE}/movimientos/`,
+      data
+    );
+
+  return response.data;
+}
+
+
+/* =========================================================
+   CAMBIO DE MONEDA
+   ========================================================= */
+
+export async function createCambioMoneda(
+  data: CambioMonedaPayload
+) {
+
+  const response =
+    await api.post<
+      MovimientoFinanciero
+    >(
+      `${BASE}/movimientos/cambio-moneda/`,
       data
     );
 
@@ -304,8 +390,11 @@ export async function updateMovimiento(
   id: number,
   data: MovimientoPayload
 ) {
+
   const response =
-    await api.patch<MovimientoFinanciero>(
+    await api.patch<
+      MovimientoFinanciero
+    >(
       `${BASE}/movimientos/${id}/`,
       data
     );
@@ -317,6 +406,7 @@ export async function updateMovimiento(
 export async function deleteMovimiento(
   id: number
 ) {
+
   await api.delete(
     `${BASE}/movimientos/${id}/`
   );

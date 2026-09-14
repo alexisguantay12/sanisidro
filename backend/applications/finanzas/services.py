@@ -6,6 +6,16 @@ from applications.finanzas.models import (
 )
 from django.db.models import Q
 
+from decimal import Decimal
+
+from applications.finanzas.models import (
+    CuentaFinanciera,
+    MovimientoFinanciero,
+)
+
+from django.db.models import Q
+
+
 def calcular_saldos_movimientos(
     movimientos_objetivo,
 ):
@@ -30,13 +40,11 @@ def calcular_saldos_movimientos(
     if not movimientos_objetivo:
         return {}
 
-
     ids_objetivo = {
         movimiento.id
         for movimiento
         in movimientos_objetivo
     }
-
 
     # ========================================================
     # SALDOS INICIALES DE TODAS LAS CUENTAS
@@ -53,7 +61,6 @@ def calcular_saldos_movimientos(
         )
     )
 
-
     saldos = {
         cuenta.id: (
             cuenta.saldo_inicial
@@ -61,7 +68,6 @@ def calcular_saldos_movimientos(
         )
         for cuenta in cuentas
     }
-
 
     # ========================================================
     # HASTA QUÉ MOVIMIENTO HAY QUE CALCULAR
@@ -74,7 +80,6 @@ def calcular_saldos_movimientos(
             movimiento.id,
         ),
     )
-
 
     # ========================================================
     # HISTORIAL
@@ -100,6 +105,7 @@ def calcular_saldos_movimientos(
             "fecha",
             "tipo",
             "monto",
+            "monto_destino",
             "cuenta_origen_id",
             "cuenta_destino_id",
         )
@@ -109,9 +115,7 @@ def calcular_saldos_movimientos(
         )
     )
 
-
     resultado = {}
-
 
     # ========================================================
     # RECORRER UNA SOLA VEZ
@@ -121,7 +125,6 @@ def calcular_saldos_movimientos(
 
         saldo_origen = None
         saldo_destino = None
-
 
         # ----------------------------------------------------
         # INGRESO
@@ -150,7 +153,6 @@ def calcular_saldos_movimientos(
                     saldos[cuenta_id]
                 )
 
-
         # ----------------------------------------------------
         # GASTO
         # ----------------------------------------------------
@@ -177,7 +179,6 @@ def calcular_saldos_movimientos(
                 saldo_origen = (
                     saldos[cuenta_id]
                 )
-
 
         # ----------------------------------------------------
         # TRANSFERENCIA
@@ -206,7 +207,6 @@ def calcular_saldos_movimientos(
                     saldos[cuenta_id]
                 )
 
-
             if movimiento.cuenta_destino_id:
 
                 cuenta_id = (
@@ -225,6 +225,57 @@ def calcular_saldos_movimientos(
                     saldos[cuenta_id]
                 )
 
+        # ----------------------------------------------------
+        # CAMBIO DE MONEDA
+        # ----------------------------------------------------
+
+        elif (
+            movimiento.tipo
+            == MovimientoFinanciero.Tipo.CAMBIO_MONEDA
+        ):
+
+            # Salida de la cuenta origen
+            if movimiento.cuenta_origen_id:
+
+                cuenta_id = (
+                    movimiento.cuenta_origen_id
+                )
+
+                saldos[cuenta_id] = (
+                    saldos.get(
+                        cuenta_id,
+                        Decimal("0.00"),
+                    )
+                    - movimiento.monto
+                )
+
+                saldo_origen = (
+                    saldos[cuenta_id]
+                )
+
+            # Entrada en la cuenta destino
+            if movimiento.cuenta_destino_id:
+
+                cuenta_id = (
+                    movimiento.cuenta_destino_id
+                )
+
+                monto_destino = (
+                    movimiento.monto_destino
+                    or Decimal("0.00")
+                )
+
+                saldos[cuenta_id] = (
+                    saldos.get(
+                        cuenta_id,
+                        Decimal("0.00"),
+                    )
+                    + monto_destino
+                )
+
+                saldo_destino = (
+                    saldos[cuenta_id]
+                )
 
         # ----------------------------------------------------
         # GUARDAR SOLO LOS QUE VA A DEVOLVER LA API
@@ -238,6 +289,5 @@ def calcular_saldos_movimientos(
                 "origen": saldo_origen,
                 "destino": saldo_destino,
             }
-
 
     return resultado

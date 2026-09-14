@@ -32,6 +32,9 @@ import MovimientoFormModal
 import MovimientoDeleteModal
   from "./MovimientoDeleteModal";
 
+import CambioMonedaModal
+  from "./CambioMonedaModal";
+
 import FinanzasBackButton
   from "../FinanzasBackButton";
 
@@ -53,6 +56,43 @@ function money(
   ).format(
     Number(value ?? 0)
   );
+}
+
+
+function moneyUSD(
+  value:
+    | string
+    | number
+    | null
+    | undefined
+) {
+  return new Intl.NumberFormat(
+    "es-AR",
+    {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 2,
+    }
+  ).format(
+    Number(value ?? 0)
+  );
+}
+
+
+function formatMoneyByCurrency(
+  value:
+    | string
+    | number
+    | null
+    | undefined,
+  currency:
+    | "ARS"
+    | "USD"
+    | null
+) {
+  return currency === "USD"
+    ? moneyUSD(value)
+    : money(value);
 }
 
 
@@ -96,25 +136,36 @@ export default function MovimientosPage() {
   const [
     loading,
     setLoading,
-  ] = useState(true);
+  ] =
+    useState(true);
 
 
   const [
     error,
     setError,
-  ] = useState("");
+  ] =
+    useState("");
 
 
   const [
     search,
     setSearch,
-  ] = useState("");
+  ] =
+    useState("");
 
 
   const [
     createOpen,
     setCreateOpen,
-  ] = useState(false);
+  ] =
+    useState(false);
+
+
+  const [
+    cambioOpen,
+    setCambioOpen,
+  ] =
+    useState(false);
 
 
   const [
@@ -136,25 +187,29 @@ export default function MovimientosPage() {
   const [
     deleteLoading,
     setDeleteLoading,
-  ] = useState(false);
+  ] =
+    useState(false);
 
 
   const [
     page,
     setPage,
-  ] = useState(1);
+  ] =
+    useState(1);
 
 
   const [
     hasMore,
     setHasMore,
-  ] = useState(true);
+  ] =
+    useState(true);
 
 
   const [
     loadingMore,
     setLoadingMore,
-  ] = useState(false);
+  ] =
+    useState(false);
 
 
   const loadMoreRef =
@@ -163,32 +218,36 @@ export default function MovimientosPage() {
     );
 
 
+  const loadingMoreLock =
+    useRef(false);
+
+
   async function loadData() {
 
     try {
 
       setLoading(true);
+
       setError("");
 
+      loadingMoreLock.current =
+        false;
 
       const [
         movimientosData,
         resumenData,
-      ] = await Promise.all([
+      ] =
+        await Promise.all([
+          getMovimientos({
+            page: 1,
+          }),
 
-        getMovimientos({
-          page: 1,
-        }),
-
-        getResumenMovimientos(),
-
-      ]);
-
+          getResumenMovimientos(),
+        ]);
 
       setMovimientos(
         movimientosData.results
       );
-
 
       setHasMore(
         Boolean(
@@ -196,23 +255,21 @@ export default function MovimientosPage() {
         )
       );
 
-
       setPage(1);
-
 
       setResumen(
         resumenData
       );
 
-
     } catch (error) {
 
-      console.error(error);
+      console.error(
+        error
+      );
 
       setError(
         "No se pudieron cargar los movimientos."
       );
-
 
     } finally {
 
@@ -232,28 +289,28 @@ export default function MovimientosPage() {
   async function loadMore() {
 
     if (
-      loadingMore ||
+      loadingMoreLock.current ||
       !hasMore ||
       loading
     ) {
       return;
     }
 
+    loadingMoreLock.current =
+      true;
 
     const nextPage =
       page + 1;
-
 
     try {
 
       setLoadingMore(true);
 
-
       const data =
         await getMovimientos({
-          page: nextPage,
+          page:
+            nextPage,
         });
-
 
       setMovimientos(
         (current) => [
@@ -262,18 +319,15 @@ export default function MovimientosPage() {
         ]
       );
 
-
       setPage(
         nextPage
       );
-
 
       setHasMore(
         Boolean(
           data.next
         )
       );
-
 
     } catch (error) {
 
@@ -282,10 +336,12 @@ export default function MovimientosPage() {
         error
       );
 
-
     } finally {
 
       setLoadingMore(false);
+
+      loadingMoreLock.current =
+        false;
 
     }
   }
@@ -296,11 +352,9 @@ export default function MovimientosPage() {
     const element =
       loadMoreRef.current;
 
-
     if (!element) {
       return;
     }
-
 
     const observer =
       new IntersectionObserver(
@@ -309,12 +363,11 @@ export default function MovimientosPage() {
           const first =
             entries[0];
 
-
           if (
             first.isIntersecting &&
             hasMore &&
             !loading &&
-            !loadingMore
+            !loadingMoreLock.current
           ) {
 
             loadMore();
@@ -326,17 +379,16 @@ export default function MovimientosPage() {
           root: null,
 
           rootMargin:
-            "300px 0px",
+            "150px 0px",
 
-          threshold: 0,
+          threshold:
+            0,
         }
       );
-
 
     observer.observe(
       element
     );
-
 
     return () => {
 
@@ -347,7 +399,6 @@ export default function MovimientosPage() {
   }, [
     page,
     hasMore,
-    loadingMore,
     loading,
   ]);
 
@@ -360,11 +411,9 @@ export default function MovimientosPage() {
           .trim()
           .toLowerCase();
 
-
       if (!query) {
         return movimientos;
       }
-
 
       return movimientos.filter(
         (item) =>
@@ -399,7 +448,6 @@ export default function MovimientosPage() {
           )
             .toLowerCase()
             .includes(query)
-
       );
 
     }, [
@@ -414,22 +462,19 @@ export default function MovimientosPage() {
       return;
     }
 
-
     try {
 
       setDeleteLoading(true);
-
 
       await deleteMovimiento(
         deleting.id
       );
 
-
-      setDeleting(null);
-
+      setDeleting(
+        null
+      );
 
       await loadData();
-
 
     } catch (error) {
 
@@ -438,7 +483,6 @@ export default function MovimientosPage() {
       setError(
         "No se pudo eliminar el movimiento."
       );
-
 
     } finally {
 
@@ -449,7 +493,8 @@ export default function MovimientosPage() {
 
 
   function renderIcon(
-    item: MovimientoFinanciero
+    item:
+      MovimientoFinanciero
   ) {
 
     if (
@@ -465,7 +510,6 @@ export default function MovimientosPage() {
 
     }
 
-
     if (
       item.tipo ===
       "GASTO"
@@ -479,7 +523,6 @@ export default function MovimientosPage() {
 
     }
 
-
     return (
       <ArrowRightLeft
         size={18}
@@ -489,7 +532,8 @@ export default function MovimientosPage() {
 
 
   function amountClass(
-    item: MovimientoFinanciero
+    item:
+      MovimientoFinanciero
   ) {
 
     if (
@@ -499,7 +543,6 @@ export default function MovimientosPage() {
       return "text-emerald-700";
     }
 
-
     if (
       item.tipo ===
       "GASTO"
@@ -507,13 +550,13 @@ export default function MovimientosPage() {
       return "text-red-600";
     }
 
-
     return "text-[#49544E]";
   }
 
 
   function amountPrefix(
-    item: MovimientoFinanciero
+    item:
+      MovimientoFinanciero
   ) {
 
     if (
@@ -523,14 +566,12 @@ export default function MovimientosPage() {
       return "+";
     }
 
-
     if (
       item.tipo ===
       "GASTO"
     ) {
       return "-";
     }
-
 
     return "";
   }
@@ -556,44 +597,69 @@ export default function MovimientosPage() {
                 Finanzas
               </p>
 
-
               <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[#1B1E1C] sm:text-3xl">
                 Movimientos
               </h1>
 
-
               <p className="mt-2 hidden text-sm text-[#78817B] sm:block">
-                Ingresos, gastos y transferencias.
+                Ingresos, gastos, transferencias y cambios de moneda.
               </p>
 
             </div>
 
 
-            <button
-              type="button"
-              onClick={() =>
-                setCreateOpen(
-                  true
-                )
-              }
-              className="flex h-12 shrink-0 items-center justify-center gap-2 rounded-2xl bg-[#18392B] px-4 text-sm font-semibold text-white shadow-[0_8px_22px_rgba(24,57,43,0.16)] active:scale-[0.98] sm:px-5"
-            >
+            <div className="flex shrink-0 gap-2">
 
-              <Plus
-                size={19}
-              />
+              <button
+                type="button"
+                onClick={() =>
+                  setCambioOpen(
+                    true
+                  )
+                }
+                className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-[#D7DFDA] bg-white px-3 text-sm font-semibold text-[#18392B] active:scale-[0.98] sm:px-4"
+              >
+
+                <ArrowRightLeft
+                  size={18}
+                />
+
+                <span className="hidden sm:inline">
+                  Cambiar moneda
+                </span>
+
+                <span className="sm:hidden">
+                  Cambio
+                </span>
+
+              </button>
 
 
-              <span className="hidden sm:inline">
-                Nuevo movimiento
-              </span>
+              <button
+                type="button"
+                onClick={() =>
+                  setCreateOpen(
+                    true
+                  )
+                }
+                className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#18392B] px-3 text-sm font-semibold text-white shadow-[0_8px_22px_rgba(24,57,43,0.16)] active:scale-[0.98] sm:px-5"
+              >
 
+                <Plus
+                  size={19}
+                />
 
-              <span className="sm:hidden">
-                Nuevo
-              </span>
+                <span className="hidden sm:inline">
+                  Nuevo movimiento
+                </span>
 
-            </button>
+                <span className="sm:hidden">
+                  Nuevo
+                </span>
+
+              </button>
+
+            </div>
 
           </div>
 
@@ -607,7 +673,6 @@ export default function MovimientosPage() {
               <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8B948E]">
                 Ingresos
               </p>
-
 
               <p className="mt-2 truncate text-lg font-semibold text-emerald-700 sm:text-xl">
                 {money(
@@ -624,7 +689,6 @@ export default function MovimientosPage() {
                 Gastos
               </p>
 
-
               <p className="mt-2 truncate text-lg font-semibold text-red-600 sm:text-xl">
                 {money(
                   resumen?.gastos
@@ -639,7 +703,6 @@ export default function MovimientosPage() {
               <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-white/60">
                 Resultado
               </p>
-
 
               <p className="mt-2 truncate text-lg font-semibold sm:text-xl">
                 {money(
@@ -662,7 +725,6 @@ export default function MovimientosPage() {
                 size={18}
                 className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9AA29D]"
               />
-
 
               <input
                 type="search"
@@ -704,13 +766,11 @@ export default function MovimientosPage() {
                       ? item.saldo_cuenta_destino
                       : item.saldo_cuenta_origen;
 
-
                   const cuenta =
                     item.tipo ===
                     "INGRESO"
                       ? item.cuenta_destino_nombre
                       : item.cuenta_origen_nombre;
-
 
                   return (
 
@@ -731,7 +791,10 @@ export default function MovimientosPage() {
                               : item.tipo ===
                                 "GASTO"
                                 ? "bg-red-50 text-red-600"
-                                : "bg-slate-100 text-slate-600"
+                                : item.tipo ===
+                                  "CAMBIO_MONEDA"
+                                  ? "bg-amber-50 text-amber-700"
+                                  : "bg-slate-100 text-slate-600"
                           }`}
                         >
 
@@ -752,7 +815,6 @@ export default function MovimientosPage() {
                                 {item.descripcion}
                               </p>
 
-
                               <p className="mt-1 text-xs text-[#8A938D]">
 
                                 {formatDate(
@@ -768,41 +830,168 @@ export default function MovimientosPage() {
                             </div>
 
 
-                            <p
-                              className={`shrink-0 text-base font-semibold ${amountClass(
-                                item
-                              )}`}
-                            >
+                            {item.tipo ===
+                            "CAMBIO_MONEDA" ? (
 
-                              {amountPrefix(
-                                item
-                              )}
+                              <p className="shrink-0 text-sm font-semibold text-amber-700">
+                                Cambio
+                              </p>
 
-                              {money(
-                                item.monto
-                              )}
+                            ) : (
 
-                            </p>
+                              <p
+                                className={`shrink-0 text-base font-semibold ${amountClass(
+                                  item
+                                )}`}
+                              >
+
+                                {amountPrefix(
+                                  item
+                                )}
+
+                                {formatMoneyByCurrency(
+                                  item.monto,
+
+                                  item.tipo ===
+                                  "INGRESO"
+                                    ? item.cuenta_destino_moneda
+                                    : item.cuenta_origen_moneda
+                                )}
+
+                              </p>
+
+                            )}
 
                           </div>
 
 
                           {item.tipo ===
+                          "CAMBIO_MONEDA" ? (
+
+                            <div className="mt-3 rounded-2xl bg-[#F6F8F6] p-3">
+
+                              <p className="text-xs font-medium text-[#6D7770]">
+
+                                {item.cuenta_origen_nombre}
+
+                                {" → "}
+
+                                {item.cuenta_destino_nombre}
+
+                              </p>
+
+
+                              <div className="mt-3 grid grid-cols-2 gap-3">
+
+                                <div>
+
+                                  <p className="text-[10px] uppercase text-[#9AA29D]">
+                                    Sale
+                                  </p>
+
+                                  <p className="mt-0.5 text-sm font-semibold text-red-600">
+
+                                    {formatMoneyByCurrency(
+                                      item.monto,
+                                      item.cuenta_origen_moneda
+                                    )}
+
+                                  </p>
+
+                                </div>
+
+
+                                <div>
+
+                                  <p className="text-[10px] uppercase text-[#9AA29D]">
+                                    Entra
+                                  </p>
+
+                                  <p className="mt-0.5 text-sm font-semibold text-emerald-700">
+
+                                    {formatMoneyByCurrency(
+                                      item.monto_destino,
+                                      item.cuenta_destino_moneda
+                                    )}
+
+                                  </p>
+
+                                </div>
+
+                              </div>
+
+
+                              <div className="mt-3 border-t border-[#E5EAE7] pt-2">
+
+                                <p className="text-xs text-[#7D8780]">
+
+                                  Cotización:{" "}
+
+                                  <span className="font-semibold text-[#444B47]">
+                                    {money(
+                                      item.cotizacion
+                                    )}
+                                    {" / USD"}
+                                  </span>
+
+                                </p>
+
+                              </div>
+
+
+                              <div className="mt-3 grid grid-cols-2 gap-3">
+
+                                <div>
+
+                                  <p className="text-[10px] uppercase text-[#9AA29D]">
+                                    Saldo origen
+                                  </p>
+
+                                  <p className="mt-0.5 text-sm font-semibold text-[#444B47]">
+
+                                    {formatMoneyByCurrency(
+                                      item.saldo_cuenta_origen,
+                                      item.cuenta_origen_moneda
+                                    )}
+
+                                  </p>
+
+                                </div>
+
+
+                                <div>
+
+                                  <p className="text-[10px] uppercase text-[#9AA29D]">
+                                    Saldo destino
+                                  </p>
+
+                                  <p className="mt-0.5 text-sm font-semibold text-[#444B47]">
+
+                                    {formatMoneyByCurrency(
+                                      item.saldo_cuenta_destino,
+                                      item.cuenta_destino_moneda
+                                    )}
+
+                                  </p>
+
+                                </div>
+
+                              </div>
+
+                            </div>
+
+                          ) : item.tipo ===
                           "TRANSFERENCIA" ? (
 
                             <div className="mt-3 rounded-2xl bg-[#F6F8F6] p-3">
 
                               <p className="text-xs text-[#768079]">
 
-                                {
-                                  item.cuenta_origen_nombre
-                                }
+                                {item.cuenta_origen_nombre}
 
                                 {" → "}
 
-                                {
-                                  item.cuenta_destino_nombre
-                                }
+                                {item.cuenta_destino_nombre}
 
                               </p>
 
@@ -816,9 +1005,12 @@ export default function MovimientosPage() {
                                   </p>
 
                                   <p className="mt-0.5 text-sm font-semibold text-[#444B47]">
-                                    {money(
-                                      item.saldo_cuenta_origen
+
+                                    {formatMoneyByCurrency(
+                                      item.saldo_cuenta_origen,
+                                      item.cuenta_origen_moneda
                                     )}
+
                                   </p>
 
                                 </div>
@@ -831,9 +1023,12 @@ export default function MovimientosPage() {
                                   </p>
 
                                   <p className="mt-0.5 text-sm font-semibold text-[#444B47]">
-                                    {money(
-                                      item.saldo_cuenta_destino
+
+                                    {formatMoneyByCurrency(
+                                      item.saldo_cuenta_destino,
+                                      item.cuenta_destino_moneda
                                     )}
+
                                   </p>
 
                                 </div>
@@ -850,7 +1045,6 @@ export default function MovimientosPage() {
                                 {cuenta}
                               </p>
 
-
                               <div className="ml-3 text-right">
 
                                 <p className="text-[10px] uppercase tracking-[0.06em] text-[#9AA29D]">
@@ -858,9 +1052,16 @@ export default function MovimientosPage() {
                                 </p>
 
                                 <p className="text-sm font-semibold text-[#333936]">
-                                  {money(
-                                    saldo
+
+                                  {formatMoneyByCurrency(
+                                    saldo,
+
+                                    item.tipo ===
+                                    "INGRESO"
+                                      ? item.cuenta_destino_moneda
+                                      : item.cuenta_origen_moneda
                                   )}
+
                                 </p>
 
                               </div>
@@ -872,21 +1073,26 @@ export default function MovimientosPage() {
 
                           <div className="mt-3 flex justify-end gap-1 border-t border-[#EEF1EF] pt-3">
 
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setEditing(
-                                  item
-                                )
-                              }
-                              className="flex h-9 w-9 items-center justify-center rounded-xl text-[#68716B] hover:bg-[#EEF3EF]"
-                            >
+                            {item.tipo !==
+                              "CAMBIO_MONEDA" && (
 
-                              <Edit3
-                                size={16}
-                              />
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setEditing(
+                                    item
+                                  )
+                                }
+                                className="flex h-9 w-9 items-center justify-center rounded-xl text-[#68716B] hover:bg-[#EEF3EF]"
+                              >
 
-                            </button>
+                                <Edit3
+                                  size={16}
+                                />
+
+                              </button>
+
+                            )}
 
 
                             <button
@@ -1016,6 +1222,25 @@ export default function MovimientosPage() {
                                 {item.tipo_display}
                               </p>
 
+                              {item.tipo ===
+                                "CAMBIO_MONEDA"
+                                &&
+                                item.cotizacion && (
+
+                                <p className="mt-1 text-xs text-[#929A95]">
+
+                                  Cotización{" "}
+
+                                  {money(
+                                    item.cotizacion
+                                  )}
+
+                                  {" / USD"}
+
+                                </p>
+
+                              )}
+
                             </td>
 
 
@@ -1034,18 +1259,62 @@ export default function MovimientosPage() {
                             </td>
 
 
-                            <td
-                              className={`whitespace-nowrap px-5 py-4 text-right text-sm font-semibold ${amountClass(
-                                item
-                              )}`}
-                            >
+                            <td className="whitespace-nowrap px-5 py-4 text-right text-sm">
 
-                              {amountPrefix(
-                                item
-                              )}
+                              {item.tipo ===
+                              "CAMBIO_MONEDA" ? (
 
-                              {money(
-                                item.monto
+                                <div>
+
+                                  <p className="font-semibold text-red-600">
+
+                                    -{
+                                      formatMoneyByCurrency(
+                                        item.monto,
+                                        item.cuenta_origen_moneda
+                                      )
+                                    }
+
+                                  </p>
+
+                                  <p className="mt-1 font-semibold text-emerald-700">
+
+                                    +{
+                                      formatMoneyByCurrency(
+                                        item.monto_destino,
+                                        item.cuenta_destino_moneda
+                                      )
+                                    }
+
+                                  </p>
+
+                                </div>
+
+                              ) : (
+
+                                <span
+                                  className={
+                                    amountClass(
+                                      item
+                                    )
+                                  }
+                                >
+
+                                  {amountPrefix(
+                                    item
+                                  )}
+
+                                  {formatMoneyByCurrency(
+                                    item.monto,
+
+                                    item.tipo ===
+                                    "INGRESO"
+                                      ? item.cuenta_destino_moneda
+                                      : item.cuenta_origen_moneda
+                                  )}
+
+                                </span>
+
                               )}
 
                             </td>
@@ -1053,8 +1322,42 @@ export default function MovimientosPage() {
 
                             <td className="whitespace-nowrap px-5 py-4 text-right text-sm font-semibold text-[#333936]">
 
-                              {money(
-                                saldo
+                              {item.tipo ===
+                              "CAMBIO_MONEDA" ? (
+
+                                <div>
+
+                                  <p>
+
+                                    {formatMoneyByCurrency(
+                                      item.saldo_cuenta_origen,
+                                      item.cuenta_origen_moneda
+                                    )}
+
+                                  </p>
+
+                                  <p className="mt-1 text-xs text-[#7D8780]">
+
+                                    {formatMoneyByCurrency(
+                                      item.saldo_cuenta_destino,
+                                      item.cuenta_destino_moneda
+                                    )}
+
+                                  </p>
+
+                                </div>
+
+                              ) : (
+
+                                formatMoneyByCurrency(
+                                  saldo,
+
+                                  item.tipo ===
+                                  "INGRESO"
+                                    ? item.cuenta_destino_moneda
+                                    : item.cuenta_origen_moneda
+                                )
+
                               )}
 
                             </td>
@@ -1064,21 +1367,26 @@ export default function MovimientosPage() {
 
                               <div className="flex justify-end gap-1">
 
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setEditing(
-                                      item
-                                    )
-                                  }
-                                  className="flex h-9 w-9 items-center justify-center rounded-xl text-[#68716B] hover:bg-[#EEF3EF]"
-                                >
+                                {item.tipo !==
+                                  "CAMBIO_MONEDA" && (
 
-                                  <Edit3
-                                    size={16}
-                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setEditing(
+                                        item
+                                      )
+                                    }
+                                    className="flex h-9 w-9 items-center justify-center rounded-xl text-[#68716B] hover:bg-[#EEF3EF]"
+                                  >
 
-                                </button>
+                                    <Edit3
+                                      size={16}
+                                    />
+
+                                  </button>
+
+                                )}
 
 
                                 <button
@@ -1171,6 +1479,29 @@ export default function MovimientosPage() {
         onSuccess={async () => {
 
           setCreateOpen(
+            false
+          );
+
+          await loadData();
+
+        }}
+      />
+
+
+      {/* CAMBIAR MONEDA */}
+
+      <CambioMonedaModal
+        open={
+          cambioOpen
+        }
+        onClose={() =>
+          setCambioOpen(
+            false
+          )
+        }
+        onSuccess={async () => {
+
+          setCambioOpen(
             false
           );
 

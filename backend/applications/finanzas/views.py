@@ -1,4 +1,3 @@
-from decimal import Decimal
 
 from django.db.models import Q, Sum
 
@@ -8,7 +7,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.exceptions import ValidationError
-
+from django.db import transaction
+from decimal import Decimal, ROUND_HALF_UP
 
 from applications.finanzas.models import (
     CategoriaFinanciera,
@@ -30,6 +30,7 @@ from applications.finanzas.serializers import (
     calcular_saldo_actual,
     CategoriaFinancieraSelectorSerializer,
     CuentaFinancieraSelectorSerializer,
+    CambioMonedaSerializer,
 )
 
 from applications.finanzas.services import (
@@ -733,6 +734,179 @@ class MovimientoFinancieroViewSet(
                 "is_deleted",
                 "user_deleted",
             ]
+        )
+
+    # --------------------------------------------------------
+    # CAMBIO DE MONEDA
+    # --------------------------------------------------------
+
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="cambio-moneda",
+    )
+    def cambio_moneda(
+        self,
+        request,
+    ):
+
+        serializer = CambioMonedaSerializer(
+            data=request.data
+        )
+
+        serializer.is_valid(
+            raise_exception=True
+        )
+
+        data = serializer.validated_data
+
+        operacion = data[
+            "operacion"
+        ]
+
+        monto = data[
+            "monto"
+        ]
+
+        cotizacion = data[
+            "cotizacion"
+        ]
+
+        cuenta_origen = data[
+            "cuenta_origen"
+        ]
+
+        cuenta_destino = data[
+            "cuenta_destino"
+        ]
+
+        # ====================================================
+        # COMPRAR DOLARES
+        # ====================================================
+
+        if (
+            operacion
+            == CambioMonedaSerializer
+            .Operacion
+            .COMPRAR_USD
+        ):
+
+            # El monto enviado representa
+            # la cantidad de USD comprados.
+            monto_destino = monto
+
+            # Pesos que salen de la cuenta origen.
+            monto_origen = (
+                monto
+                * cotizacion
+            )
+
+        # ====================================================
+        # COMPRAR PESOS
+        # ====================================================
+
+        else:
+
+            # El monto enviado representa
+            # la cantidad de ARS comprados.
+            monto_destino = monto
+
+            # Dólares que salen de la cuenta origen.
+            monto_origen = (
+                monto
+                / cotizacion
+            )
+
+        # ====================================================
+        # REDONDEO
+        # ====================================================
+
+        monto_origen = (
+            monto_origen.quantize(
+                Decimal("0.01"),
+                rounding=ROUND_HALF_UP,
+            )
+        )
+
+        monto_destino = (
+            monto_destino.quantize(
+                Decimal("0.01"),
+                rounding=ROUND_HALF_UP,
+            )
+        )
+
+        # ====================================================
+        # CREAR MOVIMIENTO
+        # ====================================================
+
+        with transaction.atomic():
+
+            movimiento = (
+                MovimientoFinanciero.objects
+                .create(
+                    fecha=data[
+                        "fecha"
+                    ],
+
+                    descripcion=data[
+                        "descripcion"
+                    ],
+
+                    tipo=(
+                        MovimientoFinanciero
+                        .Tipo
+                        .CAMBIO_MONEDA
+                    ),
+
+                    monto=(
+                        monto_origen
+                    ),
+
+                    monto_destino=(
+                        monto_destino
+                    ),
+
+                    cotizacion=(
+                        cotizacion
+                    ),
+
+                    categoria=None,
+
+                    cuenta_origen=(
+                        cuenta_origen
+                    ),
+
+                    cuenta_destino=(
+                        cuenta_destino
+                    ),
+
+                    observacion=data.get(
+                        "observacion",
+                        "",
+                    ),
+
+                    user_made=(
+                        request.user
+                    ),
+
+                    user_updated=(
+                        request.user
+                    ),
+                )
+            )
+
+        movimiento_serializer = (
+            MovimientoFinancieroSerializer(
+                movimiento,
+                context=(
+                    self.get_serializer_context()
+                ),
+            )
+        )
+
+        return Response(
+            movimiento_serializer.data,
+            status=status.HTTP_201_CREATED,
         )
 
     # --------------------------------------------------------

@@ -15,7 +15,6 @@ from applications.finanzas.models import (
 # FUNCIONES AUXILIARES
 # ============================================================
 
-
 def calcular_saldo_hasta_movimiento(
     cuenta,
     movimiento,
@@ -32,8 +31,10 @@ def calcular_saldo_hasta_movimiento(
     - saldo inicial
     - ingresos recibidos
     - transferencias recibidas
+    - cambios de moneda recibidos
     - gastos realizados
     - transferencias enviadas
+    - cambios de moneda enviados
     """
 
     movimientos = (
@@ -42,7 +43,9 @@ def calcular_saldo_hasta_movimiento(
             is_deleted=False,
         )
         .filter(
-            Q(fecha__lt=movimiento.fecha)
+            Q(
+                fecha__lt=movimiento.fecha
+            )
             |
             Q(
                 fecha=movimiento.fecha,
@@ -51,14 +54,19 @@ def calcular_saldo_hasta_movimiento(
         )
     )
 
-    entradas = (
+    # ========================================================
+    # INGRESOS
+    # ========================================================
+
+    ingresos = (
         movimientos
         .filter(
             cuenta_destino=cuenta,
-            tipo__in=[
-                MovimientoFinanciero.Tipo.INGRESO,
-                MovimientoFinanciero.Tipo.TRANSFERENCIA,
-            ],
+            tipo=(
+                MovimientoFinanciero
+                .Tipo
+                .INGRESO
+            ),
         )
         .aggregate(
             total=Sum("monto")
@@ -66,14 +74,101 @@ def calcular_saldo_hasta_movimiento(
         or Decimal("0.00")
     )
 
-    salidas = (
+    # ========================================================
+    # TRANSFERENCIAS RECIBIDAS
+    # ========================================================
+
+    transferencias_entrada = (
+        movimientos
+        .filter(
+            cuenta_destino=cuenta,
+            tipo=(
+                MovimientoFinanciero
+                .Tipo
+                .TRANSFERENCIA
+            ),
+        )
+        .aggregate(
+            total=Sum("monto")
+        )["total"]
+        or Decimal("0.00")
+    )
+
+    # ========================================================
+    # CAMBIOS DE MONEDA RECIBIDOS
+    # ========================================================
+
+    cambios_entrada = (
+        movimientos
+        .filter(
+            cuenta_destino=cuenta,
+            tipo=(
+                MovimientoFinanciero
+                .Tipo
+                .CAMBIO_MONEDA
+            ),
+        )
+        .aggregate(
+            total=Sum(
+                "monto_destino"
+            )
+        )["total"]
+        or Decimal("0.00")
+    )
+
+    # ========================================================
+    # GASTOS
+    # ========================================================
+
+    gastos = (
         movimientos
         .filter(
             cuenta_origen=cuenta,
-            tipo__in=[
-                MovimientoFinanciero.Tipo.GASTO,
-                MovimientoFinanciero.Tipo.TRANSFERENCIA,
-            ],
+            tipo=(
+                MovimientoFinanciero
+                .Tipo
+                .GASTO
+            ),
+        )
+        .aggregate(
+            total=Sum("monto")
+        )["total"]
+        or Decimal("0.00")
+    )
+
+    # ========================================================
+    # TRANSFERENCIAS ENVIADAS
+    # ========================================================
+
+    transferencias_salida = (
+        movimientos
+        .filter(
+            cuenta_origen=cuenta,
+            tipo=(
+                MovimientoFinanciero
+                .Tipo
+                .TRANSFERENCIA
+            ),
+        )
+        .aggregate(
+            total=Sum("monto")
+        )["total"]
+        or Decimal("0.00")
+    )
+
+    # ========================================================
+    # CAMBIOS DE MONEDA ENVIADOS
+    # ========================================================
+
+    cambios_salida = (
+        movimientos
+        .filter(
+            cuenta_origen=cuenta,
+            tipo=(
+                MovimientoFinanciero
+                .Tipo
+                .CAMBIO_MONEDA
+            ),
         )
         .aggregate(
             total=Sum("monto")
@@ -83,27 +178,31 @@ def calcular_saldo_hasta_movimiento(
 
     return (
         cuenta.saldo_inicial
-        + entradas
-        - salidas
+        + ingresos
+        + transferencias_entrada
+        + cambios_entrada
+        - gastos
+        - transferencias_salida
+        - cambios_salida
     )
+
+
 
 
 def calcular_saldo_actual(
     cuenta,
 ):
-    """
-    Calcula el saldo actual de una cuenta.
-    """
 
-    entradas = (
+    ingresos = (
         MovimientoFinanciero.objects
         .filter(
             is_deleted=False,
             cuenta_destino=cuenta,
-            tipo__in=[
-                MovimientoFinanciero.Tipo.INGRESO,
-                MovimientoFinanciero.Tipo.TRANSFERENCIA,
-            ],
+            tipo=(
+                MovimientoFinanciero
+                .Tipo
+                .INGRESO
+            ),
         )
         .aggregate(
             total=Sum("monto")
@@ -111,15 +210,55 @@ def calcular_saldo_actual(
         or Decimal("0.00")
     )
 
-    salidas = (
+
+    transferencias_entrada = (
+        MovimientoFinanciero.objects
+        .filter(
+            is_deleted=False,
+            cuenta_destino=cuenta,
+            tipo=(
+                MovimientoFinanciero
+                .Tipo
+                .TRANSFERENCIA
+            ),
+        )
+        .aggregate(
+            total=Sum("monto")
+        )["total"]
+        or Decimal("0.00")
+    )
+
+
+    cambios_entrada = (
+        MovimientoFinanciero.objects
+        .filter(
+            is_deleted=False,
+            cuenta_destino=cuenta,
+            tipo=(
+                MovimientoFinanciero
+                .Tipo
+                .CAMBIO_MONEDA
+            ),
+        )
+        .aggregate(
+            total=Sum(
+                "monto_destino"
+            )
+        )["total"]
+        or Decimal("0.00")
+    )
+
+
+    gastos = (
         MovimientoFinanciero.objects
         .filter(
             is_deleted=False,
             cuenta_origen=cuenta,
-            tipo__in=[
-                MovimientoFinanciero.Tipo.GASTO,
-                MovimientoFinanciero.Tipo.TRANSFERENCIA,
-            ],
+            tipo=(
+                MovimientoFinanciero
+                .Tipo
+                .GASTO
+            ),
         )
         .aggregate(
             total=Sum("monto")
@@ -127,12 +266,52 @@ def calcular_saldo_actual(
         or Decimal("0.00")
     )
 
-    return (
-        cuenta.saldo_inicial
-        + entradas
-        - salidas
+
+    transferencias_salida = (
+        MovimientoFinanciero.objects
+        .filter(
+            is_deleted=False,
+            cuenta_origen=cuenta,
+            tipo=(
+                MovimientoFinanciero
+                .Tipo
+                .TRANSFERENCIA
+            ),
+        )
+        .aggregate(
+            total=Sum("monto")
+        )["total"]
+        or Decimal("0.00")
     )
 
+
+    cambios_salida = (
+        MovimientoFinanciero.objects
+        .filter(
+            is_deleted=False,
+            cuenta_origen=cuenta,
+            tipo=(
+                MovimientoFinanciero
+                .Tipo
+                .CAMBIO_MONEDA
+            ),
+        )
+        .aggregate(
+            total=Sum("monto")
+        )["total"]
+        or Decimal("0.00")
+    )
+
+
+    return (
+        cuenta.saldo_inicial
+        + ingresos
+        + transferencias_entrada
+        + cambios_entrada
+        - gastos
+        - transferencias_salida
+        - cambios_salida
+    )
 
 # ============================================================
 # GRUPO FINANCIERO
@@ -432,7 +611,6 @@ class CuentaFinancieraSerializer(
 # MOVIMIENTO FINANCIERO
 # ============================================================
 
-
 class MovimientoFinancieroSerializer(
     serializers.ModelSerializer
 ):
@@ -467,6 +645,17 @@ class MovimientoFinancieroSerializer(
         read_only=True,
     )
 
+    cuenta_origen_moneda = serializers.CharField(
+        source="cuenta_origen.moneda",
+        read_only=True,
+    )
+
+    cuenta_destino_moneda = serializers.CharField(
+        source="cuenta_destino.moneda",
+        read_only=True,
+    )
+
+
     saldo_cuenta_origen = (
         serializers.SerializerMethodField()
     )
@@ -484,7 +673,10 @@ class MovimientoFinancieroSerializer(
             "descripcion",
             "tipo",
             "tipo_display",
+
             "monto",
+            "monto_destino",
+            "cotizacion",
 
             "categoria",
             "categoria_nombre",
@@ -501,6 +693,8 @@ class MovimientoFinancieroSerializer(
             "saldo_cuenta_origen",
             "saldo_cuenta_destino",
 
+            "cuenta_origen_moneda",
+            "cuenta_destino_moneda",
             "observacion",
         ]
 
@@ -513,6 +707,8 @@ class MovimientoFinancieroSerializer(
             "cuenta_destino_nombre",
             "saldo_cuenta_origen",
             "saldo_cuenta_destino",
+            "cuenta_origen_moneda",
+            "cuenta_destino_moneda",
         ]
 
     # --------------------------------------------------------
@@ -538,7 +734,6 @@ class MovimientoFinancieroSerializer(
             "origen"
         )
 
-
     def get_saldo_cuenta_destino(
         self,
         obj,
@@ -557,6 +752,7 @@ class MovimientoFinancieroSerializer(
         return datos.get(
             "destino"
         )
+
     # --------------------------------------------------------
     # VALIDACIONES
     # --------------------------------------------------------
@@ -604,8 +800,26 @@ class MovimientoFinancieroSerializer(
             ),
         )
 
+        monto_destino = attrs.get(
+            "monto_destino",
+            getattr(
+                instance,
+                "monto_destino",
+                None,
+            ),
+        )
+
+        cotizacion = attrs.get(
+            "cotizacion",
+            getattr(
+                instance,
+                "cotizacion",
+                None,
+            ),
+        )
+
         # ====================================================
-        # VALIDAR CUENTAS
+        # VALIDAR CUENTA ORIGEN
         # ====================================================
 
         if cuenta_origen:
@@ -625,6 +839,10 @@ class MovimientoFinancieroSerializer(
                         "está inactiva."
                     )
                 })
+
+        # ====================================================
+        # VALIDAR CUENTA DESTINO
+        # ====================================================
 
         if cuenta_destino:
 
@@ -691,6 +909,17 @@ class MovimientoFinancieroSerializer(
                     )
                 })
 
+            if (
+                monto_destino is not None
+                or cotizacion is not None
+            ):
+                raise serializers.ValidationError({
+                    "monto_destino": (
+                        "Un ingreso no debe tener "
+                        "datos de cambio de moneda."
+                    )
+                })
+
         # ====================================================
         # GASTO
         # ====================================================
@@ -729,12 +958,23 @@ class MovimientoFinancieroSerializer(
                 and categoria.grupo
                 and categoria.grupo.tipo
                 == GrupoFinanciero.Tipo.INGRESO
-            ):      
+            ):
                 raise serializers.ValidationError({
                     "categoria": (
                         "La categoría seleccionada "
                         "pertenece a un grupo "
                         "exclusivamente de ingresos."
+                    )
+                })
+
+            if (
+                monto_destino is not None
+                or cotizacion is not None
+            ):
+                raise serializers.ValidationError({
+                    "monto_destino": (
+                        "Un gasto no debe tener "
+                        "datos de cambio de moneda."
                     )
                 })
 
@@ -766,6 +1006,20 @@ class MovimientoFinancieroSerializer(
             if (
                 cuenta_origen
                 and cuenta_destino
+                and cuenta_origen.id
+                == cuenta_destino.id
+            ):
+                raise serializers.ValidationError({
+                    "cuenta_destino": (
+                        "La cuenta destino debe "
+                        "ser diferente a la "
+                        "cuenta origen."
+                    )
+                })
+
+            if (
+                cuenta_origen
+                and cuenta_destino
                 and cuenta_origen.moneda
                 != cuenta_destino.moneda
             ):
@@ -777,7 +1031,50 @@ class MovimientoFinancieroSerializer(
                     )
                 })
 
-            
+            if categoria:
+                raise serializers.ValidationError({
+                    "categoria": (
+                        "Una transferencia no "
+                        "debe tener categoría."
+                    )
+                })
+
+            if (
+                monto_destino is not None
+                or cotizacion is not None
+            ):
+                raise serializers.ValidationError({
+                    "monto_destino": (
+                        "Una transferencia no debe "
+                        "tener datos de cambio "
+                        "de moneda."
+                    )
+                })
+
+        # ====================================================
+        # CAMBIO DE MONEDA
+        # ====================================================
+
+        elif (
+            tipo
+            == MovimientoFinanciero.Tipo.CAMBIO_MONEDA
+        ):
+
+            if not cuenta_origen:
+                raise serializers.ValidationError({
+                    "cuenta_origen": (
+                        "Un cambio de moneda debe "
+                        "tener una cuenta origen."
+                    )
+                })
+
+            if not cuenta_destino:
+                raise serializers.ValidationError({
+                    "cuenta_destino": (
+                        "Un cambio de moneda debe "
+                        "tener una cuenta destino."
+                    )
+                })
 
             if (
                 cuenta_origen
@@ -793,15 +1090,56 @@ class MovimientoFinancieroSerializer(
                     )
                 })
 
+            if (
+                cuenta_origen
+                and cuenta_destino
+                and cuenta_origen.moneda
+                == cuenta_destino.moneda
+            ):
+                raise serializers.ValidationError({
+                    "cuenta_destino": (
+                        "En un cambio de moneda "
+                        "las cuentas deben tener "
+                        "monedas diferentes."
+                    )
+                })
+
             if categoria:
                 raise serializers.ValidationError({
                     "categoria": (
-                        "Una transferencia no "
+                        "Un cambio de moneda no "
                         "debe tener categoría."
                     )
                 })
 
+            if (
+                monto_destino is None
+                or monto_destino <= 0
+            ):
+                raise serializers.ValidationError({
+                    "monto_destino": (
+                        "Ingresá un monto destino "
+                        "válido."
+                    )
+                })
+
+            if (
+                cotizacion is None
+                or cotizacion <= 0
+            ):
+                raise serializers.ValidationError({
+                    "cotizacion": (
+                        "Ingresá una cotización "
+                        "válida."
+                    )
+                })
+
+        # ====================================================
+        # TIPO INVALIDO
+        # ====================================================
+
         else:
+
             raise serializers.ValidationError({
                 "tipo": (
                     "Tipo de movimiento inválido."
@@ -879,3 +1217,188 @@ class CuentaFinancieraSelectorSerializer(
             "moneda_display",
             "nombre",
         ]
+
+
+
+class CambioMonedaSerializer(
+    serializers.Serializer
+):
+
+    class Operacion:
+        COMPRAR_USD = "COMPRAR_USD"
+        COMPRAR_ARS = "COMPRAR_ARS"
+
+    OPERACIONES = (
+        (
+            Operacion.COMPRAR_USD,
+            "Comprar dólares",
+        ),
+        (
+            Operacion.COMPRAR_ARS,
+            "Comprar pesos",
+        ),
+    )
+
+    operacion = serializers.ChoiceField(
+        choices=OPERACIONES,
+    )
+
+    fecha = serializers.DateField()
+
+    descripcion = serializers.CharField(
+        max_length=255,
+    )
+
+    monto = serializers.DecimalField(
+        max_digits=16,
+        decimal_places=2,
+        min_value=Decimal("0.01"),
+    )
+
+    cotizacion = serializers.DecimalField(
+        max_digits=16,
+        decimal_places=4,
+        min_value=Decimal("0.0001"),
+    )
+
+    cuenta_origen = (
+        serializers.PrimaryKeyRelatedField(
+            queryset=(
+                CuentaFinanciera.objects
+                .filter(
+                    is_deleted=False,
+                    activa=True,
+                )
+            ),
+        )
+    )
+
+    cuenta_destino = (
+        serializers.PrimaryKeyRelatedField(
+            queryset=(
+                CuentaFinanciera.objects
+                .filter(
+                    is_deleted=False,
+                    activa=True,
+                )
+            ),
+        )
+    )
+
+    observacion = serializers.CharField(
+        max_length=255,
+        required=False,
+        allow_blank=True,
+        default="",
+    )
+
+    def validate_descripcion(
+        self,
+        value,
+    ):
+
+        value = value.strip()
+
+        if not value:
+            raise serializers.ValidationError(
+                "Ingresá una descripción."
+            )
+
+        return value
+
+    def validate(
+        self,
+        attrs,
+    ):
+
+        operacion = attrs[
+            "operacion"
+        ]
+
+        cuenta_origen = attrs[
+            "cuenta_origen"
+        ]
+
+        cuenta_destino = attrs[
+            "cuenta_destino"
+        ]
+
+        if (
+            cuenta_origen.id
+            == cuenta_destino.id
+        ):
+            raise serializers.ValidationError({
+                "cuenta_destino": (
+                    "La cuenta destino debe "
+                    "ser diferente a la "
+                    "cuenta origen."
+                )
+            })
+
+        # ====================================================
+        # COMPRAR DOLARES
+        # ====================================================
+
+        if (
+            operacion
+            == self.Operacion.COMPRAR_USD
+        ):
+
+            if (
+                cuenta_origen.moneda
+                != CuentaFinanciera.Moneda.ARS
+            ):
+                raise serializers.ValidationError({
+                    "cuenta_origen": (
+                        "Para comprar dólares, "
+                        "la cuenta origen debe "
+                        "ser en pesos."
+                    )
+                })
+
+            if (
+                cuenta_destino.moneda
+                != CuentaFinanciera.Moneda.USD
+            ):
+                raise serializers.ValidationError({
+                    "cuenta_destino": (
+                        "Para comprar dólares, "
+                        "la cuenta destino debe "
+                        "ser en dólares."
+                    )
+                })
+
+        # ====================================================
+        # COMPRAR PESOS
+        # ====================================================
+
+        elif (
+            operacion
+            == self.Operacion.COMPRAR_ARS
+        ):
+
+            if (
+                cuenta_origen.moneda
+                != CuentaFinanciera.Moneda.USD
+            ):
+                raise serializers.ValidationError({
+                    "cuenta_origen": (
+                        "Para comprar pesos, "
+                        "la cuenta origen debe "
+                        "ser en dólares."
+                    )
+                })
+
+            if (
+                cuenta_destino.moneda
+                != CuentaFinanciera.Moneda.ARS
+            ):
+                raise serializers.ValidationError({
+                    "cuenta_destino": (
+                        "Para comprar pesos, "
+                        "la cuenta destino debe "
+                        "ser en pesos."
+                    )
+                })
+
+        return attrs

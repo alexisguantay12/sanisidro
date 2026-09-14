@@ -288,6 +288,10 @@ class MovimientoFinanciero(
             "TRANSFERENCIA",
             "Transferencia",
         )
+        CAMBIO_MONEDA = (
+            "CAMBIO_MONEDA",
+            "Cambio de moneda",
+        )
 
     fecha = models.DateField(
         verbose_name="Fecha",
@@ -362,7 +366,32 @@ class MovimientoFinanciero(
         blank=True,
     )
 
+    monto_destino = models.DecimalField(
+        max_digits=16,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[
+            MinValueValidator(
+                Decimal("0.01")
+            ),
+        ],
+        verbose_name="Monto destino",
+    )
 
+    cotizacion = models.DecimalField(
+        max_digits=16,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        validators=[
+            MinValueValidator(
+                Decimal("0.0001")
+            ),
+        ],
+        verbose_name="Cotización",
+    )
+    
     class Meta:
         ordering = [
             "-fecha",
