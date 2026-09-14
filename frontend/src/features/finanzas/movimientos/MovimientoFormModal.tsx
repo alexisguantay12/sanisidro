@@ -250,34 +250,35 @@ export default function MovimientoFormModal({
   ]);
 
 
-  useEffect(() => {
+useEffect(() => {
 
-    if (!open) {
-      return;
+  if (!open) {
+    return;
+  }
+
+  if (
+    tipo === "TRANSFERENCIA" ||
+    tipo === "CAMBIO_MONEDA"
+  ) {
+
+    setCategorias([]);
+
+    if (!editing) {
+      setCategoria("");
     }
 
-    if (
-      tipo ===
-      "TRANSFERENCIA"
-    ) {
+    return;
+  }
 
-      setCategorias([]);
+  loadCategorias(
+    tipo
+  );
 
-      if (!editing) {
-        setCategoria("");
-      }
-
-      return;
-    }
-
-    loadCategorias(
-      tipo
-    );
-
-  }, [
-    tipo,
-    open,
-  ]);
+}, [
+  tipo,
+  open,
+  editing,
+]);
 
 
   async function loadCuentas() {
