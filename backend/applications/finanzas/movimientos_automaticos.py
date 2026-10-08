@@ -1,5 +1,5 @@
 from rest_framework.exceptions import ValidationError
-
+from decimal import Decimal
 from applications.finanzas.models import (
     CategoriaFinanciera,
     MovimientoFinanciero,
@@ -10,7 +10,6 @@ ORIGEN_LIQUIDACION_PERSONAL = (
     "LIQUIDACION_PERSONAL"
 )
 
-
 def crear_movimiento_liquidacion_personal(
     *,
     liquidacion,
@@ -18,8 +17,16 @@ def crear_movimiento_liquidacion_personal(
     usuario,
 ):
     """
-    Crea el gasto financiero correspondiente
-    a una liquidación de personal.
+    Crea el movimiento financiero de una liquidación
+    de personal.
+
+    Liquidación positiva:
+        GASTO -> resta dinero de la cuenta.
+
+    Liquidación negativa:
+        INGRESO -> suma dinero a la cuenta.
+
+    El monto del movimiento siempre es positivo.
 
     Debe ejecutarse dentro de transaction.atomic().
     """
@@ -32,9 +39,7 @@ def crear_movimiento_liquidacion_personal(
         MovimientoFinanciero.objects
         .filter(
             is_deleted=False,
-            origen_modulo=(
-                ORIGEN_LIQUIDACION_PERSONAL
-            ),
+            origen_modulo=ORIGEN_LIQUIDACION_PERSONAL,
             origen_id=liquidacion.id,
         )
         .first()
@@ -48,24 +53,90 @@ def crear_movimiento_liquidacion_personal(
             )
         })
 
+    # ========================================================
+    # VALIDAR CUENTA
+    # ========================================================
+
+    if cuenta is None:
+        raise ValidationError({
+            "cuenta_financiera": (
+                "Debe seleccionar una cuenta financiera."
+            )
+        })
+
+    if cuenta.is_deleted:
+        raise ValidationError({
+            "cuenta_financiera": (
+                "La cuenta financiera seleccionada "
+                "fue eliminada."
+            )
+        })
+
+    if not cuenta.activa:
+        raise ValidationError({
+            "cuenta_financiera": (
+                "La cuenta financiera seleccionada "
+                "se encuentra inactiva."
+            )
+        })
 
     # ========================================================
-    # CATEGORÍA
+    # VALIDAR IMPORTE
     # ========================================================
-    print("Antes de categoria esta")
+
+    total = Decimal(str(liquidacion.total))
+
+    if total == Decimal("0.00"):
+        raise ValidationError({
+            "total": (
+                "No se puede generar un movimiento "
+                "financiero con importe cero."
+            )
+        })
+
+    # ========================================================
+    # DETERMINAR TIPO DE MOVIMIENTO
+    # ========================================================
+
+    es_reintegro = total < Decimal("0.00")
+
+    monto = abs(total)
+
+    if es_reintegro:
+        tipo = MovimientoFinanciero.Tipo.INGRESO
+
+        cuenta_origen = None
+        cuenta_destino = cuenta
+
+        descripcion = (
+            f"Reintegro de Personal: "
+            f"{liquidacion.peon.nombre}"
+        )
+
+    else:
+        tipo = MovimientoFinanciero.Tipo.GASTO
+
+        cuenta_origen = cuenta
+        cuenta_destino = None
+
+        descripcion = (
+            f"Pago a Personal: "
+            f"{liquidacion.peon.nombre}"
+        )
+
+    # ========================================================
+    # CATEGORIA FINANCIERA
+    # ========================================================
+
     categoria = (
         CategoriaFinanciera.objects
         .filter(
             is_deleted=False,
             activo=True,
-            nombre__iexact=(
-                "Sueldos al Personal"
-            ),
+            nombre__iexact="Sueldos al Personal",
         )
         .first()
     )
-    print("Aca si llega tambien")
-
 
     if not categoria:
         raise ValidationError({
@@ -75,56 +146,38 @@ def crear_movimiento_liquidacion_personal(
             )
         })
 
-
     # ========================================================
-    # CUENTA
+    # CREAR MOVIMIENTO FINANCIERO
     # ========================================================
-    print("Aca si llega tambien antes de cuenta activa")
-    if not cuenta.activa:
-        raise ValidationError({
-            "cuenta_financiera": (
-                "La cuenta financiera seleccionada "
-                "se encuentra inactiva."
-            )
-        })
-
-
-    # ========================================================
-    # CREAR MOVIMIENTO
-    # ========================================================
-    print("Aca si llega tambien antes de crear movimiento")
 
     movimiento = (
         MovimientoFinanciero.objects.create(
             fecha=liquidacion.fecha_pago,
 
-            descripcion=(
-                f"Pago a Personal: - " f"{liquidacion.peon.nombre}"
-            ),
+            descripcion=descripcion,
 
-            tipo=(
-                MovimientoFinanciero
-                .Tipo
-                .GASTO
-            ),
+            tipo=tipo,
 
-            monto=liquidacion.total,
+            monto=monto,
 
             categoria=categoria,
 
-            cuenta_origen=cuenta,
+            cuenta_origen=cuenta_origen,
 
-            cuenta_destino=None,
+            cuenta_destino=cuenta_destino,
 
             observacion=(
                 "Generado automáticamente desde "
                 "liquidación de personal "
-                f"#{liquidacion.id}"
+                f"#{liquidacion.id}. "
+                + (
+                    "Reintegro por liquidación negativa."
+                    if es_reintegro
+                    else "Pago de liquidación de personal."
+                )
             ),
 
-            origen_modulo=(
-                ORIGEN_LIQUIDACION_PERSONAL
-            ),
+            origen_modulo=ORIGEN_LIQUIDACION_PERSONAL,
 
             origen_id=liquidacion.id,
 

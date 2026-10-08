@@ -1754,20 +1754,13 @@ class LiquidacionPersonalViewSet(
             # NO PERMITIR TOTAL NEGATIVO
             # =====================================================
 
-            if (
-                total
-                < Decimal("0.00")
-            ):
-                raise ValidationError(
-                    {
-                        "total": (
-                            "Los descuentos superan "
-                            "el total a pagar. "
-                            "No se puede generar una "
-                            "liquidación negativa."
-                        )
-                    }
-                )
+            if total == Decimal("0.00"):
+                raise ValidationError({
+                    "total": (
+                        "La liquidación no puede tener "
+                        "un total igual a cero."
+                    )
+                })
 
             # =====================================================
             # CREAR CABECERA

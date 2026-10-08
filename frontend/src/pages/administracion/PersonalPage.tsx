@@ -588,7 +588,7 @@ export default function PersonalPage() {
       &&
       horasSeleccionadas.length === 0
       &&
-      administracionesSeleccionadas.length === 0
+      administracionesSeleccionadas.length === totalSeleccionado
     ) {
 
       setError(
@@ -610,7 +610,7 @@ export default function PersonalPage() {
 
 
     if (
-      totalSeleccionado <= 0
+      totalSeleccionado === 0
     ) {
 
       setError(
@@ -2418,7 +2418,7 @@ export default function PersonalPage() {
                       ||
                       !cuentaFinanciera
                       ||
-                      totalSeleccionado <= 0
+                      totalSeleccionado === 0
                     }
                     className="
                       inline-flex
