@@ -94,6 +94,9 @@ import ResumenPage from "./pages/ResumenPage";
 
 import AdministradorPage from "./features/configuracion/AdministradorPage";
 
+import PagoCarpidasPage from "./pages/administracion/PagoCarpidasPage";
+import HistorialCarpidasPage from "./pages/administracion/HistorialCarpidasPage";
+import DetalleCarpidasPage from "./pages/administracion/DetalleCarpidasPage";
 
 function App() {
   return (
@@ -244,7 +247,18 @@ function App() {
           path="/administracion/almacigos/:id"
           element={<DetalleAlmacigosPage />}
         />
-
+        <Route
+          path="/administracion/carpidas"
+          element={<PagoCarpidasPage />}
+        />
+        <Route
+          path="/administracion/carpidas/historial"
+          element={<HistorialCarpidasPage />}
+        />
+        <Route
+          path="/administracion/carpidas/:id"
+          element={<DetalleCarpidasPage />}
+        />
 
         <Route
           path="/administracion/rendiciones"
